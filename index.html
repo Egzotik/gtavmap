@@ -34,63 +34,43 @@
 </head>
 <body class="bg-darkbg text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans antialiased">
 
-    
-    <header class="h-14 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-2 sm:px-4 flex items-center justify-between shrink-0 z-40 text-xs shadow-md">
+    <header class="h-12 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-3 flex items-center justify-between shrink-0 z-30 text-xs">
         <div class="flex items-center space-x-2">
-            <!-- Mobile Menu Toggle (Left) -->
-            <button id="mobileMenuBtn" class="md:hidden p-2 text-slate-300 hover:text-emerald-400 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition" aria-label="Меню слоёв">
-                <i data-lucide="menu" class="w-5 h-5"></i>
-            </button>
-            
-            <button id="toggleLeftPanelBtn" title="Скрыть/показать панель векторов" class="hidden md:flex p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-400 transition items-center justify-center">
+            <button id="toggleLeftPanelBtn" title="Скрыть/показать панель векторов" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-400 transition flex items-center justify-center">
                 <i data-lucide="panel-left-open" id="panelToggleIcon" class="w-4 h-4"></i>
             </button>
-            <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-emerald-400 hidden sm:flex"><i data-lucide="map" class="w-4 h-4"></i></div>
-            <h1 class="font-bold text-white flex items-center gap-1.5 text-sm sm:text-base">Map Editor <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">v7.2</span></h1>
+            <div class="p-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-emerald-400"><i data-lucide="map" class="w-4 h-4"></i></div>
+            <h1 class="font-bold text-white flex items-center gap-1.5">Map Editor <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">v7.2</span></h1>
+            <a href="https://discord.gg/HNfHccg2qd" target="_blank" rel="noopener noreferrer" class="ml-2 px-2 py-1 bg-[#5865F2]/20 hover:bg-[#5865F2]/40 border border-[#5865F2]/50 rounded-md text-[#5865F2] transition flex items-center gap-1.5 text-[10px] font-bold">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 127.14 96.36" xmlns="http://www.w3.org/2000/svg"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg> Discord
+            </a>
         </div>
 
-        <div class="flex items-center space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar">
-            <!-- Hidden on mobile to save space, but kept in DOM -->
-            <div id="quickLoadContainer" class="hidden lg:flex items-center gap-1.5 mr-2 border-r border-slate-700 pr-3">
-                <button data-xml-url="xml/mcl.xml" data-z-offset="20" class="quick-xml-btn px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm whitespace-nowrap">
+        <div class="flex items-center space-x-2">
+            <div id="quickLoadContainer" class="flex items-center gap-1.5 mr-2 border-r border-slate-700 pr-3">
+                <button data-xml-url="xml/mcl.xml" data-z-offset="20" class="quick-xml-btn px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i> Зоны MCL
                 </button>
             </div>
 
-            <label class="hidden md:flex items-center gap-1.5 cursor-pointer bg-blue-900/20 hover:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-800/50 transition mr-1">
+            <label class="flex items-center gap-1.5 cursor-pointer bg-blue-900/20 hover:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-800/50 transition mr-1">
                 <input type="checkbox" id="solidSeaCheckbox" class="w-3 h-3 accent-blue-500 bg-slate-900 border-slate-700 rounded cursor-pointer">
-                <span class="text-[10px] text-blue-200 font-medium whitespace-nowrap" title="При экспорте море физически объединится с фоном">Непрозрачное море</span>
+                <span class="text-[10px] text-blue-200 font-medium" title="При экспорте море физически объединится с фоном">Непрозрачное море</span>
             </label>
-            
-            <button id="invertAllColorsBtn" class="hidden sm:flex px-2.5 py-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition items-center gap-1 whitespace-nowrap"><i data-lucide="flip-horizontal" class="w-3 h-3"></i> Инверт</button>
-            <div class="hidden sm:block h-3.5 w-px bg-slate-800"></div>
-            
-            <button id="saveProjectBtn" disabled title="Сохранить JSON" class="p-2 sm:px-2.5 sm:py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded-md transition flex items-center gap-1">
-                <i data-lucide="file-json" class="w-4 h-4 sm:w-3 sm:h-3 text-blue-400"></i> <span class="hidden sm:inline whitespace-nowrap">Сохранить</span>
-            </button>
-            
-            <label title="Открыть JSON" class="p-2 sm:px-2.5 sm:py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer">
-                <i data-lucide="folder-open" class="w-4 h-4 sm:w-3 sm:h-3 text-amber-400"></i> <span class="hidden sm:inline whitespace-nowrap">Открыть</span>
-                <input type="file" id="loadJsonInput" accept=".json" class="hidden">
+            <button id="invertAllColorsBtn" class="px-2.5 py-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition flex items-center gap-1"><i data-lucide="flip-horizontal" class="w-3 h-3"></i> Инвертировать все</button>
+            <div class="h-3.5 w-px bg-slate-800"></div>
+            <button id="saveProjectBtn" disabled class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded-md transition flex items-center gap-1"><i data-lucide="file-json" class="w-3 h-3 text-blue-400"></i> Сохранить JSON</button>
+            <label class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer">
+                <i data-lucide="folder-open" class="w-3 h-3 text-amber-400"></i> Открыть JSON <input type="file" id="loadJsonInput" accept=".json" class="hidden">
             </label>
-            
-            <button id="exportZipBtn" disabled title="Скачать ZIP" class="p-2 sm:px-3 sm:py-1 text-[11px] font-semibold text-slate-900 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 rounded-md transition flex items-center gap-1 shadow-sm">
-                <i data-lucide="download" class="w-4 h-4 sm:w-3 sm:h-3"></i> <span class="hidden sm:inline whitespace-nowrap">ZIP</span>
-            </button>
-
-            <!-- Mobile Right Panel Toggle -->
-            <button id="mobileRightPanelBtn" class="md:hidden p-2 text-slate-300 hover:text-emerald-400 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition" aria-label="Палитра и файлы">
-                <i data-lucide="palette" class="w-5 h-5"></i>
-            </button>
+            <button id="exportZipBtn" disabled class="px-3 py-1 text-[11px] font-semibold text-slate-900 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 rounded-md transition flex items-center gap-1 shadow-sm"><i data-lucide="download" class="w-3 h-3"></i> Скачать ZIP</button>
         </div>
     </header>
 
-
     <div class="flex-1 flex w-full h-[calc(100vh-3rem)] overflow-hidden relative">
-        <aside id="leftToolsPanel" class="absolute md:relative left-0 top-0 h-full w-[85%] max-w-[320px] md:w-72 bg-sidebarbg border-r border-slate-800 flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-2xl md:shadow-none hidden-panel">
+        <aside id="leftToolsPanel" class="w-72 bg-sidebarbg border-r border-slate-800 flex flex-col h-full z-20 shrink-0 hidden-panel">
             <div class="p-2.5 border-b border-slate-800 bg-slate-900/50 shrink-0 flex justify-between items-center">
                 <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="pen-tool" class="w-3.5 h-3.5 text-emerald-400"></i> Векторные слои</h2>
-                <button id="closeLeftPanelBtn" class="md:hidden p-1 text-slate-400 hover:text-white rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
             <div class="flex-1 overflow-y-auto p-3 flex flex-col text-xs">
                 
@@ -200,7 +180,7 @@
         </aside>
         
         <main class="flex-1 relative bg-[#020617] bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px] h-full flex flex-col min-w-0">
-            <div class="absolute top-3 left-3 right-3 z-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pointer-events-none">
+            <div class="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
                 <span id="vertexStats" class="text-[11px] text-slate-300 bg-slate-900/90 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 shadow-md flex items-center gap-1.5 pointer-events-auto">
                     <i data-lucide="box" class="w-3 h-3 text-emerald-400"></i> Вертексов: 0
                 </span>
@@ -239,29 +219,10 @@
                     </label>
                 </div>
             </div>
-        
-            <!-- Mobile FAB Controls for Canvas -->
-            <div id="mobileTransformControls" class="md:hidden absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl border border-slate-700 shadow-2xl z-30 transition-opacity duration-300 pointer-events-auto">
-                <button id="fabTranslate" class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors active:scale-95"><i data-lucide="move" class="w-5 h-5"></i></button>
-                <button id="fabRotate" class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors active:scale-95"><i data-lucide="rotate-cw" class="w-5 h-5"></i></button>
-                <button id="fabScale" class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center transition-colors active:scale-95"><i data-lucide="maximize" class="w-5 h-5"></i></button>
-                <div class="w-px h-8 bg-slate-700 my-auto"></div>
-                <button id="fabShift" class="w-10 h-10 rounded-xl bg-slate-800 text-amber-500/70 border border-slate-700 flex flex-col items-center justify-center transition-colors active:scale-95">
-                    <i data-lucide="link" class="w-4 h-4"></i><span class="text-[8px] font-bold mt-0.5">1:1</span>
-                </button>
-            </div>
-            
-            <!-- Mobile Overlay Background -->
-            <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-30 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
-
         </main>
 
-        <aside id="sidebarPanel" class="absolute md:relative right-0 top-0 h-full w-[85%] max-w-[320px] md:w-80 bg-sidebarbg border-l border-slate-800 flex flex-col z-40 transform translate-x-full md:translate-x-0 transition-transform duration-300 shadow-2xl md:shadow-none overflow-hidden">
+        <aside id="sidebarPanel" class="w-80 bg-sidebarbg border-l border-slate-800 flex flex-col h-full z-20 shrink-0 overflow-hidden">
             <div class="p-2.5 border-b border-slate-800 shrink-0">
-                <div class="flex justify-between items-center mb-2 md:hidden">
-                    <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="folder-open" class="w-3.5 h-3.5 text-emerald-400"></i> Файлы и Палитра</h2>
-                    <button id="closeRightPanelBtn" class="p-1 text-slate-400 hover:text-white rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-                </div>
                 <div id="dropZone" class="border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-900/40 hover:bg-slate-800/40 rounded-lg p-2.5 text-center transition cursor-pointer relative group">
                     <input type="file" id="fileInput" multiple accept=".xml,.zip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                     <div class="flex items-center justify-center space-x-2">
@@ -317,123 +278,5 @@
     <script src="geometry_utils.js"></script>
     <script src="app.js"></script>       
     <script src="vector_tools.js"></script> 
-
-    <script src="vector_tools.js"></script> 
-    <script>
-        // Mobile UI Logic
-        document.addEventListener('DOMContentLoaded', () => {
-            const leftPanel = document.getElementById('leftToolsPanel');
-            const rightPanel = document.getElementById('sidebarPanel');
-            const mobileOverlay = document.getElementById('mobileOverlay');
-            
-            const btnMenu = document.getElementById('mobileMenuBtn');
-            const btnRightPanel = document.getElementById('mobileRightPanelBtn');
-            const btnCloseLeft = document.getElementById('closeLeftPanelBtn');
-            const btnCloseRight = document.getElementById('closeRightPanelBtn');
-            
-            function closeAllPanels() {
-                leftPanel.classList.add('-translate-x-full');
-                leftPanel.classList.remove('translate-x-0');
-                
-                rightPanel.classList.add('translate-x-full');
-                rightPanel.classList.remove('translate-x-0');
-                
-                mobileOverlay.classList.add('opacity-0', 'pointer-events-none');
-                mobileOverlay.classList.remove('opacity-100');
-            }
-            
-            function openLeftPanel() {
-                closeAllPanels();
-                leftPanel.classList.remove('-translate-x-full', 'hidden-panel');
-                leftPanel.classList.add('translate-x-0');
-                mobileOverlay.classList.remove('opacity-0', 'pointer-events-none');
-                mobileOverlay.classList.add('opacity-100');
-            }
-            
-            function openRightPanel() {
-                closeAllPanels();
-                rightPanel.classList.remove('translate-x-full');
-                rightPanel.classList.add('translate-x-0');
-                mobileOverlay.classList.remove('opacity-0', 'pointer-events-none');
-                mobileOverlay.classList.add('opacity-100');
-            }
-            
-            if(btnMenu) btnMenu.addEventListener('click', openLeftPanel);
-            if(btnRightPanel) btnRightPanel.addEventListener('click', openRightPanel);
-            if(btnCloseLeft) btnCloseLeft.addEventListener('click', closeAllPanels);
-            if(btnCloseRight) btnCloseRight.addEventListener('click', closeAllPanels);
-            if(mobileOverlay) mobileOverlay.addEventListener('click', closeAllPanels);
-            
-            // Fix DropZone for Mobile
-            const dropZone = document.getElementById('dropZone');
-            if(dropZone) {
-                dropZone.addEventListener('click', () => {
-                    document.getElementById('fileInput').click();
-                });
-            }
-            
-            // Mobile FAB Controls mapping to vector_tools.js functions
-            const fabTranslate = document.getElementById('fabTranslate');
-            const fabRotate = document.getElementById('fabRotate');
-            const fabScale = document.getElementById('fabScale');
-            const fabShift = document.getElementById('fabShift');
-            
-            // Helper to sync desktop and mobile buttons
-            function syncTransformButtons(mode) {
-                [fabTranslate, fabRotate, fabScale].forEach(b => {
-                    b.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-                    b.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
-                });
-                
-                let activeBtn = null;
-                if(mode === 'translate') activeBtn = fabTranslate;
-                if(mode === 'rotate') activeBtn = fabRotate;
-                if(mode === 'scale') activeBtn = fabScale;
-                
-                if(activeBtn) {
-                    activeBtn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
-                    activeBtn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-                }
-            }
-            
-            if(fabTranslate) fabTranslate.addEventListener('click', () => {
-                const btn = document.getElementById('vecModeTranslate');
-                if(btn) { btn.click(); syncTransformButtons('translate'); }
-            });
-            if(fabRotate) fabRotate.addEventListener('click', () => {
-                const btn = document.getElementById('vecModeRotate');
-                if(btn) { btn.click(); syncTransformButtons('rotate'); }
-            });
-            if(fabScale) fabScale.addEventListener('click', () => {
-                const btn = document.getElementById('vecModeScale');
-                if(btn) { btn.click(); syncTransformButtons('scale'); }
-            });
-            
-            // Virtual Shift Key for Proportional Scaling
-            if(fabShift) {
-                let shiftActive = false;
-                fabShift.addEventListener('click', () => {
-                    shiftActive = !shiftActive;
-                    // Dispatch keyboard events to trick the vector_tools.js listener
-                    if(shiftActive) {
-                        fabShift.classList.add('bg-amber-500/30', 'border-amber-500/50');
-                        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
-                    } else {
-                        fabShift.classList.remove('bg-amber-500/30', 'border-amber-500/50');
-                        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }));
-                    }
-                });
-            }
-        });
-        
-        // Force PixelRatio = 1 on Mobile to avoid lag on high-DPI screens (Retina)
-        // Wait for app.js to initialize renderer
-        setTimeout(() => {
-            if(window.innerWidth < 768 && typeof renderer !== 'undefined') {
-                renderer.setPixelRatio(1);
-            }
-        }, 1000);
-    </script>
 </body>
-
 </html>
