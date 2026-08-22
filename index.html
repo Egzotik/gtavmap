@@ -30,54 +30,11 @@
         .color-picker-wrapper { background: conic-gradient(#334155 90deg, #0f172a 90deg 180deg, #334155 180deg 270deg, #0f172a 270deg) 0 0 / 8px 8px; }
         #leftToolsPanel { transition: width 0.3s ease, opacity 0.3s ease; }
         #leftToolsPanel.hidden-panel { width: 0 !important; opacity: 0 !important; overflow: hidden !important; border: none !important; padding: 0 !important; }
-        
-        /* --- Анимации для мобильной заглушки --- */
-        @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(40px, -50px) scale(1.1); }
-            66% { transform: translate(-30px, 40px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob { animation: blob 8s infinite ease-in-out; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
     </style>
 </head>
 <body class="bg-darkbg text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans antialiased">
 
-    <!-- ================== МОБИЛЬНАЯ ЗАГЛУШКА ================== -->
-    <!-- h-[100dvh] гарантирует центрирование даже при скрытии адресной строки на iOS/Android -->
-    <div class="fixed top-0 left-0 w-full h-[100dvh] z-[9999] flex md:hidden flex-col items-center justify-center bg-darkbg/85 backdrop-blur-xl px-4 overflow-hidden">
-        <!-- Анимированные пятна на фоне (за матовым стеклом) -->
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
-            <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-emerald-500/30 rounded-full mix-blend-screen filter blur-[70px] animate-blob"></div>
-            <div class="absolute top-1/3 right-1/4 w-72 h-72 bg-teal-600/30 rounded-full mix-blend-screen filter blur-[80px] animate-blob animation-delay-2000"></div>
-            <div class="absolute bottom-1/4 left-1/3 w-64 h-64 bg-cyan-600/30 rounded-full mix-blend-screen filter blur-[70px] animate-blob animation-delay-4000"></div>
-        </div>
-        
-        <!-- Контент заглушки -->
-        <div class="relative z-10 flex flex-col items-center bg-cardbg/80 border border-borderbg p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-[340px] text-center backdrop-blur-md">
-            <!-- Иконка -->
-            <div class="relative flex items-center justify-center w-20 h-20 mb-5">
-                <div class="absolute inset-0 bg-emerald-500 rounded-2xl opacity-20 blur-xl animate-pulse"></div>
-                <div class="relative bg-slate-900 w-full h-full flex items-center justify-center rounded-2xl border border-emerald-500/30 shadow-inner">
-                    <i data-lucide="monitor" class="w-8 h-8 text-emerald-400"></i>
-                </div>
-            </div>
-            
-            <h2 class="text-xl font-bold text-white mb-2">Только для ПК</h2>
-            <p class="text-[14px] text-slate-400 leading-relaxed mb-6">
-                Редактор карт пока не работает на мобильных устройствах. Пожалуйста, откройте сайт с компьютера.
-            </p>
-            
-            <div class="w-full py-3 bg-slate-900/80 rounded-xl border border-borderbg flex items-center justify-center gap-2 shadow-inner">
-                <i data-lucide="laptop" class="w-4 h-4 text-emerald-400/80"></i>
-                <span class="text-xs text-slate-200 font-medium tracking-wide">Доступно на компьютере</span>
-            </div>
-        </div>
-    </div>
-    <!-- ============== КОНЕЦ МОБИЛЬНОЙ ЗАГЛУШКИ ============== -->
-
+    
     <header class="h-14 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-2 sm:px-4 flex items-center justify-between shrink-0 z-40 text-xs shadow-md">
         <div class="flex items-center space-x-2">
             <!-- Mobile Menu Toggle (Left) -->
@@ -361,6 +318,7 @@
     <script src="app.js"></script>       
     <script src="vector_tools.js"></script> 
 
+    <script src="vector_tools.js"></script> 
     <script>
         // Mobile UI Logic
         document.addEventListener('DOMContentLoaded', () => {
@@ -477,4 +435,5 @@
         }, 1000);
     </script>
 </body>
+
 </html>
