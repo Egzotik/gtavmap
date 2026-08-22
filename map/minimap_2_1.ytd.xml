@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TextureDictionary>
+ <Item>
+  <Name>supertile_back_2_1</Name>
+  <Unk32 value="48" />
+  <Usage>DEFAULT</Usage>
+  <UsageFlags>Y1024, UNK24</UsageFlags>
+  <ExtraFlags value="0" />
+  <Width value="1024" />
+  <Height value="1024" />
+  <MipLevels value="1" />
+  <Format>D3DFMT_DXT5</Format>
+  <FileName>minimap_2_1.dds</FileName>
+ </Item>
+</TextureDictionary>
