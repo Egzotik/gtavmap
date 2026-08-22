@@ -1,0 +1,98 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<DrawableDictionary>
+  <Item>
+    <Name>supertile_sea_0_6</Name>
+    <BoundingSphereCenter x="-3360.9675" y="-356.7085" z="-12.0" />
+    <BoundingSphereRadius value="46.020004" />
+    <BoundingBoxMin x="-3396.935" y="-385.417" z="-12.0" />
+    <BoundingBoxMax x="-3325.0" y="-328.0" z="-12.0" />
+    <LodDistHigh value="9998" />
+    <LodDistMed value="9998" />
+    <LodDistLow value="9998" />
+    <LodDistVlow value="9998" />
+    <FlagsHigh value="1" />
+    <FlagsMed value="0" />
+    <FlagsLow value="0" />
+    <FlagsVlow value="0" />
+    <ShaderGroup>
+      <Shaders>
+        <Item>
+          <Name>minimap</Name>
+          <FileName>minimap.sps</FileName>
+          <RenderBucket value="0" />
+          <Parameters>
+            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+          </Parameters>
+        </Item>
+      </Shaders>
+    </ShaderGroup>
+    <DrawableModelsHigh>
+      <Item>
+        <RenderMask value="255" />
+        <Flags value="0" />
+        <HasSkin value="0" />
+        <BoneIndex value="0" />
+        <Unknown1 value="0" />
+        <Geometries>
+          <Item>
+            <ShaderIndex value="0" />
+            <BoundingBoxMin x="-3396.935" y="-385.417" z="-12.0" />
+            <BoundingBoxMax x="-3325.0" y="-328.0" z="-12.0" />
+            <VertexBuffer>
+              <Flags value="0" />
+              <Layout type="GTAV1">
+                <Position />
+                <Colour0 />
+              </Layout>
+              <Data>
+                -3325.0000000 -328.0000000 -12.0000000   68 87 95 255
+                -3332.4250488 -328.0000000 -12.0000000   68 87 95 255
+                -3325.0000000 -331.7744141 -12.0000000   68 87 95 255
+                -3396.9350586 -328.0000000 -12.0000000   61 79 85 255
+                -3325.2900391 -384.9848938 -12.0000000   61 79 85 255
+                -3332.4240723 -328.0000000 -12.0000000   61 79 85 255
+                -3325.0000000 -331.7738953 -12.0000000   61 79 85 255
+                -3325.0000000 -384.8955078 -12.0000000   61 79 85 255
+                -3325.0000000 -385.1293945 -12.0000000   61 79 85 255
+                -3325.0000000 -385.2528992 -12.0000000   61 79 85 255
+                -3325.0000000 -385.4169922 -12.0000000   61 79 85 255
+              </Data>
+            </VertexBuffer>
+            <IndexBuffer>
+              <Data>
+                0 1 2 3 4 5 4 6 5 4 7 6 7 4 8 8 4 9 9 4 10
+              </Data>
+            </IndexBuffer>
+          </Item>
+        </Geometries>
+      </Item>
+    </DrawableModelsHigh>
+  </Item>
+  <Item>
+    <Name>supertile_fore_0_6_tile_2_2</Name>
+    <BoundingSphereCenter x="0.0" y="0.0" z="0.0" />
+    <BoundingSphereRadius value="0" />
+    <BoundingBoxMin x="0.0" y="0.0" z="0.0" />
+    <BoundingBoxMax x="0.0" y="0.0" z="0.0" />
+    <LodDistHigh value="9998" />
+    <LodDistMed value="9998" />
+    <LodDistLow value="9998" />
+    <LodDistVlow value="9998" />
+    <FlagsHigh value="0" />
+    <FlagsMed value="0" />
+    <FlagsLow value="0" />
+    <FlagsVlow value="0" />
+    <ShaderGroup>
+      <Shaders>
+        <Item>
+          <Name>minimap</Name>
+          <FileName>minimap.sps</FileName>
+          <RenderBucket value="0" />
+          <Parameters>
+            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+          </Parameters>
+        </Item>
+      </Shaders>
+    </ShaderGroup>
+  </Item>
+</DrawableDictionary>
