@@ -66,6 +66,87 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(resizeCanvas, 310);
         });
     }
+
+    // --- Обработчик быстрых кнопок добавления XML-слоев (MCL и тд) ---
+    document.querySelectorAll('.quick-xml-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const url = btn.getAttribute('data-xml-url');
+            const zOffset = parseFloat(btn.getAttribute('data-z-offset')) || 0;
+            const fileName = url.split('/').pop();
+            
+            window.showLoading(`Загрузка ${fileName}...`, "Скачивание и обработка...");
+            try {
+                const response = await fetch(url, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`Не удалось загрузить файл: ${response.status}`);
+                const xmlText = await response.text();
+                
+                const { meshesData, globalVertices } = parseGtaMapTo3D(xmlText, fileName);
+                const fileObj = { 
+                    id: 'file_' + Math.random().toString(36).substring(2, 9), 
+                    name: fileName, 
+                    text: xmlText, 
+                    vertices: globalVertices, 
+                    meshesData: meshesData, 
+                    isDefault: false, 
+                    zOffset: 0 
+                };
+                
+                const existingIdx = state.files.findIndex(f => f.name === fileObj.name); 
+                if (existingIdx >= 0) state.files[existingIdx] = fileObj; 
+                else state.files.push(fileObj);
+                
+                // Моментально смещаем файл по высоте, если указан data-z-offset
+                if (zOffset !== 0) {
+                    fileObj.zOffset = zOffset;
+                    fileObj.meshesData.forEach(data => { 
+                        for (let i = 0; i < data.positions.length; i += 3) data.positions[i + 2] += zOffset; 
+                        data.originalColorsList.forEach(orig => { orig.z += zOffset; }); 
+                    }); 
+                    fileObj.vertices.forEach(v => { v.z += zOffset; }); 
+                    
+                    const parser = new DOMParser(); 
+                    const doc = parser.parseFromString(fileObj.text, 'application/xml'); 
+                    doc.querySelectorAll('VertexBuffer').forEach(vb => { 
+                        const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data'); 
+                        if (!vDataNode) return; 
+                        const rawLines = vDataNode.textContent.split('\n'); 
+                        let newVLines = []; 
+                        rawLines.forEach(line => { 
+                            const p = line.trim().split(/\s+/).filter(Boolean); 
+                            if (p.length >= 7) { 
+                                p[2] = (parseFloat(p[2]) + zOffset).toFixed(6); 
+                                newVLines.push(`                ${p[0]} ${p[1]} ${p[2]}   ${p[3]} ${p[4]} ${p[5]} ${p[6]}`); 
+                            } 
+                        }); 
+                        vDataNode.textContent = "\n" + newVLines.join("\n") + "\n              "; 
+                        const geomItem = vb.closest('Geometry') || vb.closest('Item'); 
+                        if (geomItem) { 
+                            ['BoundingBoxMin', 'BoundingBoxMax', 'BoundingSphereCenter'].forEach(tag => { 
+                                const node = geomItem.querySelector(tag); 
+                                if (node && node.hasAttribute('z')) node.setAttribute('z', (parseFloat(node.getAttribute('z')) + zOffset).toFixed(6)); 
+                            }); 
+                        } 
+                    }); 
+                    const serializer = new XMLSerializer(); 
+                    let newXml = serializer.serializeToString(doc); 
+                    newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); 
+                    fileObj.text = newXml;
+                }
+
+                extractUniqueColors(); 
+                renderFileList(); 
+                renderPalette(); 
+                build3DScene(false); 
+                updateExportState(); 
+                window.showToast(`Слой ${fileName} успешно добавлен!`);
+            } catch (err) {
+                console.error(err);
+                window.showToast(`Ошибка: файл ${url} не найден`, "error");
+            } finally {
+                window.hideLoading();
+            }
+        });
+    });
 });
 
 const scene = new THREE.Scene();
@@ -162,6 +243,71 @@ window.showToast = function(message, type = 'success') {
     toast.classList.remove('translate-y-20', 'opacity-0'); toast.classList.add('translate-y-0', 'opacity-100');
     setTimeout(() => { toast.classList.remove('translate-y-0', 'opacity-100'); toast.classList.add('translate-y-20', 'opacity-0'); }, 3000);
 };
+
+// --- Логика Пипетки ---
+window.isEyedropperActive = false;
+const eyedropperBtn = document.getElementById('eyedropperBtn');
+
+if (eyedropperBtn) {
+    eyedropperBtn.addEventListener('click', () => {
+        window.isEyedropperActive = !window.isEyedropperActive;
+        if (window.isEyedropperActive) {
+            eyedropperBtn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+            eyedropperBtn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
+            mapCanvas.style.cursor = 'crosshair';
+            window.showToast("Пипетка активирована", "success");
+        } else {
+            eyedropperBtn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+            eyedropperBtn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+            mapCanvas.style.cursor = 'default';
+        }
+        if (window.lucide) window.lucide.createIcons();
+    });
+}
+
+const mapRaycaster = new THREE.Raycaster();
+const mapMouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+    if (!window.isEyedropperActive) return;
+    if (e.button !== 0) return; 
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    mapMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mapMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    mapRaycaster.setFromCamera(mapMouse, camera);
+
+    const mapMeshes = scene.children.filter(c => c.isMesh && c.userData.isMapMesh);
+    const intersects = mapRaycaster.intersectObjects(mapMeshes, false);
+
+    if (intersects.length > 0) {
+        const intersect = intersects[0];
+        const colorAttr = intersect.object.geometry.attributes.customColor;
+        if (colorAttr && intersect.face) {
+            const a = intersect.face.a;
+            const r = Math.round(colorAttr.getX(a) * 255);
+            const g = Math.round(colorAttr.getY(a) * 255);
+            const b = Math.round(colorAttr.getZ(a) * 255);
+            const hex = rgbToHex(r, g, b).toUpperCase();
+            
+            const searchInput = document.getElementById('colorSearchInput');
+            if (searchInput) {
+                searchInput.value = hex;
+                renderPalette(hex);
+            }
+            
+            window.isEyedropperActive = false;
+            if(eyedropperBtn) {
+                eyedropperBtn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                eyedropperBtn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+            }
+            mapCanvas.style.cursor = 'default';
+            window.showToast(`Цвет ${hex} скопирован в поиск!`, 'success');
+        }
+    }
+});
+// -----------------------
 
 // --- Map Loader ---
 async function loadDefaultMapFromFolder() {
@@ -321,7 +467,7 @@ window.toggleFileExpanded = function(fileId) { const settingsBlock = document.ge
 window.applyFileZOffset = function(fileId, inputVal) {
     const file = state.files.find(f => f.id === fileId); if (!file) return; const newZOffset = parseFloat(inputVal) || 0; const currentZOffset = file.zOffset || 0; const deltaZ = newZOffset - currentZOffset; if (deltaZ === 0) return; window.showLoading("Смещение Z координаты...", "Пересчет геометрии файла");
     setTimeout(() => {
-        try { file.zOffset = newZOffset; file.meshesData.forEach(data => { for (let i = 0; i < data.positions.length; i += 3) data.positions[i + 2] += deltaZ; data.originalColorsList.forEach(orig => { orig.z += deltaZ; }); }); file.vertices.forEach(v => { v.z += deltaZ; }); const parser = new DOMParser(); const doc = parser.parseFromString(file.text, 'application/xml'); doc.querySelectorAll('VertexBuffer').forEach(vb => { const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data'); if (!vDataNode) return; const rawLines = vDataNode.textContent.split('\n'); let newVLines = []; rawLines.forEach(line => { const p = line.trim().split(/\s+/).filter(Boolean); if (p.length >= 7) { p[2] = (parseFloat(p[2]) + deltaZ).toFixed(6); newVLines.push(`                ${p[0]} ${p[1]} ${p[2]}   ${p[3]} ${p[4]} ${p[5]} ${p[6]}`); } }); vDataNode.textContent = "\n" + newVLines.join("\n") + "\n              "; const geomItem = vb.closest('Geometry') || vb.closest('Item'); if (geomItem) { ['BoundingBoxMin', 'BoundingBoxMax', 'BoundingSphereCenter'].forEach(tag => { const node = geomItem.querySelector(tag); if (node && node.hasAttribute('z')) node.setAttribute('z', (parseFloat(node.getAttribute('z')) + deltaZ).toFixed(6)); }); } }); const serializer = new XMLSerializer(); let newXml = serializer.serializeToString(doc); newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); file.text = newXml; extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput').value); build3DScene(false); updateExportState(); window.showToast(`Файл "${file.name}" смещен по Z на ${deltaZ > 0 ? '+' : ''}${deltaZ}`, "success"); } catch (err) { console.error(err); window.showToast("Ошибка при смещении Z", "error"); } finally { window.hideLoading(); }
+        try { file.zOffset = newZOffset; file.meshesData.forEach(data => { for (let i = 0; i < data.positions.length; i += 3) data.positions[i + 2] += deltaZ; data.originalColorsList.forEach(orig => { orig.z += deltaZ; }); }); file.vertices.forEach(v => { v.z += deltaZ; }); const parser = new DOMParser(); const doc = parser.parseFromString(file.text, 'application/xml'); doc.querySelectorAll('VertexBuffer').forEach(vb => { const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data'); if (!vDataNode) return; const rawLines = vDataNode.textContent.split('\n'); let newVLines = rawLines.map(line => { const p = line.trim().split(/\s+/).filter(Boolean); if (p.length >= 7) { p[2] = (parseFloat(p[2]) + deltaZ).toFixed(6); return `                ${p[0]} ${p[1]} ${p[2]}   ${p[3]} ${p[4]} ${p[5]} ${p[6]}`; } return line; }); vDataNode.textContent = "\n" + newVLines.join("\n") + "\n              "; const geomItem = vb.closest('Geometry') || vb.closest('Item'); if (geomItem) { ['BoundingBoxMin', 'BoundingBoxMax', 'BoundingSphereCenter'].forEach(tag => { const node = geomItem.querySelector(tag); if (node && node.hasAttribute('z')) node.setAttribute('z', (parseFloat(node.getAttribute('z')) + deltaZ).toFixed(6)); }); } }); const serializer = new XMLSerializer(); let newXml = serializer.serializeToString(doc); newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); file.text = newXml; extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput').value); build3DScene(false); updateExportState(); window.showToast(`Файл "${file.name}" смещен по Z на ${deltaZ > 0 ? '+' : ''}${deltaZ}`, "success"); } catch (err) { console.error(err); window.showToast("Ошибка при смещении Z", "error"); } finally { window.hideLoading(); }
     }, 50);
 };
 
@@ -395,8 +541,12 @@ function build3DScene(resetCamera = true) {
             }
             localIndicesMap.forEach((indices, key) => { if (!fastColorPointers.has(key)) fastColorPointers.set(key, []); fastColorPointers.get(key).push({ attribute: colorAttr, indices: indices }); });
             geometry.setAttribute('customColor', colorAttr); if (data.indices.length > 0) geometry.setIndex(new THREE.BufferAttribute(data.indices, 1)); geometry.computeBoundingSphere(); geometry.computeBoundingBox();
+            
             const opaqueMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a < 0.99) discard; gl_FragColor = vec4(vColor.rgb, 1.0); }`, side: THREE.DoubleSide, transparent: false, depthWrite: true, depthTest: true });
-            const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: true });
+            
+            // Фикс для моря: используем polygonOffset чтобы смешивание прозрачности на одной Z-высоте с сушей работало без артефактов
+            const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+            
             const opaqueMesh = new THREE.Mesh(geometry, opaqueMaterial); opaqueMesh.userData = { isMapMesh: true }; scene.add(opaqueMesh); const transparentMesh = new THREE.Mesh(geometry, transparentMaterial); transparentMesh.userData = { isMapMesh: true }; transparentMesh.renderOrder = 1; scene.add(transparentMesh);
         });
     });
@@ -422,7 +572,7 @@ function saveProjectJson() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
     
     const projectData = {
-        COLORS_LIST: hexList, version: "7.1", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "7.2", timestamp: new Date().toISOString(),
         solidSea: document.getElementById('solidSeaCheckbox') ? document.getElementById('solidSeaCheckbox').checked : false,
         separateByZ: state.separateByZ,
         files: state.files.map(f => ({ name: f.name.replace(' (/map/)', ''), text: f.text })),
@@ -459,37 +609,19 @@ async function loadProjectJson(file) {
 if(saveProjectBtn) saveProjectBtn.addEventListener('click', saveProjectJson);
 if(loadJsonInput) loadJsonInput.addEventListener('change', (e) => { if (e.target.files.length > 0) loadProjectJson(e.target.files[0]); });
 
-// --- ИДЕАЛЬНОЕ ФОРМАТИРОВАНИЕ КАК В BLENDER ---
-// --- ИДЕАЛЬНОЕ ФОРМАТИРОВАНИЕ КАК В BLENDER ---
 window.makeBlenderFormat = function(xmlDoc) {
-    // 1. БОЛЬШЕ НИКАКОЙ СОРТИРОВКИ! 
-    // Из-за сортировки ломались внутренние индексы (ID) слоев в игре.
-    // Новый слой tile_2_2 должен просто добавляться в самый конец списка, 
-    // чтобы sea, tile_0_0 и back оставались на своих родных местах.
-
-    // 2. Превращаем DOM в строку
     let xmlStr = new XMLSerializer().serializeToString(xmlDoc);
-
-    // 3. Очищаем мусор парсера
     xmlStr = xmlStr.replace(/\s+xmlns="[^"]*"/g, '');
     xmlStr = xmlStr.replace(/<Data2>/g, '<Data>');
     xmlStr = xmlStr.replace(/<\/Data2>/g, '</Data>');
-    
-    // 4. Удаляем теги <Lights />, они не нужны для миникарты (Blender их удаляет)
     xmlStr = xmlStr.replace(/<Lights\s*\/>/g, '');
     xmlStr = xmlStr.replace(/<Lights>\s*<\/Lights>/g, '');
-
-    // 5. КРИТИЧНЫЙ ФИКС: Пробелы в самозакрывающихся тегах! 
     xmlStr = xmlStr.replace(/\"\/>/g, '" />');
     xmlStr = xmlStr.replace(/<Position\/>/g, '<Position />');
     xmlStr = xmlStr.replace(/<Colour0\/>/g, '<Colour0 />');
     xmlStr = xmlStr.replace(/<Normal\/>/g, '<Normal />');
     xmlStr = xmlStr.replace(/<TexCoord0\/>/g, '<TexCoord0 />');
-
-    // 6. Фикс параметров шейдера (OpenIV нужны нули с точкой)
     xmlStr = xmlStr.replace(/x="0"\s+y="0"\s+z="0"\s+w="0"\s*\/>/g, 'x="0.0" y="0.0" z="0.0" w="0.0" />');
-
-    // 7. Форматирование вершин (Ровно 7 знаков после запятой)
     xmlStr = xmlStr.replace(/<VertexBuffer>([\s\S]*?)<Data>([\s\S]*?)<\/Data>/g, function(match, layout, content) {
         let lines = content.trim().split('\n');
         let formattedLines = lines.map(line => {
@@ -504,8 +636,6 @@ window.makeBlenderFormat = function(xmlDoc) {
         }).filter(l => l.trim().length > 0).join('\n');
         return `<VertexBuffer>${layout}<Data>\n${formattedLines}\n              </Data>`;
     });
-
-    // 8. Жесткое выравнивание индексов (строго по 24 числа)
     xmlStr = xmlStr.replace(/<IndexBuffer>([\s\S]*?)<Data>([\s\S]*?)<\/Data>/g, function(match, layout, content) {
         let tokens = content.trim().split(/\s+/).filter(Boolean);
         let formattedLines = [];
@@ -514,21 +644,17 @@ window.makeBlenderFormat = function(xmlDoc) {
         }
         return `<IndexBuffer>${layout}<Data>\n${formattedLines.join('\n')}\n              </Data>`;
     });
-
-    // 9. Фикс заголовочного тега и переносов строк
     if (xmlStr.includes('<?xml')) {
         xmlStr = xmlStr.replace(/<\?xml[^>]*\?>\s*/i, '<?xml version="1.0" encoding="UTF-8"?>\n');
     } else {
         xmlStr = '<?xml version="1.0" encoding="UTF-8"?>\n' + xmlStr;
     }
-    
     xmlStr = xmlStr.replace(/<DrawableDictionary>\s*/i, '<DrawableDictionary>\n');
     xmlStr = xmlStr.replace(/<\/DrawableDictionary>/i, '\n</DrawableDictionary>');
 
     return xmlStr;
 };
 
-// Глобальная функция полного пересчета BoundingBox и BoundingSphere
 window.recalculateAllBounds = function(xmlDoc) {
     const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
 
@@ -612,7 +738,6 @@ window.recalculateAllBounds = function(xmlDoc) {
     });
 };
 
-// --- ZIP Export ---
 async function exportModifiedZip() {
     const hasFiles = state.files.length > 0;
     const hasVectors = window.getVectorCount ? (window.getVectorCount() > 0) : false;
@@ -626,132 +751,9 @@ async function exportModifiedZip() {
     try {
         await new Promise(resolve => setTimeout(resolve, 50));
         
-        // Разделяем файлы на основные (карты) и кастомные (mcl_maj_wiki и тд)
-        // Экспорт всегда работает с копиями: повторное скачивание не меняет открытый проект.
         const exportFiles = cloneFilesForExport(state.files);
         const mapFiles = exportFiles.filter(f => f.name.toLowerCase().startsWith('minimap_'));
-        const customFiles = exportFiles.filter(f => !f.name.toLowerCase().startsWith('minimap_'));
-
-        // 1. АВТО-НАРЕЗКА КАСТОМНЫХ ФАЙЛОВ С СОРТИРОВКОЙ ПО Z
-        if (customFiles.length > 0) {
-            const startX = -4500, stepX = 1175, topY = 8000, stepY = 1388;
-            const tiles = {};
-
-            const { clipTriangleToCell } = window.GeometryUtils;
-
-            let allCustomTriangles = [];
-
-            for (const file of customFiles) {
-                const doc = parseXmlOrThrow(file.text, file.name); const vertexBuffers = doc.querySelectorAll('VertexBuffer');
-                vertexBuffers.forEach(vb => {
-                    const itemNode = vb.parentElement; const ib = itemNode ? Array.from(itemNode.children).find(child => child.nodeName === 'IndexBuffer') : null; if (!itemNode || !ib) return;
-                    const vData = vb.querySelector('Data2') || vb.querySelector('Data'); const iData = ib.querySelector('Data2') || ib.querySelector('Data'); if (!vData || !iData) return;
-                    
-                    const rawLines = vData.textContent.split('\n'); let parsedVerts = [];
-                    rawLines.forEach(line => {
-                        const p = line.trim().split(/\s+/).filter(Boolean);
-                        if (p.length >= 7) {
-                            const origZ = Math.round(parseFloat(p[2])); const zSuffix = state.separateByZ ? `_${origZ}` : '';
-                            const key = `${parseInt(p[3])}_${parseInt(p[4])}_${parseInt(p[5])}_${parseInt(p[6])}${zSuffix}`;
-                            const colorItem = state.colorsMap.get(key);
-                            const r = colorItem ? colorItem.currentR : parseInt(p[3]); const g = colorItem ? colorItem.currentG : parseInt(p[4]); const b = colorItem ? colorItem.currentB : parseInt(p[5]); const a = colorItem ? colorItem.currentA : parseInt(p[6]);
-                            parsedVerts.push({ x: parseFloat(p[0]), y: parseFloat(p[1]), z: parseFloat(p[2]), r: r, g: g, b: b, a: a });
-                        }
-                    });
-
-                    const iTokens = iData.textContent.trim().split(/\s+/).filter(t => t !== '');
-                    for (let k = 0; k < iTokens.length; k += 3) {
-                        const idx1 = parseInt(iTokens[k]), idx2 = parseInt(iTokens[k+1]), idx3 = parseInt(iTokens[k+2]);
-                        const v1 = parsedVerts[idx1], v2 = parsedVerts[idx2], v3 = parsedVerts[idx3]; if (!v1 || !v2 || !v3) continue;
-                        const avgZ = (v1.z + v2.z + v3.z) / 3;
-                        allCustomTriangles.push({ v1, v2, v3, z: avgZ });
-                    }
-                });
-            }
-
-            // СОРТИРУЕМ ПО ВОЗРАСТАНИЮ Z
-            allCustomTriangles.sort((a, b) => a.z - b.z);
-
-            allCustomTriangles.forEach(tri => {
-                const v1 = tri.v1, v2 = tri.v2, v3 = tri.v3;
-                const tMinX = Math.min(v1.x, v2.x, v3.x), tMaxX = Math.max(v1.x, v2.x, v3.x); const tMinY = Math.min(v1.y, v2.y, v3.y), tMaxY = Math.max(v1.y, v2.y, v3.y);
-                const startGridX = Math.max(0, Math.floor((tMinX - startX) / stepX)); const endGridX = Math.min(7, Math.floor((tMaxX - startX) / stepX));
-                const startGridY = Math.max(0, Math.floor((topY - tMaxY) / stepY)); const endGridY = Math.min(8, Math.floor((topY - tMinY) / stepY));
-
-                for (let gx = startGridX; gx <= endGridX; gx++) {
-                    for (let gy = startGridY; gy <= endGridY; gy++) {
-                        const cellMinX = startX + gx * stepX, cellMaxX = cellMinX + stepX; const cellMaxY = topY - gy * stepY, cellMinY = cellMaxY - stepY;
-                        if (tMaxX < cellMinX || tMinX > cellMaxX || tMaxY < cellMinY || tMinY > cellMaxY) continue;
-                        const clippedPoly = clipTriangleToCell(v1, v2, v3, cellMinX, cellMaxX, cellMinY, cellMaxY);
-                        if (clippedPoly.length >= 3) {
-                            const tileKey = `${gx}_${gy}`;
-                            if (!tiles[tileKey]) tiles[tileKey] = { gx: gx, gy: gy, vertices: [], indices: [], vertexMap: new Map(), minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
-                            const tile = tiles[tileKey];
-                            const addVertex = (v) => {
-                                const vStr = `                ${v.x.toFixed(7)} ${v.y.toFixed(7)} ${v.z.toFixed(7)}   ${Math.round(v.r)} ${Math.round(v.g)} ${Math.round(v.b)} ${Math.round(v.a)}`;
-                                if (tile.vertexMap.has(vStr)) return tile.vertexMap.get(vStr);
-                                const newIdx = tile.vertices.length; tile.vertices.push(vStr); tile.vertexMap.set(vStr, newIdx);
-                                if(v.x < tile.minX) tile.minX = v.x; if(v.x > tile.maxX) tile.maxX = v.x; if(v.y < tile.minY) tile.minY = v.y; if(v.y > tile.maxY) tile.maxY = v.y; if(v.z < tile.minZ) tile.minZ = v.z; if(v.z > tile.maxZ) tile.maxZ = v.z;
-                                return newIdx;
-                            };
-                            const idx0 = addVertex(clippedPoly[0]);
-                            for (let i = 1; i < clippedPoly.length - 1; i++) tile.indices.push(idx0, addVertex(clippedPoly[i]), addVertex(clippedPoly[i+1]));
-                        }
-                    }
-                }
-            });
-
-            Object.keys(tiles).forEach(key => {
-                const t = tiles[key]; if (t.vertices.length === 0) return;
-                const targetFileName = `minimap_${t.gx}_${t.gy}.ydd.xml`;
-                const fullItemName = `supertile_fore_${t.gx}_${t.gy}_tile_2_2`; 
-                let targetFile = mapFiles.find(f => f.name.toLowerCase() === targetFileName.toLowerCase());
-                
-                if (!targetFile) {
-                    const xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>\n<DrawableDictionary>\n${window.createNewItemXml(t, fullItemName)}\n</DrawableDictionary>`;
-                    targetFile = { id: 'file_' + Math.random().toString(36).substring(2, 9), name: targetFileName, text: xmlTemplate, vertices: [], meshesData: [], isDefault: false, zOffset: 0 };
-                    mapFiles.push(targetFile);
-                } else {
-                    const mergeDoc = parseXmlOrThrow(targetFile.text, targetFile.name);
-                    let geometryChanged = false;
-                    const rootItems = Array.from(mergeDoc.documentElement.children).filter(child => child.nodeName === 'Item');
-                    let targetLayerItem = null;
-                    for (const item of rootItems) { 
-                        const nameNode = item.querySelector('Name'); 
-                        if (nameNode && nameNode.textContent.toLowerCase() === fullItemName.toLowerCase()) { targetLayerItem = item; break; }
-                    }
-                    
-                    if (targetLayerItem) {
-                        const vb = targetLayerItem.querySelector('VertexBuffer');
-                        if (vb) {
-                            const ib = targetLayerItem.querySelector('IndexBuffer');
-                            const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data');
-                            const iDataNode = ib ? (ib.querySelector('Data2') || ib.querySelector('Data')) : null;
-                            if (!vDataNode || !iDataNode) throw new Error(`${targetFileName}: tile_2_2 не содержит полные VertexBuffer/IndexBuffer`);
-                            
-                            const geomItem = vb.closest('Item') || vb.closest('Geometry');
-                            const mergeResult = window.GeometryUtils.applyYddGeometryMerge(vDataNode, iDataNode, geomItem, t.vertices, t.indices);
-                            geometryChanged = mergeResult.addedTriangleCount > 0;
-                        } else {
-                            // ТОЖЕ ДОБАВЛЯЕМ ELSE!
-                            const itemXml = window.createNewItemXml(t, fullItemName);
-                            const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
-                            const newNode = mergeDoc.importNode(tempDoc.querySelector('Item'), true);
-                            targetLayerItem.parentNode.replaceChild(newNode, targetLayerItem);
-                            geometryChanged = true;
-                        }
-                    } else {
-                        const itemXml = window.createNewItemXml(t, fullItemName);
-                        const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
-                        mergeDoc.documentElement.appendChild(mergeDoc.importNode(tempDoc.querySelector('Item'), true));
-                        geometryChanged = true;
-                    }
-                    if (geometryChanged) { const serializer = new XMLSerializer(); targetFile.text = serializer.serializeToString(mergeDoc).replace(/\s+xmlns="[^"]*"/g, ''); }
-                }
-            });
-        }
-
-        // 2. АВТО-НАРЕЗКА ВЕКТОРОВ
+        
         let vectorsSlicedCount = 0;
         if (window.exportVectorsToXMLFiles) {
              vectorsSlicedCount = window.exportVectorsToXMLFiles(mapFiles);
@@ -787,11 +789,9 @@ async function exportModifiedZip() {
                 if (originalGeomModified) { fileModified = true; let updatedOriginalVLines = validVerts.map(v => `                ${v.parts[0]} ${v.parts[1]} ${v.parts[2]}   ${v.parts[3]} ${v.parts[4]} ${v.parts[5]} ${v.parts[6]}`); vDataNode.textContent = "\n" + updatedOriginalVLines.join('\n') + "\n              "; }
             }
             
-            // --- ПЕРЕСЧЕТ БАУНДОВ И ЖЕСТКОЕ ФОРМАТИРОВАНИЕ ---
             window.recalculateAllBounds(doc);
             
             let formattedXmlText = window.makeBlenderFormat(doc);
-            // Добавляем тег XML, если его съел парсер
             if (!formattedXmlText.includes('<?xml')) {
                 formattedXmlText = '<?xml version="1.0" encoding="UTF-8"?>\n' + formattedXmlText;
             }
