@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTA V Map Vertex Color & Alpha Editor</title>
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <script src="vendor/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkbg: '#020617', cardbg: '#0f172a', sidebarbg: '#090d16', borderbg: '#1e293b' } } }
+        }
+    </script>
+    <script src="vendor/lucide.js"></script>
+    <script src="vendor/jszip.min.js"></script>
+    <script src="vendor/three.min.js"></script>
+    <script src="vendor/OrbitControls.js"></script>
+    <script src="vendor/BufferGeometryUtils.js"></script>
+    <script src="vendor/TransformControls.js"></script>
+    <script src="vendor/SVGLoader.js"></script>
+    <script src="vendor/opentype.min.js"></script>
+    <script src="vendor/TTFLoader.js"></script>
+    
+    <style>
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .color-picker-wrapper { background: conic-gradient(#334155 90deg, #0f172a 90deg 180deg, #334155 180deg 270deg, #0f172a 270deg) 0 0 / 8px 8px; }
+        #leftToolsPanel { transition: width 0.3s ease, opacity 0.3s ease; }
+        #leftToolsPanel.hidden-panel { width: 0 !important; opacity: 0 !important; overflow: hidden !important; border: none !important; padding: 0 !important; }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans antialiased">
+
+    <header class="h-12 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-3 flex items-center justify-between shrink-0 z-30 text-xs">
+        <div class="flex items-center space-x-2">
+            <button id="toggleLeftPanelBtn" title="Скрыть/показать панель векторов" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-400 transition flex items-center justify-center">
+                <i data-lucide="panel-left-open" id="panelToggleIcon" class="w-4 h-4"></i>
+            </button>
+            <div class="p-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-emerald-400"><i data-lucide="map" class="w-4 h-4"></i></div>
+            <h1 class="font-bold text-white flex items-center gap-1.5">GTA V Map Editor <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">v7.1</span></h1>
+            <a href="https://discord.gg/HNfHccg2qd" target="_blank" rel="noopener noreferrer" class="ml-2 px-2 py-1 bg-[#5865F2]/20 hover:bg-[#5865F2]/40 border border-[#5865F2]/50 rounded-md text-[#5865F2] transition flex items-center gap-1.5 text-[10px] font-bold">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 127.14 96.36" xmlns="http://www.w3.org/2000/svg"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg> Discord
+            </a>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <label class="flex items-center gap-1.5 cursor-pointer bg-blue-900/20 hover:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-800/50 transition mr-1">
+                <input type="checkbox" id="solidSeaCheckbox" class="w-3 h-3 accent-blue-500 bg-slate-900 border-slate-700 rounded cursor-pointer">
+                <span class="text-[10px] text-blue-200 font-medium" title="При экспорте море физически объединится с фоном">Непрозрачное море</span>
+            </label>
+            <button id="invertAllColorsBtn" class="px-2.5 py-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition flex items-center gap-1"><i data-lucide="flip-horizontal" class="w-3 h-3"></i> Инвертировать все</button>
+            <div class="h-3.5 w-px bg-slate-800"></div>
+            <button id="saveProjectBtn" disabled class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded-md transition flex items-center gap-1"><i data-lucide="file-json" class="w-3 h-3 text-blue-400"></i> Сохранить JSON</button>
+            <label class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer">
+                <i data-lucide="folder-open" class="w-3 h-3 text-amber-400"></i> Открыть JSON <input type="file" id="loadJsonInput" accept=".json" class="hidden">
+            </label>
+            <button id="exportZipBtn" disabled class="px-3 py-1 text-[11px] font-semibold text-slate-900 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 rounded-md transition flex items-center gap-1 shadow-sm"><i data-lucide="download" class="w-3 h-3"></i> Скачать ZIP</button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex w-full h-[calc(100vh-3rem)] overflow-hidden relative">
+        <aside id="leftToolsPanel" class="w-72 bg-sidebarbg border-r border-slate-800 flex flex-col h-full z-20 shrink-0 hidden-panel">
+            <div class="p-2.5 border-b border-slate-800 bg-slate-900/50 shrink-0 flex justify-between items-center">
+                <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="pen-tool" class="w-3.5 h-3.5 text-emerald-400"></i> Векторные слои</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 flex flex-col text-xs">
+                
+                <div class="space-y-2">
+                    <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Создание</label>
+                    <div class="flex gap-1.5 mb-1">
+                        <input type="text" id="vectorTextInput" placeholder="Текст (Рус/Англ)..." value="GTA 5" class="flex-1 bg-slate-900 border border-slate-700 rounded text-slate-200 px-2 py-1.5 outline-none focus:border-emerald-500 font-bold">
+                        <button id="btnAddText" title="Добавить Текст" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded transition"><i data-lucide="type" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div class="flex gap-1.5 mt-1">
+                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700 hover:border-emerald-500 bg-slate-800/50 hover:bg-slate-800 rounded cursor-pointer transition text-slate-300">
+                            <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-[9px]">Шрифт (.TTF / .OTF)</span>
+                            <input type="file" id="vectorFontInput" accept=".ttf,.otf" class="hidden">
+                        </label>
+                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700 hover:border-emerald-500 bg-slate-800/50 hover:bg-slate-800 rounded cursor-pointer transition text-slate-300">
+                            <i data-lucide="image" class="w-3.5 h-3.5 text-amber-400"></i> <span class="text-[9px]">Свой SVG (.svg)</span>
+                            <input type="file" id="vectorSvgInput" accept=".svg" class="hidden">
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5 pt-1">
+                        <button id="btnAddSquare" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="square" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Квадрат</span></button>
+                        <button id="btnAddCircle" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="circle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Круг</span></button>
+                        <button id="btnAddTriangle" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="triangle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Треугол.</span></button>
+                    </div>
+                </div>
+
+                <div id="vectorPropsPanel" class="space-y-3 pt-3 border-t border-slate-800/60 hidden mt-3">
+                    <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
+                        <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i> Настройки слоя
+                    </label>
+                    
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800 space-y-2.5 shadow-inner">
+                        <div id="vecPropTextContainer" class="hidden flex flex-col gap-1 mb-1">
+                            <span class="text-slate-400 text-[9px] uppercase tracking-wider font-semibold">Текст:</span>
+                            <input type="text" id="vecPropTextValue" class="w-full bg-slate-950 border border-slate-700 rounded text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 font-medium text-[10px] shadow-inner">
+                        </div>
+
+<!-- Масштаб (1 к 1 в метрах) -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" title="1 единица = 1 метр">Размер:</span>
+                            <input type="range" id="vecPropScale" min="1" max="5000" step="1" value="100" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropScaleNum" min="1" max="5000" step="1" value="100" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+
+                        <!-- Поворот (В градусах) -->
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/50">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0">Поворот:</span>
+                            <input type="range" id="vecPropRot" min="-180" max="180" step="1" value="0" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropRotNum" min="-180" max="180" step="1" value="0" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        
+                        <!-- Качество -->
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/50">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" title="Влияет на плавность контуров и вес файла">Качество:</span>
+                            <input type="range" id="vecPropQuality" min="1" max="40" step="1" value="12" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropQualityNum" min="1" max="40" step="1" value="12" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1.5 border-t border-slate-800/50">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0">Цвет:</span>
+                            <input type="color" id="vecPropColor" value="#ffffff" class="w-6 h-6 rounded bg-slate-950 border border-slate-700 cursor-pointer shrink-0 shadow-sm">
+                            <input type="range" id="vecPropAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer ml-1" title="Прозрачность">
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800 space-y-2 shadow-inner">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="vecPropStroke" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded"> 
+                            <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wide">Внешняя Обводка</span>
+                        </label>
+                        
+                        <div id="vecPropStrokeTools" class="flex items-center gap-2 hidden pt-1">
+                            <input type="color" id="vecPropStrokeColor" value="#000000" class="w-6 h-6 rounded bg-slate-950 border border-slate-700 cursor-pointer shrink-0 shadow-sm">
+                            <input type="range" id="vecPropStrokeWidth" min="1" max="150" step="1" value="10" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropStrokeWidthNum" min="1" max="150" step="1" value="10" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-3 border-t border-slate-800/60 mt-3">
+                    <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider">
+                        <span>Pivot (Горячие: W E R)</span>
+                        <span class="text-[8px] text-amber-500/70 normal-case bg-amber-500/10 px-1 rounded">Shift = масштаб 1:1</span>
+                    </label>
+                    <div class="flex gap-1">
+                        <button id="vecModeTranslate" class="flex-1 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded transition flex justify-center items-center" title="Перемещение (W)"><i data-lucide="move" class="w-3.5 h-3.5"></i></button>
+                        <button id="vecModeRotate" class="flex-1 py-1 bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 rounded transition flex justify-center items-center" title="Вращение (E)"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                        <button id="vecModeScale" class="flex-1 py-1 bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 rounded transition flex justify-center items-center" title="Масштаб (R)"><i data-lucide="maximize" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-3 border-t border-slate-800/60 flex-1 flex flex-col mt-3">
+                    <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Менеджер слоев</label>
+                    <div id="vectorLayersList" class="space-y-1 flex-1 overflow-y-auto pr-1 pb-2">
+                        <div class="text-[10px] text-slate-500 text-center py-2">Слоев нет</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 3D Viewport -->
+        <main class="flex-1 relative bg-[#020617] h-full flex flex-col min-w-0">
+            <div class="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
+                <span id="vertexStats" class="text-[11px] text-slate-300 bg-slate-900/90 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 shadow-md flex items-center gap-1.5 pointer-events-auto">
+                    <i data-lucide="box" class="w-3 h-3 text-emerald-400"></i> Вертексов: 0
+                </span>
+                <div class="flex items-center space-x-1.5 pointer-events-auto bg-slate-900/90 backdrop-blur p-1 rounded-lg border border-slate-800 shadow-md">
+                    <button id="lockRotationBtn" title="Заблокировать вращение камеры" class="p-1 text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
+                        <i data-lucide="unlock" id="lockRotationIcon" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button id="resetViewBtn" title="Сбросить камеру" class="p-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
+                        <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="w-full h-full relative flex-1">
+                <canvas id="mapCanvas" class="w-full h-full block"></canvas>
+                <div id="loadingOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-40 transition-opacity duration-300">
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-2">
+                        <i data-lucide="loader" class="w-6 h-6 text-emerald-400 animate-spin"></i>
+                    </div>
+                    <p id="loadingText" class="text-xs font-semibold text-slate-200">Загрузка...</p>
+                    <p id="loadingSubtext" class="text-[10px] text-slate-400 mt-0.5">Пожалуйста, подождите</p>
+                </div>
+                
+                <div id="localFolderPrompt" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-amber-950/90 border border-amber-500/40 text-amber-200 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur flex items-center gap-3 text-xs">
+                    <i data-lucide="folder-search" class="w-5 h-5 text-amber-400 shrink-0"></i>
+                    <div>
+                        <p class="font-bold text-amber-100">Браузер блокирует автозагрузку (режим file://)</p>
+                        <p class="text-[10px] text-amber-300/80">Выберите папку <code class="bg-black/30 px-1 rounded">map</code> напрямую:</p>
+                    </div>
+                    <label class="px-2.5 py-1 text-[11px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-md cursor-pointer transition shrink-0">
+                        Выбрать папку
+                        <input type="file" id="folderPickerInput" webkitdirectory directory multiple class="hidden">
+                    </label>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Side Panel -->
+        <aside id="sidebarPanel" class="w-80 bg-sidebarbg border-l border-slate-800 flex flex-col h-full z-20 shrink-0 overflow-hidden">
+            <div class="p-2.5 border-b border-slate-800 shrink-0">
+                <div id="dropZone" class="border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-900/40 hover:bg-slate-800/40 rounded-lg p-2.5 text-center transition cursor-pointer relative group">
+                    <input type="file" id="fileInput" multiple accept=".xml,.zip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <div class="flex items-center justify-center space-x-2">
+                        <i data-lucide="upload-cloud" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="text-xs font-semibold text-slate-200">Загрузить <span class="text-emerald-400">XML / ZIP</span></span>
+                    </div>
+                </div>
+                <div id="filesContainer" class="hidden mt-2 bg-slate-900/80 border border-slate-800 rounded-lg p-2 flex flex-col resize-y overflow-hidden min-h-[120px] max-h-[40vh]">
+                    <div class="flex items-center justify-between mb-1.5 shrink-0">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Файлы (<span id="fileCount">0</span>)</span>
+                        <button id="clearFilesBtn" class="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-0.5 transition"><i data-lucide="trash-2" class="w-3 h-3"></i> Очистить</button>
+                    </div>
+                    <div id="fileList" class="flex-1 overflow-y-auto pr-1 space-y-1"></div>
+                </div>
+            </div>
+            
+            <div class="p-2.5 shrink-0 space-y-2">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="palette" class="w-3.5 h-3.5 text-emerald-400"></i> Палитра RGBA</h2>
+                    <span id="uniqueColorCount" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-full">0 цветов</span>
+                </div>
+                <div class="flex flex-col gap-1.5 mt-2 mb-1">
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-800/50 p-1.5 rounded-md border border-slate-700 transition">
+                        <input type="checkbox" id="separateZToggle" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-900 border-slate-700 rounded">
+                        <span class="text-[10px] text-slate-300 font-medium">Разделять цвета по высоте (Z)</span>
+                    </label>
+                </div>
+                <div class="flex items-center space-x-1.5">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="w-3 h-3 text-slate-500 absolute left-2 top-2"></i>
+                        <input type="text" id="colorSearchInput" placeholder="Поиск HEX / RGB / Имени..." class="w-full bg-slate-900 border border-slate-700/80 rounded-md pl-7 pr-2 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <button id="resetAllColorsBtn" title="Сбросить все изменения" class="p-1 text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition shrink-0"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
+                </div>
+            </div>
+            
+            <div class="flex-1 min-h-0 flex flex-col px-2 pb-2">
+                <div class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg p-2 flex flex-col min-h-0">
+                    <div id="paletteContainer" class="flex-1 overflow-y-scroll pr-1 space-y-1.5 block"></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-800 text-slate-100 border border-slate-700 px-3 py-2 rounded-lg shadow-xl flex items-center space-x-2 text-xs">
+            <div id="toastIcon" class="text-emerald-400"><i data-lucide="check-circle" class="w-4 h-4"></i></div>
+            <p id="toastMessage" class="font-medium"></p>
+        </div>
+    </div>
+
+    <script src="geometry_utils.js"></script>
+    <script src="app.js"></script>       
+    <script src="vector_tools.js"></script> 
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "gta-v-map-vector-tools",
+  "private": true,
+  "version": "7.1.0",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check app.js && node --check vector_tools.js && node --check geometry_utils.js",
+    "verify:sample": "node tests/verify_minimap_4_5.js"
+  }
+}
