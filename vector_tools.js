@@ -7,7 +7,8 @@ const vectorState = {
     activeObj: null,
     loadedFont: null,
     loadedFontName: 'Roboto Black',
-    loadedFontData: null
+    loadedFontData: null,
+    pendingSelectId: null
 };
 
 function getMeshes(object, includeStrokes = false) {
@@ -43,7 +44,6 @@ function base64ToArrayBuffer(value) {
 
 window.getVectorCount = () => vectorState.objects.length;
 
-// Очистка векторов
 window.clearVectors = function() {
     if (window.vectorTransformControl) window.vectorTransformControl.detach();
     vectorState.objects.forEach(obj => { scene.remove(obj); disposeObject3D(obj); });
@@ -60,14 +60,12 @@ document.addEventListener("DOMContentLoaded", () => {
     window.vectorTransformControl = transformControl;
     scene.add(transformControl);
 
-    // Загрузка русского шрифта (Roboto) по умолчанию
     const ttfLoader = new THREE.TTFLoader();
     ttfLoader.load('vendor/roboto-black-webfont.ttf', (parsed) => {
         vectorState.loadedFont = new THREE.Font(parsed);
         vectorState.loadedFontName = 'Roboto Black';
     }, undefined, () => window.showToast("Не удалось загрузить стандартный шрифт", "error"));
     
-    // Свой шрифт
     document.getElementById('vectorFontInput')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -91,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsArrayBuffer(file);
     });
 
-    // Горячие клавиши (W, E, R)
     let isShiftDown = false;
     let initialScale = new THREE.Vector3();
     
@@ -120,17 +117,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const currScale = vectorState.activeObj.scale;
             const ratioX = currScale.x / initialScale.x;
             const ratioY = currScale.y / initialScale.y;
-            const ratioZ = currScale.z / initialScale.z;
             
-            let maxRatio = ratioX;
-            if (Math.abs(ratioY - 1) > Math.abs(maxRatio - 1)) maxRatio = ratioY;
-            if (Math.abs(ratioZ - 1) > Math.abs(maxRatio - 1)) maxRatio = ratioZ;
+            let maxRatio = Math.max(Math.abs(ratioX - 1), Math.abs(ratioY - 1)) === Math.abs(ratioX - 1) ? ratioX : ratioY;
             
-            vectorState.activeObj.scale.set(initialScale.x * maxRatio, initialScale.y * maxRatio, initialScale.z * maxRatio);
+            const signY = vectorState.activeObj.userData.isSvg ? -1 : 1;
+            vectorState.activeObj.scale.set(initialScale.x * maxRatio, initialScale.y * maxRatio * signY, 1);
         }
         
         if (vectorState.activeObj && transformControl.mode === 'scale') {
-            const currentScale = vectorState.activeObj.scale.x;
+            const currentScale = Math.abs(vectorState.activeObj.scale.x);
             const scaleSlider = document.getElementById('vecPropScale');
             const scaleNum = document.getElementById('vecPropScaleNum');
             if (scaleSlider && scaleNum) {
@@ -144,6 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const mouse = new THREE.Vector2();
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
+        if (window.isEyedropperActive) return;
+        
         if (transformControl.axis !== null) return; 
         if (e.button !== 0) return; 
 
@@ -172,35 +169,120 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    function generateStrokeGeometry(shapes, strokeWidth, quality) {
-        if (!shapes || shapes.length === 0) return null;
+    // Функция обновления визуального порядка слоев по оси Z и списка в UI
+    function updateVectorsOrder() {
+        const baseZ = window.mapBounds ? window.mapBounds.maxZ + 50 : 50;
+        const len = vectorState.objects.length;
+        vectorState.objects.forEach((o, i) => {
+            // Элемент [0] (самый верхний в менеджере слоев) получает максимальную Z координату
+            o.position.z = baseZ + (len - i) * 0.1;
+        });
+        renderLayersList();
+        if (window.requestSceneRender) window.requestSceneRender();
+    }
+
+    function generateStrokeGeometry(shapesData, strokeWidth, quality) {
+        if (!shapesData || shapesData.length === 0) return null;
         let strokeGeometries = [];
         
-        shapes.forEach(shape => {
-            const ptsData = shape.extractPoints(quality);
-            
-            const processPath = (pts) => {
-                if (pts.length === 0) return;
-                if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) > 0.001) {
-                    pts.push(pts[0].clone());
-                }
-                const geo = THREE.SVGLoader.pointsToStroke(pts, { 
-                    strokeWidth: strokeWidth, 
-                    strokeLineJoin: 'round', 
-                    strokeLineCap: 'round' 
-                });
-                if (geo) strokeGeometries.push(geo);
-            };
+        shapesData.forEach(data => {
+            const { shapes, offsetX, offsetY } = data;
+            shapes.forEach(shape => {
+                const ptsData = shape.extractPoints(quality);
+                
+                const processPath = (pts) => {
+                    if (pts.length === 0) return;
+                    if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) > 0.001) {
+                        pts.push(pts[0].clone());
+                    }
+                    const geo = THREE.SVGLoader.pointsToStroke(pts, { 
+                        strokeWidth: strokeWidth, 
+                        strokeLineJoin: 'round', 
+                        strokeLineCap: 'round' 
+                    });
+                    if (geo) {
+                        geo.translate(offsetX, offsetY, 0);
+                        strokeGeometries.push(geo);
+                    }
+                };
 
-            processPath(ptsData.shape);
-            ptsData.holes.forEach(processPath);
+                processPath(ptsData.shape);
+                ptsData.holes.forEach(processPath);
+            });
         });
         
         if (strokeGeometries.length === 0) return null;
         return THREE.BufferGeometryUtils.mergeBufferGeometries(strokeGeometries);
     }
 
+    function createTextGeometry(text, font, quality, align = 'center', lineHeight = 1.2) {
+        const lines = text.split('\n');
+        const geos = [];
+        const shapesData = [];
+        const baseSize = 10;
+        const lineSpacing = baseSize * lineHeight;
+
+        let maxWidth = 0;
+        const lineWidths = [];
+        const lineShapesArr = [];
+
+        lines.forEach(line => {
+            const shapes = font.generateShapes(line || ' ', baseSize);
+            lineShapesArr.push(shapes);
+            const tempGeo = new THREE.ShapeGeometry(shapes);
+            tempGeo.computeBoundingBox();
+            const w = tempGeo.boundingBox ? tempGeo.boundingBox.max.x - tempGeo.boundingBox.min.x : 0;
+            lineWidths.push(w);
+            if (w > maxWidth) maxWidth = w;
+            tempGeo.dispose();
+        });
+
+        lines.forEach((line, i) => {
+            const w = lineWidths[i];
+            let offsetX = 0;
+            if (align === 'center') offsetX = -w / 2;
+            else if (align === 'right') offsetX = -w;
+            // left -> 0
+
+            const offsetY = -i * lineSpacing;
+            const shapes = lineShapesArr[i];
+            
+            if (shapes && shapes.length > 0) {
+                const geo = new THREE.ShapeGeometry(shapes, quality);
+                geo.translate(offsetX, offsetY, 0);
+                geos.push(geo);
+            }
+            shapesData.push({ shapes, offsetX, offsetY });
+        });
+
+        const finalGeo = geos.length > 0 ? THREE.BufferGeometryUtils.mergeBufferGeometries(geos) : new THREE.BufferGeometry();
+        finalGeo.userData.shapesData = shapesData;
+
+        if (geos.length > 0) {
+            finalGeo.computeBoundingBox();
+            const cx = -(finalGeo.boundingBox.max.x + finalGeo.boundingBox.min.x) / 2;
+            const cy = -(finalGeo.boundingBox.max.y + finalGeo.boundingBox.min.y) / 2;
+            finalGeo.translate(cx, cy, 0);
+            finalGeo.userData.tX = cx;
+            finalGeo.userData.tY = cy;
+        } else {
+            finalGeo.userData.tX = 0;
+            finalGeo.userData.tY = 0;
+        }
+
+        return finalGeo;
+    }
+
     function selectObject(obj) {
+        if (obj && vectorState.activeObj !== obj) {
+            const idx = vectorState.objects.indexOf(obj);
+            if (idx > 0) {
+                vectorState.objects.splice(idx, 1);
+                vectorState.objects.unshift(obj);
+                updateVectorsOrder();
+            }
+        }
+        
         vectorState.activeObj = obj;
         if (obj) {
             transformControl.attach(obj);
@@ -211,6 +293,16 @@ document.addEventListener("DOMContentLoaded", () => {
             if (firstMesh && firstMesh.userData.isText) {
                 document.getElementById('vecPropTextContainer').classList.remove('hidden');
                 document.getElementById('vecPropTextValue').value = firstMesh.userData.text;
+                document.getElementById('vecLineHeight').value = firstMesh.userData.textLineHeight || 1.2;
+                
+                const align = obj.userData.textAlign || 'center';
+                ['vecAlignLeft', 'vecAlignCenter', 'vecAlignRight'].forEach(id => {
+                    document.getElementById(id).classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                    document.getElementById(id).classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+                });
+                const activeBtn = align === 'left' ? 'vecAlignLeft' : (align === 'right' ? 'vecAlignRight' : 'vecAlignCenter');
+                document.getElementById(activeBtn).classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                document.getElementById(activeBtn).classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
             } else {
                 document.getElementById('vecPropTextContainer').classList.add('hidden');
             }
@@ -218,8 +310,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (firstMesh && firstMesh.material) {
                 document.getElementById('vecPropColor').value = "#" + firstMesh.material.color.getHexString();
                 document.getElementById('vecPropAlpha').value = firstMesh.material.opacity;
-                document.getElementById('vecPropScale').value = obj.scale.x;
-                document.getElementById('vecPropScaleNum').value = obj.scale.x.toFixed(2);
+                document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
+                document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
                 
                 const degZ = THREE.MathUtils.radToDeg(obj.rotation.z);
                 document.getElementById('vecPropRot').value = degZ;
@@ -251,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
     transformControl.addEventListener('change', () => {
         if (vectorState.activeObj) {
             if (transformControl.mode === 'scale') {
-                const currentScale = vectorState.activeObj.scale.x;
+                const currentScale = Math.abs(vectorState.activeObj.scale.x);
                 const scaleSlider = document.getElementById('vecPropScale');
                 const scaleNum = document.getElementById('vecPropScaleNum');
                 if (scaleSlider && scaleNum) { scaleSlider.value = currentScale; scaleNum.value = currentScale.toFixed(2); }
@@ -275,21 +367,17 @@ document.addEventListener("DOMContentLoaded", () => {
         meshes.forEach(mesh => {
             if (mesh.userData.isText && vectorState.loadedFont) {
                 const qual = mesh.userData.quality || 12;
-                const shapes = vectorState.loadedFont.generateShapes(newText, 10);
-                const newGeo = new THREE.ShapeGeometry(shapes, qual);
-                newGeo.userData.shapes = shapes;
+                const align = obj.userData.textAlign || 'center';
+                const lineHeight = mesh.userData.textLineHeight || 1.2;
                 
-                newGeo.computeBoundingBox();
-                const centerX = -0.5 * (newGeo.boundingBox.max.x - newGeo.boundingBox.min.x);
-                const centerY = -0.5 * (newGeo.boundingBox.max.y - newGeo.boundingBox.min.y);
-                newGeo.translate(centerX, centerY, 0);
-                newGeo.userData.tX = centerX;
-                newGeo.userData.tY = centerY;
+                const newGeo = createTextGeometry(newText, vectorState.loadedFont, qual, align, lineHeight);
                 
                 mesh.geometry.dispose();
                 mesh.geometry = newGeo;
                 mesh.userData.text = newText;
-                obj.name = newText || 'Текст';
+                
+                let displayName = newText.split('\n')[0];
+                obj.name = displayName || 'Текст';
                 
                 getStrokeMeshes(obj).filter(stroke => stroke.userData.parentMeshId === mesh.uuid).forEach(stroke => { stroke.userData.strokeWidth = -1; });
             }
@@ -297,6 +385,24 @@ document.addEventListener("DOMContentLoaded", () => {
         applyPropsToActive();
         renderLayersList();
     });
+
+    function setAlign(align) {
+        if (!vectorState.activeObj) return;
+        vectorState.activeObj.userData.textAlign = align;
+        ['vecAlignLeft', 'vecAlignCenter', 'vecAlignRight'].forEach(id => {
+            document.getElementById(id).classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+            document.getElementById(id).classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+        });
+        const activeBtn = align === 'left' ? 'vecAlignLeft' : (align === 'right' ? 'vecAlignRight' : 'vecAlignCenter');
+        document.getElementById(activeBtn).classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+        document.getElementById(activeBtn).classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+        applyPropsToActive(true);
+    }
+
+    document.getElementById('vecAlignLeft')?.addEventListener('click', () => setAlign('left'));
+    document.getElementById('vecAlignCenter')?.addEventListener('click', () => setAlign('center'));
+    document.getElementById('vecAlignRight')?.addEventListener('click', () => setAlign('right'));
+    document.getElementById('vecLineHeight')?.addEventListener('input', () => applyPropsToActive(true));
 
     document.getElementById('vecPropQuality')?.addEventListener('input', (e) => { document.getElementById('vecPropQualityNum').value = e.target.value; applyPropsToActive(true); });
     document.getElementById('vecPropQualityNum')?.addEventListener('input', (e) => { document.getElementById('vecPropQuality').value = e.target.value; applyPropsToActive(true); });
@@ -326,13 +432,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const rotVal = parseFloat(document.getElementById('vecPropRotNum').value) || 0;
         const qualityVal = parseInt(document.getElementById('vecPropQualityNum').value) || 12;
         const textVal = document.getElementById('vecPropTextValue').value;
+        const lineHeightVal = parseFloat(document.getElementById('vecLineHeight').value) || 1.2;
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
 
         const obj = vectorState.activeObj;
         if (obj.userData.isSvg && markStyleOverride) obj.userData.styleOverridden = true;
         
-        obj.scale.set(scaleVal, scaleVal, scaleVal);
+        const signY = obj.userData.isSvg ? -1 : 1;
+        obj.scale.set(scaleVal, scaleVal * signY, 1);
         obj.rotation.z = THREE.MathUtils.degToRad(rotVal);
         
         const primaryMeshes = getMeshes(obj, false);
@@ -340,22 +448,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!firstMesh) return;
 
         if (forceRebuildText && firstMesh.userData.isText && vectorState.loadedFont) {
-            const shapes = vectorState.loadedFont.generateShapes(textVal, 10);
-            const newGeo = new THREE.ShapeGeometry(shapes, qualityVal);
-            newGeo.userData.shapes = shapes;
-            
-            newGeo.computeBoundingBox();
-            const centerX = -0.5 * (newGeo.boundingBox.max.x - newGeo.boundingBox.min.x);
-            const centerY = -0.5 * (newGeo.boundingBox.max.y - newGeo.boundingBox.min.y);
-            newGeo.translate(centerX, centerY, 0);
-            newGeo.userData.tX = centerX;
-            newGeo.userData.tY = centerY;
+            const align = obj.userData.textAlign || 'center';
+            const newGeo = createTextGeometry(textVal, vectorState.loadedFont, qualityVal, align, lineHeightVal);
             
             firstMesh.geometry.dispose();
             firstMesh.geometry = newGeo;
             firstMesh.userData.text = textVal;
             firstMesh.userData.quality = qualityVal;
-            obj.name = textVal || 'Текст';
+            firstMesh.userData.textLineHeight = lineHeightVal;
+            
+            let displayName = textVal.split('\n')[0];
+            obj.name = displayName || 'Текст';
             
             forceRebuildStroke = true;
         }
@@ -367,26 +470,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 mesh.material.transparent = alpha < 1;
             }
             mesh.renderOrder = 999;
-            mesh.position.z = 0.5;
+            mesh.position.z = 0.1;
 
             let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
-            if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapes) {
+            if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
                 if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || forceRebuildStroke) {
-                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapes, strokeWidth * 0.1, qualityVal);
+                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal);
                     if (strokeGeo) {
                         if (!strokeMesh) {
-                            strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: strokeHex, depthWrite: false }));
+                            strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: strokeHex, depthWrite: true, alphaTest: 0.01 }));
                             strokeMesh.userData.isStroke = true;
                             strokeMesh.userData.parentMeshId = mesh.uuid;
                             mesh.parent.add(strokeMesh);
                         } else { strokeMesh.geometry.dispose(); strokeMesh.geometry = strokeGeo; }
                         strokeMesh.userData.strokeWidth = strokeWidth;
-                        strokeMesh.geometry.translate(mesh.geometry.userData.tX || 0, mesh.geometry.userData.tY || 0, 0);
+                        
+                        const tX = mesh.geometry.userData.tX || 0;
+                        const tY = mesh.geometry.userData.tY || 0;
+                        strokeMesh.geometry.translate(tX, tY, 0);
                     }
                 }
                 if (strokeMesh) {
-                    strokeMesh.material.color.set(strokeHex); strokeMesh.material.opacity = alpha; strokeMesh.material.transparent = alpha < 1;
-                    strokeMesh.position.z = -0.5; strokeMesh.renderOrder = 998; strokeMesh.scale.set(1, 1, 1);
+                    strokeMesh.material.color.set(strokeHex); 
+                    strokeMesh.material.opacity = alpha; 
+                    strokeMesh.material.transparent = alpha < 1;
+                    strokeMesh.position.z = -0.1;
+                    strokeMesh.renderOrder = 998; 
+                    strokeMesh.scale.set(1, 1, 1);
                 }
             } else if (strokeMesh) {
                 if (strokeMesh.parent) strokeMesh.parent.remove(strokeMesh);
@@ -404,6 +514,8 @@ document.addEventListener("DOMContentLoaded", () => {
             cloneData.position.x += 50; 
             cloneData.position.y -= 50;
             cloneData.name = cloneData.name + " (Копия)";
+            
+            vectorState.pendingSelectId = cloneData.uuid;
             window.loadVectorsFromJSON([cloneData]); 
             window.showToast("Слой скопирован", "success");
         }
@@ -454,17 +566,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1) {
-        const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: false });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
         
-        geometry.computeBoundingBox();
-        const centerX = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
-        const centerY = -0.5 * (geometry.boundingBox.max.y - geometry.boundingBox.min.y);
-        geometry.translate(centerX, centerY, 0); 
-        
-        geometry.userData.tX = centerX;
-        geometry.userData.tY = centerY;
-
         const group = new THREE.Group();
         group.uuid = THREE.MathUtils.generateUUID(); 
         group.add(mesh);
@@ -483,30 +587,40 @@ document.addEventListener("DOMContentLoaded", () => {
             mesh.userData.text = textContent;
             mesh.userData.quality = 12;
             mesh.userData.font = vectorState.loadedFont;
+            mesh.userData.textLineHeight = 1.2;
+            group.userData.textAlign = 'center';
         }
         
         scene.add(group);
-        vectorState.objects.push(group);
+        vectorState.objects.unshift(group); 
+        updateVectorsOrder();
         selectObject(group);
+        
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
         const shape = new THREE.Shape(); shape.moveTo(-0.5, -0.5); shape.lineTo(0.5, -0.5); shape.lineTo(0.5, 0.5); shape.lineTo(-0.5, 0.5); shape.lineTo(-0.5, -0.5);
-        const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+        const geo = new THREE.ShapeGeometry(shape); 
+        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
         spawnVectorMesh(geo, 'Квадрат', 'square', false, '', 100); 
     });
 
     document.getElementById('btnAddCircle')?.addEventListener('click', () => {
         const shape = new THREE.Shape(); shape.absarc(0, 0, 0.5, 0, Math.PI * 2, false);
-        const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+        const geo = new THREE.ShapeGeometry(shape); 
+        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
         spawnVectorMesh(geo, 'Круг', 'circle', false, '', 100);
     });
 
     document.getElementById('btnAddTriangle')?.addEventListener('click', () => {
         const shape = new THREE.Shape(); shape.moveTo(0, 0.5); shape.lineTo(0.433, -0.25); shape.lineTo(-0.433, -0.25); shape.lineTo(0, 0.5);
-        const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+        const geo = new THREE.ShapeGeometry(shape); 
+        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
         spawnVectorMesh(geo, 'Треугольник', 'triangle', false, '', 100);
     });
     
@@ -514,11 +628,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const text = document.getElementById('vectorTextInput').value || 'GTA 5';
         if (!vectorState.loadedFont) { window.showToast("Шрифт загружается...", "error"); return; }
         
-        const shapes = vectorState.loadedFont.generateShapes(text, 10);
-        const geometry = new THREE.ShapeGeometry(shapes, 12);
-        geometry.userData.shapes = shapes; 
-        
-        spawnVectorMesh(geometry, text, 'type', true, text, 10); 
+        const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
+        const displayName = text.split('\n')[0] || 'Текст';
+        spawnVectorMesh(geometry, displayName, 'type', true, text, 10); 
     });
 
     document.getElementById('vectorSvgInput')?.addEventListener('change', (e) => {
@@ -543,12 +655,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     const material = new THREE.MeshBasicMaterial({
                         color: new THREE.Color().setStyle(fillColor),
                         opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
-                        transparent: true, side: THREE.DoubleSide, depthWrite: false
+                        transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                     });
                     const shapes = THREE.SVGLoader.createShapes(path);
                     shapes.forEach((shape) => {
                         const geo = new THREE.ShapeGeometry(shape);
-                        geo.userData.shapes = [shape]; 
+                        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                        geo.userData.tX = 0; geo.userData.tY = 0;
                         group.add(new THREE.Mesh(geo, material));
                     });
                 }
@@ -575,8 +688,10 @@ document.addEventListener("DOMContentLoaded", () => {
             wrapper.renderOrder = 999;
             
             scene.add(wrapper);
-            vectorState.objects.push(wrapper);
+            vectorState.objects.unshift(wrapper);
+            updateVectorsOrder();
             selectObject(wrapper);
+            
             if (window.updateExportState) window.updateExportState();
             if (window.requestSceneRender) window.requestSceneRender();
             window.showToast("SVG загружен!");
@@ -603,18 +718,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecModeRotate')?.addEventListener('click', () => setTransformMode('rotate', 'vecModeRotate'));
     document.getElementById('vecModeScale')?.addEventListener('click', () => setTransformMode('scale', 'vecModeScale'));
     
-    // ВАЖНО: Идеальное форматирование для OpenIV. <Data> вместо <Data2>, w удалены из BoundingBox.
-    window.createNewItemXml = function(t, itemName) {
-        const centerX = (t.minX + t.maxX) / 2, centerY = (t.minY + t.maxY) / 2, centerZ = (t.minZ + t.maxZ) / 2;
-        const dx = t.maxX - t.minX, dy = t.maxY - t.minY, dz = t.maxZ - t.minZ;
-        const radius = Math.sqrt(dx*dx + dy*dy + dz*dz) / 2; 
-        
-        let iStr = "\n"; 
-        for(let i=0; i<t.indices.length; i+=24) iStr += "                " + t.indices.slice(i, i+24).join(" ") + "\n";
-        
-        return `<Item>\n  <Name>${itemName}</Name>\n  <BoundingSphereCenter x="${centerX.toFixed(6)}" y="${centerY.toFixed(6)}" z="${centerZ.toFixed(6)}" />\n  <BoundingSphereRadius value="${radius.toFixed(6)}" />\n  <BoundingBoxMin x="${t.minX.toFixed(6)}" y="${t.minY.toFixed(6)}" z="${t.minZ.toFixed(6)}" />\n  <BoundingBoxMax x="${t.maxX.toFixed(6)}" y="${t.maxY.toFixed(6)}" z="${t.maxZ.toFixed(6)}" />\n  <LodDistHigh value="9998" />\n  <LodDistMed value="9998" />\n  <LodDistLow value="9998" />\n  <LodDistVlow value="9998" />\n  <FlagsHigh value="1" />\n  <FlagsMed value="0" />\n  <FlagsLow value="0" />\n  <FlagsVlow value="0" />\n  <ShaderGroup>\n   <Shaders>\n    <Item>\n     <Name>minimap</Name>\n     <FileName>minimap.sps</FileName>\n     <RenderBucket value="0" />\n     <Parameters>\n      <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />\n     </Parameters>\n    </Item>\n   </Shaders>\n  </ShaderGroup>\n  <DrawableModelsHigh>\n   <Item>\n    <RenderMask value="255" />\n    <Flags value="0" />\n    <HasSkin value="0" />\n    <BoneIndex value="0" />\n    <Unknown1 value="0" />\n    <Geometries>\n     <Item>\n      <ShaderIndex value="0" />\n      <BoundingBoxMin x="${t.minX.toFixed(6)}" y="${t.minY.toFixed(6)}" z="${t.minZ.toFixed(6)}" />\n      <BoundingBoxMax x="${t.maxX.toFixed(6)}" y="${t.maxY.toFixed(6)}" z="${t.maxZ.toFixed(6)}" />\n      <VertexBuffer>\n       <Flags value="0" />\n       <Layout type="GTAV1">\n        <Position />\n        <Colour0 />\n       </Layout>\n       <Data>\n${t.vertices.join('\n')}\n       </Data>\n      </VertexBuffer>\n      <IndexBuffer>\n       <Data>${iStr}              </Data>\n      </IndexBuffer>\n     </Item>\n    </Geometries>\n   </Item>\n  </DrawableModelsHigh>\n  <Lights />\n </Item>`;
-    };
-
     window.exportVectorsToXMLFiles = function(stateFilesArray) {
         if (vectorState.objects.length === 0) return 0;
         
@@ -745,8 +848,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         const mergeResult = window.GeometryUtils.applyYddGeometryMerge(vDataNode, iDataNode, geomItem, t.vertices, t.indices);
                         geometryChanged = mergeResult.addedTriangleCount > 0;
                     } else {
-                        // ВОТ ЭТОТ БЛОК БЫЛ УТЕРЯН! 
-                        // Заменяем твою пустую заготовку на полноценный слой с геометрией
                         const itemXml = window.createNewItemXml(t, fullItemName);
                         const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
                         const newNode = mergeDoc.importNode(tempDoc.querySelector('Item'), true);
@@ -781,7 +882,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return modifiedCount;
     };
     
-    // === JSON СЕРИАЛИЗАЦИЯ И ИМПОРТ ===
     window.getVectorFontForJSON = function() {
         if (!vectorState.loadedFontData) return { name: vectorState.loadedFontName, data: null };
         return { name: vectorState.loadedFontName, data: arrayBufferToBase64(vectorState.loadedFontData) };
@@ -821,6 +921,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.isText = true;
                     data.text = firstMesh.userData.text;
                     data.quality = firstMesh.userData.quality || 12;
+                    data.textAlign = obj.userData.textAlign || 'center';
+                    data.textLineHeight = firstMesh.userData.textLineHeight || 1.2;
                 }
                 
                 if (obj.userData.isSvg) {
@@ -858,12 +960,13 @@ document.addEventListener("DOMContentLoaded", () => {
                         const material = new THREE.MeshBasicMaterial({
                             color: new THREE.Color().setStyle(fillColor),
                             opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
-                            transparent: true, side: THREE.DoubleSide, depthWrite: false
+                            transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                         });
                         const shapes = THREE.SVGLoader.createShapes(path);
                         shapes.forEach((shape) => {
                             const geo = new THREE.ShapeGeometry(shape);
-                            geo.userData.shapes = [shape];
+                            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                            geo.userData.tX = 0; geo.userData.tY = 0;
                             group.add(new THREE.Mesh(geo, material));
                         });
                     }
@@ -891,46 +994,46 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (vectorState.loadedFont) {
                         clearInterval(checkFont);
                         const quality = data.quality || 12;
-                        const shapes = vectorState.loadedFont.generateShapes(data.text, 10);
-                        const geometry = new THREE.ShapeGeometry(shapes, quality);
-                        geometry.userData.shapes = shapes;
-                        spawnLoadedVectorMesh(geometry, data);
+                        const align = data.textAlign || 'center';
+                        const lineHeight = data.textLineHeight || 1.2;
+                        
+                        const newGeo = createTextGeometry(data.text, vectorState.loadedFont, quality, align, lineHeight);
+                        spawnLoadedVectorMesh(newGeo, data);
                     }
                     if (attempts > 50) clearInterval(checkFont); 
                 }, 100);
             } else if (data.icon === 'square') {
                 const shape = new THREE.Shape(); shape.moveTo(-0.5, -0.5); shape.lineTo(0.5, -0.5); shape.lineTo(0.5, 0.5); shape.lineTo(-0.5, 0.5); shape.lineTo(-0.5, -0.5);
-                const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+                const geo = new THREE.ShapeGeometry(shape); 
+                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'circle') {
                 const shape = new THREE.Shape(); shape.absarc(0, 0, 0.5, 0, Math.PI * 2, false);
-                const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+                const geo = new THREE.ShapeGeometry(shape); 
+                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'triangle') {
                 const shape = new THREE.Shape(); shape.moveTo(0, 0.5); shape.lineTo(0.433, -0.25); shape.lineTo(-0.433, -0.25); shape.lineTo(0, 0.5);
-                const geo = new THREE.ShapeGeometry(shape); geo.userData.shapes = [shape];
+                const geo = new THREE.ShapeGeometry(shape); 
+                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             }
         });
-        renderLayersList();
     };
     
     function spawnLoadedVectorMesh(geometry, data) {
-        const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: data.opacity ?? 1, depthWrite: false });
+        const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
-        
-        geometry.computeBoundingBox();
-        const centerX = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
-        const centerY = -0.5 * (geometry.boundingBox.max.y - geometry.boundingBox.min.y);
-        geometry.translate(centerX, centerY, 0); 
-        geometry.userData.tX = centerX;
-        geometry.userData.tY = centerY;
         
         if (data.isText) {
             mesh.userData.isText = true;
             mesh.userData.text = data.text;
             mesh.userData.quality = data.quality || 12;
             mesh.userData.font = vectorState.loadedFont;
+            mesh.userData.textLineHeight = data.textLineHeight || 1.2;
         }
 
         const group = new THREE.Group();
@@ -939,13 +1042,15 @@ document.addEventListener("DOMContentLoaded", () => {
         group.name = data.name;
         group.userData.icon = data.icon;
         
+        if (data.isText) group.userData.textAlign = data.textAlign || 'center';
+        
         applyTransformAndProperties(group, data);
     }
     
     function applyTransformAndProperties(wrapper, data) {
         wrapper.position.set(data.position.x, data.position.y, data.position.z);
         wrapper.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
-        wrapper.scale.set(data.scale.x, data.scale.y, data.scale.z);
+        wrapper.scale.set(data.scale.x, data.scale.y, 1);
         wrapper.renderOrder = 999;
 
         if (!data.isSvg || data.styleOverridden) {
@@ -960,25 +1065,23 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (data.hasStroke) {
             getMeshes(wrapper, false).forEach(firstMesh => {
-              if (firstMesh.geometry && firstMesh.geometry.userData.shapes) {
-                firstMesh.renderOrder = 999; firstMesh.position.z = 0.5;
-                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapes, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
+              if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
+                firstMesh.renderOrder = 999; firstMesh.position.z = 0.1;
+                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
                 if (strokeGeo) {
                     const restoredOpacity = data.opacity ?? 1;
-                    const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: restoredOpacity, transparent: restoredOpacity < 1, depthWrite: false }));
+                    const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: restoredOpacity, transparent: restoredOpacity < 1, depthWrite: true, alphaTest: 0.01 }));
                     strokeMesh.userData.isStroke = true;
                     strokeMesh.userData.strokeWidth = data.strokeWidth;
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                    strokeMesh.position.z = -0.5;
+                    strokeMesh.position.z = -0.1;
                     strokeMesh.renderOrder = 998;
                     
-                    if (data.isText || data.icon !== 'image') {
-                        const tX = firstMesh.geometry.userData.tX || 0;
-                        const tY = firstMesh.geometry.userData.tY || 0;
-                        strokeMesh.geometry.translate(tX, tY, 0);
-                    }
+                    const tX = firstMesh.geometry.userData.tX || 0;
+                    const tY = firstMesh.geometry.userData.tY || 0;
+                    strokeMesh.geometry.translate(tX, tY, 0);
                     firstMesh.parent.add(strokeMesh);
                 }
               }
@@ -986,7 +1089,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         scene.add(wrapper);
-        vectorState.objects.push(wrapper);
+        vectorState.objects.push(wrapper); 
+        updateVectorsOrder();
+        
+        if (vectorState.pendingSelectId === wrapper.uuid) {
+            selectObject(wrapper);
+            vectorState.pendingSelectId = null;
+        }
+
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
     }
