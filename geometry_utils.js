@@ -63,11 +63,65 @@
         return `                ${coordinates[0].toFixed(7)} ${coordinates[1].toFixed(7)} ${coordinates[2].toFixed(7)}   ${colors.map(value => Math.trunc(value)).join(' ')}`;
     }
 
-    // Cyclic rotations preserve winding. Reversed winding intentionally remains distinct.
     function triangleKey(a, b, c) {
         const rotations = [`${a}|${b}|${c}`, `${b}|${c}|${a}`, `${c}|${a}|${b}`];
         rotations.sort();
         return rotations[0];
+    }
+
+    function calculateBoundsFromVertices(vertices) {
+        const parsed = vertices.map(parseVertex);
+        const min = { x: Infinity, y: Infinity, z: Infinity };
+        const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+        for (const { coordinates } of parsed) {
+            min.x = Math.min(min.x, coordinates[0]);
+            min.y = Math.min(min.y, coordinates[1]);
+            min.z = Math.min(min.z, coordinates[2]);
+            max.x = Math.max(max.x, coordinates[0]);
+            max.y = Math.max(max.y, coordinates[1]);
+            max.z = Math.max(max.z, coordinates[2]);
+        }
+        if (!parsed.length) return null;
+        const center = {
+            x: (min.x + max.x) / 2,
+            y: (min.y + max.y) / 2,
+            z: (min.z + max.z) / 2
+        };
+        let radiusSq = 0;
+        for (const { coordinates } of parsed) {
+            const dx = coordinates[0] - center.x;
+            const dy = coordinates[1] - center.y;
+            const dz = coordinates[2] - center.z;
+            radiusSq = Math.max(radiusSq, dx * dx + dy * dy + dz * dz);
+        }
+        return { min, max, center, radius: Math.sqrt(radiusSq) };
+    }
+
+    function setDirectBounds(node, bounds, pad = 0) {
+        if (!node || !bounds) return;
+        const directChild = name => Array.from(node.children || []).find(child => child.nodeName === name);
+        const minNode = directChild('BoundingBoxMin');
+        const maxNode = directChild('BoundingBoxMax');
+        if (minNode) {
+            minNode.setAttribute('x', (bounds.min.x - pad).toFixed(6));
+            minNode.setAttribute('y', (bounds.min.y - pad).toFixed(6));
+            minNode.setAttribute('z', (bounds.min.z - pad).toFixed(6));
+            minNode.removeAttribute('w');
+        }
+        if (maxNode) {
+            maxNode.setAttribute('x', (bounds.max.x + pad).toFixed(6));
+            maxNode.setAttribute('y', (bounds.max.y + pad).toFixed(6));
+            maxNode.setAttribute('z', (bounds.max.z + pad).toFixed(6));
+            maxNode.removeAttribute('w');
+        }
+        const centerNode = directChild('BoundingSphereCenter');
+        const radiusNode = directChild('BoundingSphereRadius');
+        if (centerNode && radiusNode) {
+            centerNode.setAttribute('x', bounds.center.x.toFixed(6));
+            centerNode.setAttribute('y', bounds.center.y.toFixed(6));
+            centerNode.setAttribute('z', bounds.center.z.toFixed(6));
+            radiusNode.setAttribute('value', (bounds.radius + pad).toFixed(6));
+        }
     }
 
     function mergeYddGeometry(baseVertices, baseIndices, addedVertices, addedIndices) {
@@ -115,7 +169,6 @@
             addedTriangleCount++;
         }
 
-        // Vertices which were new but belonged only to rejected duplicate triangles must not leak into the buffer.
         const used = new Set(indices);
         const compactVertices = [];
         const compactIndex = new Map();
@@ -150,17 +203,11 @@
             geometryNode.querySelectorAll('Indices, IndicesCount').forEach(node => { if (node.hasAttribute('value')) node.setAttribute('value', result.indices.length); });
             geometryNode.querySelectorAll('PrimitiveCount').forEach(node => { if (node.hasAttribute('value')) node.setAttribute('value', result.indices.length / 3); });
 
-            const parsed = result.vertices.map(parseVertex);
-            const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-            parsed.forEach(({ coordinates }) => coordinates.forEach((value, axis) => { min[axis] = Math.min(min[axis], value); max[axis] = Math.max(max[axis], value); }));
-            const directChild = name => Array.from(geometryNode.children || []).find(child => child.nodeName === name);
-            const minNode = directChild('BoundingBoxMin'), maxNode = directChild('BoundingBoxMax');
-            if (minNode && maxNode && parsed.length) {
-                ['x', 'y', 'z'].forEach((axis, index) => { minNode.setAttribute(axis, min[index].toFixed(6)); maxNode.setAttribute(axis, max[index].toFixed(6)); });
-            }
+            const bounds = calculateBoundsFromVertices(result.vertices);
+            setDirectBounds(geometryNode, bounds, 0);
         }
         return result;
     }
 
-    return { lerpVertex, clipPolygonAgainstEdge, clipTriangleToCell, vertexKey, triangleKey, mergeYddGeometry, applyYddGeometryMerge };
+    return { lerpVertex, clipPolygonAgainstEdge, clipTriangleToCell, vertexKey, triangleKey, mergeYddGeometry, applyYddGeometryMerge, calculateBoundsFromVertices };
 });
