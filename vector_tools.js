@@ -8,7 +8,7 @@ const vectorState = {
     loadedFont: null,
     loadedFontName: 'Roboto Black',
     loadedFontData: null,
-    pendingSelectId: null
+    pendingSelectId: null 
 };
 
 function getMeshes(object, includeStrokes = false) {
@@ -44,12 +44,17 @@ function base64ToArrayBuffer(value) {
 
 window.getVectorCount = () => vectorState.objects.length;
 
+// Очистка векторов
 window.clearVectors = function() {
     if (window.vectorTransformControl) window.vectorTransformControl.detach();
     vectorState.objects.forEach(obj => { scene.remove(obj); disposeObject3D(obj); });
     vectorState.objects = [];
     vectorState.activeObj = null;
     document.getElementById('vectorLayersList').innerHTML = '<div class="text-[10px] text-slate-500 text-center py-2">Слоев нет</div>';
+    
+    const countSpan = document.getElementById('vectorLayerCount');
+    if (countSpan) countSpan.textContent = '0';
+
     document.getElementById('vectorPropsPanel').classList.add('hidden');
     if (window.updateExportState) window.updateExportState();
     if (window.requestSceneRender) window.requestSceneRender();
@@ -140,7 +145,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
-        
         if (transformControl.axis !== null) return; 
         if (e.button !== 0) return; 
 
@@ -169,13 +173,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Функция обновления визуального порядка слоев по оси Z и списка в UI
     function updateVectorsOrder() {
-        const baseZ = window.mapBounds ? window.mapBounds.maxZ + 50 : 50;
+        const baseZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         const len = vectorState.objects.length;
         vectorState.objects.forEach((o, i) => {
-            // Элемент [0] (самый верхний в менеджере слоев) получает максимальную Z координату
-            o.position.z = baseZ + (len - i) * 0.1;
+            o.position.z = baseZ + (len - i) * 0.01;
         });
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -195,10 +197,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) > 0.001) {
                         pts.push(pts[0].clone());
                     }
+                    // Уменьшаем количество вертексов в 10 раз за счет прямых углов
                     const geo = THREE.SVGLoader.pointsToStroke(pts, { 
                         strokeWidth: strokeWidth, 
-                        strokeLineJoin: 'round', 
-                        strokeLineCap: 'round' 
+                        strokeLineJoin: 'miter', 
+                        strokeLineCap: 'butt',
+                        strokeMiterLimit: 4
                     });
                     if (geo) {
                         geo.translate(offsetX, offsetY, 0);
@@ -242,7 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
             let offsetX = 0;
             if (align === 'center') offsetX = -w / 2;
             else if (align === 'right') offsetX = -w;
-            // left -> 0
 
             const offsetY = -i * lineSpacing;
             const shapes = lineShapesArr[i];
@@ -260,6 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (geos.length > 0) {
             finalGeo.computeBoundingBox();
+            finalGeo.computeBoundingSphere();
             const cx = -(finalGeo.boundingBox.max.x + finalGeo.boundingBox.min.x) / 2;
             const cy = -(finalGeo.boundingBox.max.y + finalGeo.boundingBox.min.y) / 2;
             finalGeo.translate(cx, cy, 0);
@@ -293,16 +297,23 @@ document.addEventListener("DOMContentLoaded", () => {
             if (firstMesh && firstMesh.userData.isText) {
                 document.getElementById('vecPropTextContainer').classList.remove('hidden');
                 document.getElementById('vecPropTextValue').value = firstMesh.userData.text;
-                document.getElementById('vecLineHeight').value = firstMesh.userData.textLineHeight || 1.2;
+                const lhInput = document.getElementById('vecLineHeight');
+                if (lhInput) lhInput.value = firstMesh.userData.textLineHeight || 1.2;
                 
                 const align = obj.userData.textAlign || 'center';
                 ['vecAlignLeft', 'vecAlignCenter', 'vecAlignRight'].forEach(id => {
-                    document.getElementById(id).classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-                    document.getElementById(id).classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+                    const btn = document.getElementById(id);
+                    if(btn) {
+                        btn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                        btn.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+                    }
                 });
                 const activeBtn = align === 'left' ? 'vecAlignLeft' : (align === 'right' ? 'vecAlignRight' : 'vecAlignCenter');
-                document.getElementById(activeBtn).classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-                document.getElementById(activeBtn).classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+                const btnActive = document.getElementById(activeBtn);
+                if(btnActive) {
+                    btnActive.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                    btnActive.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+                }
             } else {
                 document.getElementById('vecPropTextContainer').classList.add('hidden');
             }
@@ -390,12 +401,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!vectorState.activeObj) return;
         vectorState.activeObj.userData.textAlign = align;
         ['vecAlignLeft', 'vecAlignCenter', 'vecAlignRight'].forEach(id => {
-            document.getElementById(id).classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-            document.getElementById(id).classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+            const btn = document.getElementById(id);
+            if(btn) {
+                btn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+                btn.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+            }
         });
         const activeBtn = align === 'left' ? 'vecAlignLeft' : (align === 'right' ? 'vecAlignRight' : 'vecAlignCenter');
-        document.getElementById(activeBtn).classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
-        document.getElementById(activeBtn).classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+        const btnActive = document.getElementById(activeBtn);
+        if(btnActive) {
+            btnActive.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+            btnActive.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700/50');
+        }
         applyPropsToActive(true);
     }
 
@@ -432,7 +449,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const rotVal = parseFloat(document.getElementById('vecPropRotNum').value) || 0;
         const qualityVal = parseInt(document.getElementById('vecPropQualityNum').value) || 12;
         const textVal = document.getElementById('vecPropTextValue').value;
-        const lineHeightVal = parseFloat(document.getElementById('vecLineHeight').value) || 1.2;
+        const lineHeightVal = parseFloat(document.getElementById('vecLineHeight') ? document.getElementById('vecLineHeight').value : 1.2) || 1.2;
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
 
@@ -480,6 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (!strokeMesh) {
                             strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: strokeHex, depthWrite: true, alphaTest: 0.01 }));
                             strokeMesh.userData.isStroke = true;
+                            strokeMesh.frustumCulled = false;
                             strokeMesh.userData.parentMeshId = mesh.uuid;
                             mesh.parent.add(strokeMesh);
                         } else { strokeMesh.geometry.dispose(); strokeMesh.geometry = strokeGeo; }
@@ -523,6 +541,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderLayersList() {
         const list = document.getElementById('vectorLayersList');
+        const countSpan = document.getElementById('vectorLayerCount');
+        
+        if (countSpan) countSpan.textContent = vectorState.objects.length;
+        
         list.innerHTML = '';
         if (vectorState.objects.length === 0) {
             list.innerHTML = '<div class="text-[10px] text-slate-500 text-center py-4 bg-slate-900/30 rounded border border-slate-800 border-dashed">Слоев нет</div>';
@@ -552,6 +574,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     vectorState.objects = vectorState.objects.filter(o => o !== obj);
                     if (isActive) selectObject(null);
                     else renderLayersList();
+                    
+                    const countSpan = document.getElementById('vectorLayerCount');
+                    if (countSpan) countSpan.textContent = vectorState.objects.length;
+                    
                     if (window.updateExportState) window.updateExportState();
                     if (window.requestSceneRender) window.requestSceneRender();
                 } else if (e.target.closest('.dup-btn')) {
@@ -568,6 +594,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1) {
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
+        mesh.frustumCulled = false; 
         
         const group = new THREE.Group();
         group.uuid = THREE.MathUtils.generateUUID(); 
@@ -575,7 +602,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         group.scale.set(defaultScale, defaultScale, 1);
         
-        let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 50 : 50;
+        // Фикс "параллакса" (отступ всего 0.5)
+        let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         group.position.set(window.mapBounds ? window.mapBounds.centerX : 0, window.mapBounds ? window.mapBounds.centerY : 0, spawnZ);
         
         group.name = name;
@@ -625,7 +653,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     document.getElementById('btnAddText')?.addEventListener('click', () => {
-        const text = document.getElementById('vectorTextInput').value || 'GTA 5';
+        const textNode = document.getElementById('vectorTextInput');
+        const text = textNode ? textNode.value || 'GTA 5' : 'GTA 5';
         if (!vectorState.loadedFont) { window.showToast("Шрифт загружается...", "error"); return; }
         
         const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
@@ -662,7 +691,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         const geo = new THREE.ShapeGeometry(shape);
                         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                         geo.userData.tX = 0; geo.userData.tY = 0;
-                        group.add(new THREE.Mesh(geo, material));
+                        const mesh = new THREE.Mesh(geo, material);
+                        mesh.frustumCulled = false;
+                        group.add(mesh);
                     });
                 }
             });
@@ -683,7 +714,7 @@ document.addEventListener("DOMContentLoaded", () => {
             wrapper.userData.styleOverridden = false;
             wrapper.uuid = group.uuid;
 
-            let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 50 : 50;
+            let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
             wrapper.position.set(window.mapBounds ? window.mapBounds.centerX : 0, window.mapBounds ? window.mapBounds.centerY : 0, spawnZ);
             wrapper.renderOrder = 999;
             
@@ -718,15 +749,133 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecModeRotate')?.addEventListener('click', () => setTransformMode('rotate', 'vecModeRotate'));
     document.getElementById('vecModeScale')?.addEventListener('click', () => setTransformMode('scale', 'vecModeScale'));
     
-    window.exportVectorsToXMLFiles = function(stateFilesArray) {
-        if (vectorState.objects.length === 0) return 0;
+    // ЭКСПОРТ И ИНЖЕКТ СЛОЕВ ПО РАЗНЫМ ТАЙЛАМ (MCL -> 1_1, Вектора -> 2_2)
+    window.exportVectorsToXMLFiles = function(stateFilesArray, customFilesArray) {
+        if (vectorState.objects.length === 0 && (!customFilesArray || customFilesArray.length === 0)) return 0;
         
+        let modifiedCount = 0;
         const startX = -4500, stepX = 1175, topY = 8000, stepY = 1388;
-
         const { clipTriangleToCell } = window.GeometryUtils;
 
-        let allVectorTriangles = [];
+        function processAndInject(trianglesArray, tileNameSuffix) {
+            if (trianglesArray.length === 0) return;
+            trianglesArray.sort((a, b) => a.z - b.z);
+            const tiles = {};
 
+            trianglesArray.forEach(tri => {
+                const v1 = tri.v1, v2 = tri.v2, v3 = tri.v3;
+                const tMinX = Math.min(v1.x, v2.x, v3.x), tMaxX = Math.max(v1.x, v2.x, v3.x);
+                const tMinY = Math.min(v1.y, v2.y, v3.y), tMaxY = Math.max(v1.y, v2.y, v3.y);
+
+                const startGridX = Math.max(0, Math.floor((tMinX - startX) / stepX));
+                const endGridX = Math.min(7, Math.floor((tMaxX - startX) / stepX));
+                const startGridY = Math.max(0, Math.floor((topY - tMaxY) / stepY));
+                const endGridY = Math.min(8, Math.floor((topY - tMinY) / stepY));
+
+                for (let gx = startGridX; gx <= endGridX; gx++) {
+                    for (let gy = startGridY; gy <= endGridY; gy++) {
+                        const cellMinX = startX + gx * stepX;
+                        const cellMaxX = cellMinX + stepX;
+                        const cellMaxY = topY - gy * stepY;
+                        const cellMinY = cellMaxY - stepY;
+
+                        if (tMaxX < cellMinX || tMinX > cellMaxX || tMaxY < cellMinY || tMinY > cellMaxY) continue;
+
+                        const clippedPoly = clipTriangleToCell(v1, v2, v3, cellMinX, cellMaxX, cellMinY, cellMaxY);
+
+                        if (clippedPoly.length >= 3) {
+                            const tileKey = `${gx}_${gy}`;
+                            if (!tiles[tileKey]) {
+                                tiles[tileKey] = { gx: gx, gy: gy, vertices: [], indices: [], vertexMap: new Map(), minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
+                            }
+                            const tile = tiles[tileKey];
+                            const addVertex = (v) => {
+                                const vStr = `                ${v.x.toFixed(7)} ${v.y.toFixed(7)} ${v.z.toFixed(7)}   ${Math.round(v.r)} ${Math.round(v.g)} ${Math.round(v.b)} ${Math.round(v.a)}`;
+                                if (tile.vertexMap.has(vStr)) return tile.vertexMap.get(vStr);
+                                const newIdx = tile.vertices.length; tile.vertices.push(vStr); tile.vertexMap.set(vStr, newIdx);
+                                if(v.x < tile.minX) tile.minX = v.x; if(v.x > tile.maxX) tile.maxX = v.x;
+                                if(v.y < tile.minY) tile.minY = v.y; if(v.y > tile.maxY) tile.maxY = v.y;
+                                if(v.z < tile.minZ) tile.minZ = v.z; if(v.z > tile.maxZ) tile.maxZ = v.z;
+                                return newIdx;
+                            };
+                            const idx0 = addVertex(clippedPoly[0]);
+                            for (let pt = 1; pt < clippedPoly.length - 1; pt++) {
+                                tile.indices.push(idx0, addVertex(clippedPoly[pt]), addVertex(clippedPoly[pt+1]));
+                            }
+                        }
+                    }
+                }
+            });
+
+            Object.keys(tiles).forEach(key => {
+                const t = tiles[key]; 
+                if (t.vertices.length === 0) return;
+                
+                const targetFileName = `minimap_${t.gx}_${t.gy}.ydd.xml`;
+                const fullItemName = `supertile_fore_${t.gx}_${t.gy}_${tileNameSuffix}`;
+
+                let targetFile = stateFilesArray.find(f => f.name.toLowerCase() === targetFileName.toLowerCase());
+
+                if (targetFile) {
+                    const mergeParser = new DOMParser(); 
+                    const mergeDoc = mergeParser.parseFromString(targetFile.text, 'application/xml');
+                    let geometryChanged = false;
+                    const rootItems = Array.from(mergeDoc.documentElement.children).filter(child => child.nodeName === 'Item');
+                    
+                    let targetLayerItem = null;
+                    for (const item of rootItems) {
+                        const nameNode = item.querySelector('Name');
+                        if (nameNode && nameNode.textContent.toLowerCase() === fullItemName.toLowerCase()) {
+                            targetLayerItem = item; break;
+                        }
+                    }
+
+                    if (targetLayerItem) {
+                        const vb = targetLayerItem.querySelector('VertexBuffer');
+                        if (vb) {
+                            const ib = targetLayerItem.querySelector('IndexBuffer');
+                            const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data');
+                            const iDataNode = ib ? (ib.querySelector('Data2') || ib.querySelector('Data')) : null;
+                            if (!vDataNode || !iDataNode) throw new Error(`${targetFileName}: ${fullItemName} не содержит полные VertexBuffer/IndexBuffer`);
+                            
+                            const geomItem = vb.closest('Item') || vb.closest('Geometry');
+                            const mergeResult = window.GeometryUtils.applyYddGeometryMerge(vDataNode, iDataNode, geomItem, t.vertices, t.indices);
+                            geometryChanged = mergeResult.addedTriangleCount > 0;
+                        } else {
+                            const itemXml = window.createNewItemXml(t, fullItemName);
+                            const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
+                            const newNode = mergeDoc.importNode(tempDoc.querySelector('Item'), true);
+                            targetLayerItem.parentNode.replaceChild(newNode, targetLayerItem);
+                            geometryChanged = true;
+                        }
+                    } else {
+                        const itemXml = window.createNewItemXml(t, fullItemName);
+                        const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
+                        mergeDoc.documentElement.appendChild(mergeDoc.importNode(tempDoc.querySelector('Item'), true));
+                        geometryChanged = true;
+                    }
+                    
+                    if (geometryChanged) {
+                        const serializer = new XMLSerializer(); 
+                        targetFile.text = serializer.serializeToString(mergeDoc).replace(/\s+xmlns="[^"]*"/g, '');
+                        modifiedCount++;
+                    }
+                } else {
+                    const xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>\n<DrawableDictionary>\n${window.createNewItemXml(t, fullItemName)}\n</DrawableDictionary>`;
+                    const fileObj = {
+                        id: 'file_' + Math.random().toString(36).substring(2, 9),
+                        name: targetFileName,
+                        text: xmlTemplate,
+                        vertices: [], meshesData: [], isDefault: false, zOffset: 0
+                    };
+                    stateFilesArray.push(fileObj);
+                    modifiedCount++;
+                }
+            });
+        }
+
+        // --- Собираем треугольники для ТЕКСТА И ФИГУР ---
+        let allVectorTriangles = [];
         vectorState.objects.forEach(wrapper => {
             wrapper.updateMatrixWorld(true);
             wrapper.traverse((child) => {
@@ -762,126 +911,52 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        allVectorTriangles.sort((a, b) => a.z - b.z);
-
-        const tiles = {};
-
-        allVectorTriangles.forEach(tri => {
-            const v1 = tri.v1, v2 = tri.v2, v3 = tri.v3;
-            const tMinX = Math.min(v1.x, v2.x, v3.x), tMaxX = Math.max(v1.x, v2.x, v3.x);
-            const tMinY = Math.min(v1.y, v2.y, v3.y), tMaxY = Math.max(v1.y, v2.y, v3.y);
-
-            const startGridX = Math.max(0, Math.floor((tMinX - startX) / stepX));
-            const endGridX = Math.min(7, Math.floor((tMaxX - startX) / stepX));
-            const startGridY = Math.max(0, Math.floor((topY - tMaxY) / stepY));
-            const endGridY = Math.min(8, Math.floor((topY - tMinY) / stepY));
-
-            for (let gx = startGridX; gx <= endGridX; gx++) {
-                for (let gy = startGridY; gy <= endGridY; gy++) {
-                    const cellMinX = startX + gx * stepX;
-                    const cellMaxX = cellMinX + stepX;
-                    const cellMaxY = topY - gy * stepY;
-                    const cellMinY = cellMaxY - stepY;
-
-                    if (tMaxX < cellMinX || tMinX > cellMaxX || tMaxY < cellMinY || tMinY > cellMaxY) continue;
-
-                    const clippedPoly = clipTriangleToCell(v1, v2, v3, cellMinX, cellMaxX, cellMinY, cellMaxY);
-
-                    if (clippedPoly.length >= 3) {
-                        const tileKey = `${gx}_${gy}`;
-                        if (!tiles[tileKey]) {
-                            tiles[tileKey] = { gx: gx, gy: gy, vertices: [], indices: [], vertexMap: new Map(), minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
-                        }
-                        const tile = tiles[tileKey];
-                        const addVertex = (v) => {
-                            const vStr = `                ${v.x.toFixed(7)} ${v.y.toFixed(7)} ${v.z.toFixed(7)}   ${Math.round(v.r)} ${Math.round(v.g)} ${Math.round(v.b)} ${Math.round(v.a)}`;
-                            if (tile.vertexMap.has(vStr)) return tile.vertexMap.get(vStr);
-                            const newIdx = tile.vertices.length; tile.vertices.push(vStr); tile.vertexMap.set(vStr, newIdx);
-                            if(v.x < tile.minX) tile.minX = v.x; if(v.x > tile.maxX) tile.maxX = v.x;
-                            if(v.y < tile.minY) tile.minY = v.y; if(v.y > tile.maxY) tile.maxY = v.y;
-                            if(v.z < tile.minZ) tile.minZ = v.z; if(v.z > tile.maxZ) tile.maxZ = v.z;
-                            return newIdx;
-                        };
-                        const idx0 = addVertex(clippedPoly[0]);
-                        for (let pt = 1; pt < clippedPoly.length - 1; pt++) {
-                            tile.indices.push(idx0, addVertex(clippedPoly[pt]), addVertex(clippedPoly[pt+1]));
-                        }
-                    }
-                }
-            }
-        });
-
-        let modifiedCount = 0;
-        
-        Object.keys(tiles).forEach(key => {
-            const t = tiles[key]; 
-            if (t.vertices.length === 0) return;
-            
-            const targetFileName = `minimap_${t.gx}_${t.gy}.ydd.xml`;
-            const fullItemName = `supertile_fore_${t.gx}_${t.gy}_tile_2_2`;
-
-            let targetFile = stateFilesArray.find(f => f.name.toLowerCase() === targetFileName.toLowerCase());
-
-            if (targetFile) {
-                const mergeParser = new DOMParser(); 
-                const mergeDoc = mergeParser.parseFromString(targetFile.text, 'application/xml');
-                let geometryChanged = false;
-                const rootItems = Array.from(mergeDoc.documentElement.children).filter(child => child.nodeName === 'Item');
-                
-                let targetLayerItem = null;
-                for (const item of rootItems) {
-                    const nameNode = item.querySelector('Name');
-                    if (nameNode && nameNode.textContent.toLowerCase() === fullItemName.toLowerCase()) {
-                        targetLayerItem = item; break;
-                    }
-                }
-
-                if (targetLayerItem) {
-                    const vb = targetLayerItem.querySelector('VertexBuffer');
-                    if (vb) {
-                        const ib = targetLayerItem.querySelector('IndexBuffer');
-                        const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data');
-                        const iDataNode = ib ? (ib.querySelector('Data2') || ib.querySelector('Data')) : null;
-                        if (!vDataNode || !iDataNode) throw new Error(`${targetFileName}: tile_2_2 не содержит полные VertexBuffer/IndexBuffer`);
+        // --- Собираем треугольники для MCL ЗОН (customFilesArray) ---
+        let allMclTriangles = [];
+        if (customFilesArray && customFilesArray.length > 0) {
+            customFilesArray.forEach(file => {
+                if (!file.meshesData) return;
+                file.meshesData.forEach(data => {
+                    const pos = data.positions;
+                    const idx = data.indices.length > 0 ? data.indices : null;
+                    const origColors = data.originalColorsList;
+                    
+                    const faceCount = idx ? idx.length / 3 : pos.length / 3;
+                    for (let i = 0; i < faceCount; i++) {
+                        const i1 = idx ? idx[i*3] : i*3;
+                        const i2 = idx ? idx[i*3+1] : i*3+1;
+                        const i3 = idx ? idx[i*3+2] : i*3+2;
                         
-                        const geomItem = vb.closest('Item') || vb.closest('Geometry');
-                        const mergeResult = window.GeometryUtils.applyYddGeometryMerge(vDataNode, iDataNode, geomItem, t.vertices, t.indices);
-                        geometryChanged = mergeResult.addedTriangleCount > 0;
-                    } else {
-                        const itemXml = window.createNewItemXml(t, fullItemName);
-                        const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
-                        const newNode = mergeDoc.importNode(tempDoc.querySelector('Item'), true);
-                        targetLayerItem.parentNode.replaceChild(newNode, targetLayerItem);
-                        geometryChanged = true;
+                        const getVert = (index) => {
+                            const orig = origColors[index];
+                            if(!orig) return {x:0,y:0,z:0,r:0,g:0,b:0,a:0};
+                            const zSuf = (window.state && window.state.separateByZ) ? `_${Math.round(orig.z)}` : '';
+                            const key = `${orig.r}_${orig.g}_${orig.b}_${orig.a}${zSuf}`;
+                            const cmap = (window.state && window.state.colorsMap) ? window.state.colorsMap.get(key) : null;
+                            return {
+                                x: pos[index*3], y: pos[index*3+1], z: pos[index*3+2],
+                                r: cmap ? cmap.currentR : orig.r,
+                                g: cmap ? cmap.currentG : orig.g,
+                                b: cmap ? cmap.currentB : orig.b,
+                                a: cmap ? cmap.currentA : orig.a
+                            };
+                        };
+                        
+                        const v1 = getVert(i1), v2 = getVert(i2), v3 = getVert(i3);
+                        allMclTriangles.push({ v1, v2, v3, z: (v1.z + v2.z + v3.z)/3 });
                     }
-                } else {
-                    const itemXml = window.createNewItemXml(t, fullItemName);
-                    const tempDoc = new DOMParser().parseFromString(`<root>${itemXml}</root>`, 'application/xml');
-                    mergeDoc.documentElement.appendChild(mergeDoc.importNode(tempDoc.querySelector('Item'), true));
-                    geometryChanged = true;
-                }
-                
-                if (geometryChanged) {
-                    const serializer = new XMLSerializer(); 
-                    targetFile.text = serializer.serializeToString(mergeDoc).replace(/\s+xmlns="[^"]*"/g, '');
-                    modifiedCount++;
-                }
-            } else {
-                const xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>\n<DrawableDictionary>\n${window.createNewItemXml(t, fullItemName)}\n</DrawableDictionary>`;
-                const fileObj = {
-                    id: 'file_' + Math.random().toString(36).substring(2, 9),
-                    name: targetFileName,
-                    text: xmlTemplate,
-                    vertices: [], meshesData: [], isDefault: false, zOffset: 0
-                };
-                stateFilesArray.push(fileObj);
-                modifiedCount++;
-            }
-        });
+                });
+            });
+        }
+
+        // ИНЖЕКТИМ
+        processAndInject(allMclTriangles, 'tile_1_1'); // MCL Зоны -> tile_1_1
+        processAndInject(allVectorTriangles, 'tile_2_2'); // Текст и обводка -> tile_2_2
         
         return modifiedCount;
     };
     
+    // === JSON СЕРИАЛИЗАЦИЯ И ИМПОРТ ===
     window.getVectorFontForJSON = function() {
         if (!vectorState.loadedFontData) return { name: vectorState.loadedFontName, data: null };
         return { name: vectorState.loadedFontName, data: arrayBufferToBase64(vectorState.loadedFontData) };
@@ -967,7 +1042,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             const geo = new THREE.ShapeGeometry(shape);
                             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                             geo.userData.tX = 0; geo.userData.tY = 0;
-                            group.add(new THREE.Mesh(geo, material));
+                            const mesh = new THREE.Mesh(geo, material);
+                            mesh.frustumCulled = false;
+                            group.add(mesh);
                         });
                     }
                 });
@@ -1022,11 +1099,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 spawnLoadedVectorMesh(geo, data);
             }
         });
+        updateVectorsOrder();
     };
     
     function spawnLoadedVectorMesh(geometry, data) {
         const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
         
         if (data.isText) {
             mesh.userData.isText = true;
@@ -1072,6 +1151,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const restoredOpacity = data.opacity ?? 1;
                     const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: restoredOpacity, transparent: restoredOpacity < 1, depthWrite: true, alphaTest: 0.01 }));
                     strokeMesh.userData.isStroke = true;
+                    strokeMesh.frustumCulled = false;
                     strokeMesh.userData.strokeWidth = data.strokeWidth;
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
@@ -1089,8 +1169,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         scene.add(wrapper);
-        vectorState.objects.push(wrapper); 
-        updateVectorsOrder();
+        vectorState.objects.unshift(wrapper); 
         
         if (vectorState.pendingSelectId === wrapper.uuid) {
             selectObject(wrapper);
