@@ -113,10 +113,11 @@
                             <input type="file" id="vectorSvgInput" accept=".svg" class="hidden">
                         </label>
                     </div>
-                    <div class="grid grid-cols-3 gap-1.5 pt-1">
+                    <div class="grid grid-cols-4 gap-1.5 pt-1">
                         <button id="btnAddSquare" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="square" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Квадрат</span></button>
                         <button id="btnAddCircle" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="circle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Круг</span></button>
                         <button id="btnAddTriangle" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="triangle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Треугол.</span></button>
+                        <button id="btnAddMarker" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Маркер</span></button>
                     </div>
                 </div>
 
@@ -250,9 +251,23 @@
                 
             </div>
 
-            <!-- Контейнер Canvas -->
+<!-- Контейнер Canvas -->
             <div id="canvas-container" class="w-full h-full relative flex-1">
                 <canvas id="mapCanvas" class="w-full h-full block"></canvas>
+                
+<!-- Новая панель с подсказками по управлению -->
+                <div id="placementHintsPanel" class="absolute bottom-6 left-80 z-20 pointer-events-auto text-slate-300 text-[10px] space-y-1 bg-slate-900/60 backdrop-blur-md pl-3 pr-8 py-2.5 rounded-xl border border-slate-700/50 shadow-lg transition-opacity duration-200">
+                    <button onclick="document.getElementById('placementHintsPanel').classList.add('hidden')" class="absolute top-1.5 right-1.5 p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800/80 rounded-md transition-colors" title="Закрыть подсказку">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <p><b class="text-emerald-400 font-bold">ЛКМ</b> — Выделить / Разместить фигуру</p>
+                    <p><b class="text-emerald-400 font-bold">ЛКМ + Потянуть</b> — Изменить размер при создании</p>
+                    <p><b class="text-emerald-400 font-bold">W E R</b> — Переместить, Вращать, Масштаб</p>
+                    <p><b class="text-emerald-400 font-bold">Shift</b> — Пропорциональный размер для SVG</p>
+                    <p><b class="text-emerald-400 font-bold">Esc</b> — Отмена создания фигуры</p>
+                </div>
+                
+                <div id="loadingOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-40 transition-opacity duration-300">
                 
                 <div id="loadingOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-40 transition-opacity duration-300">
                     <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl mb-2">

@@ -11,6 +11,27 @@ const vectorState = {
     pendingSelectId: null 
 };
 
+// --- СОСТОЯНИЕ РЕЖИМА РАЗМЕЩЕНИЯ ---
+const placementState = {
+    active: false, geo: null, name: '', icon: '', isText: false, textContent: '', defaultScale: 100,
+    startPoint: new THREE.Vector3(), currentGroup: null, isDragging: false, prebuiltWrapper: null
+};
+
+function startPlacement(geometry, name, icon, isText = false, textContent = '', defaultScale = 100, prebuiltWrapper = null) {
+    placementState.active = true;
+    placementState.geo = geometry;
+    placementState.name = name;
+    placementState.icon = icon;
+    placementState.isText = isText;
+    placementState.textContent = textContent;
+    placementState.defaultScale = defaultScale;
+    placementState.prebuiltWrapper = prebuiltWrapper;
+    
+    renderer.domElement.style.cursor = 'crosshair';
+    window.showToast("Кликните на карту, зажмите и потяните для масштаба.", "success");
+    selectObject(null);
+}
+
 function getMeshes(object, includeStrokes = false) {
     const meshes = [];
     if (!object) return meshes;
@@ -97,6 +118,22 @@ document.addEventListener("DOMContentLoaded", () => {
     let initialScale = new THREE.Vector3();
     
     window.addEventListener('keydown', (e) => { 
+        if (e.key === 'Escape' && placementState.active) {
+            placementState.active = false;
+            placementState.isDragging = false;
+            if (placementState.currentGroup) {
+                scene.remove(placementState.currentGroup);
+                disposeObject3D(placementState.currentGroup);
+                vectorState.objects = vectorState.objects.filter(o => o !== placementState.currentGroup);
+                placementState.currentGroup = null;
+                renderLayersList();
+                if (window.requestSceneRender) window.requestSceneRender();
+            }
+            renderer.domElement.style.cursor = 'default';
+            controls.enabled = true;
+            window.showToast("Создание фигуры отменено");
+        }
+
         if (e.key === 'Shift') isShiftDown = true; 
         
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
@@ -152,6 +189,34 @@ document.addEventListener("DOMContentLoaded", () => {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
+
+        // --- ЛОГИКА РАЗМЕЩЕНИЯ (ПО КЛИКУ) ---
+        if (placementState.active) {
+            controls.enabled = false; 
+            const planeZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
+            raycaster.ray.intersectPlane(plane, placementState.startPoint);
+            
+            if (placementState.startPoint) {
+                if (placementState.prebuiltWrapper) {
+                    placementState.currentGroup = placementState.prebuiltWrapper;
+                    placementState.currentGroup.position.copy(placementState.startPoint);
+                    placementState.currentGroup.scale.set(0.1, placementState.currentGroup.userData.isSvg ? -0.1 : 0.1, 1);
+                    scene.add(placementState.currentGroup);
+                    vectorState.objects.unshift(placementState.currentGroup); 
+                    updateVectorsOrder();
+                } else {
+                    placementState.currentGroup = createVectorGroup(
+                        placementState.geo, placementState.name, placementState.icon, 
+                        placementState.isText, placementState.textContent, 0.1,
+                        placementState.startPoint
+                    );
+                }
+                placementState.isDragging = true;
+                renderLayersList();
+            }
+            return;
+        }
         
         let allMeshes = [];
         vectorState.objects.forEach(obj => {
@@ -169,6 +234,49 @@ document.addEventListener("DOMContentLoaded", () => {
             selectObject(clicked);
         } else {
             selectObject(null);
+        }
+    });
+
+    // --- ЛОГИКА ИЗМЕНЕНИЯ МАСШТАБА (МЫШЬ ЗАЖАТА) ---
+    renderer.domElement.addEventListener('pointermove', (e) => {
+        if (placementState.isDragging && placementState.currentGroup) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const planeZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
+            const currentPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, currentPoint);
+            
+            if (currentPoint) {
+                const dist = placementState.startPoint.distanceTo(currentPoint);
+                const signY = placementState.currentGroup.userData.isSvg ? -1 : 1;
+                const newScale = Math.max(1, dist); 
+                placementState.currentGroup.scale.set(newScale, newScale * signY, 1);
+                
+                if (window.requestSceneRender) window.requestSceneRender();
+            }
+        }
+    });
+
+    // --- ЛОГИКА ЗАВЕРШЕНИЯ РАЗМЕЩЕНИЯ (МЫШЬ ОТПУЩЕНА) ---
+    renderer.domElement.addEventListener('pointerup', (e) => {
+        if (placementState.isDragging && placementState.currentGroup) {
+            controls.enabled = true; 
+            placementState.isDragging = false;
+            
+            const signY = placementState.currentGroup.userData.isSvg ? -1 : 1;
+            if (Math.abs(placementState.currentGroup.scale.x) < 5) {
+                placementState.currentGroup.scale.set(placementState.defaultScale, placementState.defaultScale * signY, 1);
+            }
+            
+            selectObject(placementState.currentGroup);
+            placementState.active = false;
+            placementState.currentGroup = null;
+            renderer.domElement.style.cursor = 'default';
+            if (window.requestSceneRender) window.requestSceneRender();
         }
     });
 
@@ -348,23 +456,6 @@ document.addEventListener("DOMContentLoaded", () => {
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
     }
-
-    transformControl.addEventListener('change', () => {
-        if (vectorState.activeObj) {
-            if (transformControl.mode === 'scale') {
-                const currentScale = Math.abs(vectorState.activeObj.scale.x);
-                const scaleSlider = document.getElementById('vecPropScale');
-                const scaleNum = document.getElementById('vecPropScaleNum');
-                if (scaleSlider && scaleNum) { scaleSlider.value = currentScale; scaleNum.value = currentScale.toFixed(2); }
-            }
-            if (transformControl.mode === 'rotate') {
-                const degZ = THREE.MathUtils.radToDeg(vectorState.activeObj.rotation.z);
-                const rotSlider = document.getElementById('vecPropRot');
-                const rotNum = document.getElementById('vecPropRotNum');
-                if (rotSlider && rotNum) { rotSlider.value = degZ; rotNum.value = degZ.toFixed(1); }
-            }
-        }
-    });
 
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
         if (!vectorState.activeObj) return;
@@ -589,7 +680,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.lucide) window.lucide.createIcons();
     }
 
-    function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1) {
+    function createVectorGroup(geometry, name, icon, isText, textContent, scale, position) {
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
         mesh.frustumCulled = false; 
@@ -598,10 +689,8 @@ document.addEventListener("DOMContentLoaded", () => {
         group.uuid = THREE.MathUtils.generateUUID(); 
         group.add(mesh);
         
-        group.scale.set(defaultScale, defaultScale, 1);
-        
-        let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
-        group.position.set(window.mapBounds ? window.mapBounds.centerX : 0, window.mapBounds ? window.mapBounds.centerY : 0, spawnZ);
+        group.scale.set(scale, scale, 1);
+        group.position.copy(position);
         
         group.name = name;
         group.userData.icon = icon;
@@ -619,10 +708,10 @@ document.addEventListener("DOMContentLoaded", () => {
         scene.add(group);
         vectorState.objects.unshift(group); 
         updateVectorsOrder();
-        selectObject(group);
         
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
+        return group;
     }
 
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
@@ -630,7 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        spawnVectorMesh(geo, 'Квадрат', 'square', false, '', 100); 
+        startPlacement(geo, 'Квадрат', 'square', false, '', 100); 
     });
 
     document.getElementById('btnAddCircle')?.addEventListener('click', () => {
@@ -638,7 +727,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        spawnVectorMesh(geo, 'Круг', 'circle', false, '', 100);
+        startPlacement(geo, 'Круг', 'circle', false, '', 100);
     });
 
     document.getElementById('btnAddTriangle')?.addEventListener('click', () => {
@@ -646,9 +735,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        spawnVectorMesh(geo, 'Треугольник', 'triangle', false, '', 100);
+        startPlacement(geo, 'Треугольник', 'triangle', false, '', 100);
     });
     
+    document.getElementById('btnAddMarker')?.addEventListener('click', () => {
+        const shape = new THREE.Shape(); 
+        shape.moveTo(0, -0.5);
+        shape.bezierCurveTo(0.15, -0.15, 0.3, 0, 0.3, 0.2);
+        shape.absarc(0, 0.2, 0.3, 0, Math.PI, false);
+        shape.bezierCurveTo(-0.3, 0, -0.15, -0.15, 0, -0.5);
+        
+        const hole = new THREE.Path();
+        hole.absarc(0, 0.2, 0.12, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+
+        const geo = new THREE.ShapeGeometry(shape); 
+        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
+        startPlacement(geo, 'Маркер', 'map-pin', false, '', 100);
+    });
+
     document.getElementById('btnAddText')?.addEventListener('click', () => {
         const textNode = document.getElementById('vectorTextInput');
         const text = textNode ? textNode.value || 'GTA 5' : 'GTA 5';
@@ -656,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
         const displayName = text.split('\n')[0] || 'Текст';
-        spawnVectorMesh(geometry, displayName, 'type', true, text, 10); 
+        startPlacement(geometry, displayName, 'type', true, text, 100); 
     });
 
     document.getElementById('vectorSvgInput')?.addEventListener('change', (e) => {
@@ -710,19 +816,9 @@ document.addEventListener("DOMContentLoaded", () => {
             wrapper.userData.svgString = svgString;
             wrapper.userData.styleOverridden = false;
             wrapper.uuid = group.uuid;
-
-            let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
-            wrapper.position.set(window.mapBounds ? window.mapBounds.centerX : 0, window.mapBounds ? window.mapBounds.centerY : 0, spawnZ);
             wrapper.renderOrder = 999;
             
-            scene.add(wrapper);
-            vectorState.objects.unshift(wrapper);
-            updateVectorsOrder();
-            selectObject(wrapper);
-            
-            if (window.updateExportState) window.updateExportState();
-            if (window.requestSceneRender) window.requestSceneRender();
-            window.showToast("SVG загружен!");
+            startPlacement(null, wrapper.name, 'image', false, '', 100, wrapper);
             e.target.value = "";
           } catch (err) {
             console.error(err);
@@ -746,7 +842,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecModeRotate')?.addEventListener('click', () => setTransformMode('rotate', 'vecModeRotate'));
     document.getElementById('vecModeScale')?.addEventListener('click', () => setTransformMode('scale', 'vecModeScale'));
     
-    // ЭКСПОРТ И ИНЖЕКТ СЛОЕВ ПО РАЗНЫМ ТАЙЛАМ
     window.exportVectorsToXMLFiles = function(stateFilesArray, customFilesArray) {
         if (vectorState.objects.length === 0 && (!customFilesArray || customFilesArray.length === 0)) return 0;
         
@@ -905,7 +1000,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const geo = child.geometry.clone();
                     geo.applyMatrix4(child.matrixWorld);
 
-                    // ФИКС НОРМАЛЕЙ SVG
                     const det = child.matrixWorld.determinant();
                     const flipWinding = det < 0;
 
@@ -983,16 +1077,14 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // ТЕСТОВЫЙ РЕЖИМ: сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
-        const allTrianglesFor2_2 = allMclTriangles.concat(shapeTriangles).concat(textTriangles);
+        const tile1_1_Triangles = allMclTriangles.concat(shapeTriangles);
 
-        // Инжектим всё исключительно в слой tile_2_2
-        processAndInject(allTrianglesFor2_2, 'tile_2_2');
+        processAndInject(tile1_1_Triangles, 'tile_1_1');
+        processAndInject(textTriangles, 'tile_2_2');
         
         return modifiedCount;
     };
     
-    // === JSON СЕРИАЛИЗАЦИЯ И ИМПОРТ ===
     window.getVectorFontForJSON = function() {
         if (!vectorState.loadedFontData) return { name: vectorState.loadedFontName, data: null };
         return { name: vectorState.loadedFontName, data: arrayBufferToBase64(vectorState.loadedFontData) };
@@ -1129,6 +1221,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'triangle') {
                 const shape = new THREE.Shape(); shape.moveTo(0, 0.5); shape.lineTo(0.433, -0.25); shape.lineTo(-0.433, -0.25); shape.lineTo(0, 0.5);
+                const geo = new THREE.ShapeGeometry(shape); 
+                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                geo.userData.tX = 0; geo.userData.tY = 0;
+                spawnLoadedVectorMesh(geo, data);
+            } else if (data.icon === 'map-pin') {
+                const shape = new THREE.Shape(); 
+                shape.moveTo(0, -0.5);
+                shape.bezierCurveTo(0.15, -0.15, 0.3, 0, 0.3, 0.2);
+                shape.absarc(0, 0.2, 0.3, 0, Math.PI, false);
+                shape.bezierCurveTo(-0.3, 0, -0.15, -0.15, 0, -0.5);
+                
+                const hole = new THREE.Path();
+                hole.absarc(0, 0.2, 0.12, 0, Math.PI * 2, true);
+                shape.holes.push(hole);
+
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;

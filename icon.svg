@@ -1,4 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0f172a"/>
-  <path d="M12 46 24 14l13 28 7-17 8 21" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="gradEmerald" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    
+    <!-- Легкая тень под маркером, не мешающая при мелком масштабе -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+  
+  <!-- Тёмный скругленный фон, стилизованный под интерфейс -->
+  <rect width="512" height="512" rx="128" fill="#0f172a" />
+  
+  <!-- Монолитный маркер карты -->
+  <path d="M256 64 C167.6 64 96 135.6 96 224 C96 345.6 256 448 256 448 C256 448 416 345.6 416 224 C416 135.6 344.4 64 256 64 Z" fill="url(#gradEmerald)" filter="url(#shadow)" />
+  
+  <!-- Вырез по центру, формирующий черные соединительные линии (mesh) -->
+  <path d="M256 144 L328 264 L184 264 Z" fill="#0f172a" stroke="#0f172a" stroke-width="32" stroke-linejoin="round" />
+  
+  <!-- Крупные белые векторные "узлы" (идеально читаются даже при 16x16) -->
+  <rect x="224" y="112" width="64" height="64" rx="16" fill="#ffffff" />
+  <rect x="296" y="232" width="64" height="64" rx="16" fill="#ffffff" />
+  <rect x="152" y="232" width="64" height="64" rx="16" fill="#ffffff" />
 </svg>
