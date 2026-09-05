@@ -40,6 +40,7 @@ function getMeshes(object, includeStrokes = false) {
 }
 
 function getPrimaryMesh(object) { return getMeshes(object, false)[0] || null; }
+function getPrimaryVisibleMesh(object) { return getMeshes(object, false).find(m => m.visible) || getPrimaryMesh(object); }
 function getStrokeMeshes(object) { return getMeshes(object, true).filter(mesh => mesh.userData.isStroke); }
 
 function disposeObject3D(object) {
@@ -103,10 +104,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 vectorState.loadedFontName = file.name;
                 vectorState.loadedFontData = event.target.result.slice(0);
                 if (vectorState.activeObj) {
-                    const firstMesh = getPrimaryMesh(vectorState.activeObj);
-                    if (firstMesh && firstMesh.userData.isText) {
-                        applyPropsToActive(true);
-                    }
+                    const firstMesh = getPrimaryVisibleMesh(vectorState.activeObj);
+                    if (firstMesh && firstMesh.userData.isText) applyPropsToActive(true);
                 }
                 window.showToast("Шрифт (.ttf/.otf) загружен!", "success");
             } catch(err) { window.showToast("Ошибка при разборе шрифта!", "error"); }
@@ -190,7 +189,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         raycaster.setFromCamera(mouse, camera);
 
-        // --- ЛОГИКА РАЗМЕЩЕНИЯ (ПО КЛИКУ) ---
         if (placementState.active) {
             controls.enabled = false; 
             const planeZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
@@ -237,7 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- ЛОГИКА ИЗМЕНЕНИЯ МАСШТАБА (МЫШЬ ЗАЖАТА) ---
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (placementState.isDragging && placementState.currentGroup) {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -261,7 +258,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- ЛОГИКА ЗАВЕРШЕНИЯ РАЗМЕЩЕНИЯ (МЫШЬ ОТПУЩЕНА) ---
     renderer.domElement.addEventListener('pointerup', (e) => {
         if (placementState.isDragging && placementState.currentGroup) {
             controls.enabled = true; 
@@ -290,6 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
+    // ИСПРАВЛЕНИЕ: Обводка больше не имеет острых шипов и принудительно замыкает пути 
     function generateStrokeGeometry(shapesData, strokeWidth, quality) {
         if (!shapesData || shapesData.length === 0) return null;
         let strokeGeometries = [];
@@ -300,16 +297,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const ptsData = shape.extractPoints(quality);
                 
                 const processPath = (pts) => {
-                    if (pts.length === 0) return;
-                    if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) > 0.001) {
-                        pts.push(pts[0].clone());
+                    if (!pts || pts.length < 2) return;
+                    
+                    const vec2Pts = pts.map(p => new THREE.Vector2(p.x, p.y));
+                    
+                    // Защита от открытых контуров: смыкаем первую и последнюю точку
+                    if (vec2Pts[0].distanceTo(vec2Pts[vec2Pts.length - 1]) > 0.0001) {
+                        vec2Pts.push(vec2Pts[0].clone());
                     }
-                    const geo = THREE.SVGLoader.pointsToStroke(pts, { 
+                    
+                    const geo = THREE.SVGLoader.pointsToStroke(vec2Pts, { 
                         strokeWidth: strokeWidth, 
-                        strokeLineJoin: 'miter', 
-                        strokeLineCap: 'butt',
-                        strokeMiterLimit: 4
+                        strokeLineJoin: 'round', // Устраняет дикие шипы (вместо miter)
+                        strokeLineCap: 'round'
                     });
+                    
                     if (geo) {
                         geo.translate(offsetX, offsetY, 0);
                         strokeGeometries.push(geo);
@@ -317,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
 
                 processPath(ptsData.shape);
-                ptsData.holes.forEach(processPath);
+                if (ptsData.holes) ptsData.holes.forEach(processPath);
             });
         });
         
@@ -394,11 +396,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         vectorState.activeObj = obj;
+        const svgTools = document.getElementById('vecSvgTools');
+
         if (obj) {
             transformControl.attach(obj);
             document.getElementById('vectorPropsPanel').classList.remove('hidden');
             
-            const firstMesh = getPrimaryMesh(obj);
+            if (svgTools) {
+                if (obj.userData.isSvg) {
+                    svgTools.classList.remove('hidden');
+                    svgTools.classList.add('flex');
+                } else {
+                    svgTools.classList.add('hidden');
+                    svgTools.classList.remove('flex');
+                }
+            }
+
+            const firstMesh = getPrimaryVisibleMesh(obj);
             
             if (firstMesh && firstMesh.userData.isText) {
                 document.getElementById('vecPropTextContainer').classList.remove('hidden');
@@ -452,15 +466,72 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             transformControl.detach();
             document.getElementById('vectorPropsPanel').classList.add('hidden');
+            if (svgTools) {
+                svgTools.classList.add('hidden');
+                svgTools.classList.remove('flex');
+            }
         }
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
+    document.getElementById('vecBtnRemoveWhite')?.addEventListener('click', () => {
+        if (!vectorState.activeObj || !vectorState.activeObj.userData.isSvg) return;
+        const obj = vectorState.activeObj;
+        const meshes = getMeshes(obj, false);
+        let removed = 0;
+        if (!obj.userData.hiddenMeshIndices) obj.userData.hiddenMeshIndices = [];
+        
+        meshes.forEach((mesh, idx) => {
+            if (mesh.userData.originalColorHex === 'ffffff' && mesh.visible) {
+                mesh.visible = false;
+                if (!obj.userData.hiddenMeshIndices.includes(idx)) obj.userData.hiddenMeshIndices.push(idx);
+                removed++;
+            }
+        });
+        
+        if (removed > 0) {
+            window.showToast(`Удалено белых элементов: ${removed}`, 'success');
+            selectObject(obj);
+            if (window.requestSceneRender) window.requestSceneRender();
+        } else {
+            window.showToast('Белый фон не найден', 'error');
+        }
+    });
+
+    document.getElementById('vecBtnRemoveBg')?.addEventListener('click', () => {
+        if (!vectorState.activeObj || !vectorState.activeObj.userData.isSvg) return;
+        const obj = vectorState.activeObj;
+        const meshes = getMeshes(obj, false);
+        let maxArea = -1;
+        let bgIdx = -1;
+        
+        meshes.forEach((m, idx) => {
+            if (!m.visible) return; 
+            m.geometry.computeBoundingBox();
+            const box = m.geometry.boundingBox;
+            const area = (box.max.x - box.min.x) * (box.max.y - box.min.y);
+            if (area > maxArea) {
+                maxArea = area;
+                bgIdx = idx;
+            }
+        });
+        
+        if (bgIdx !== -1) {
+            if (!obj.userData.hiddenMeshIndices) obj.userData.hiddenMeshIndices = [];
+            meshes[bgIdx].visible = false;
+            if (!obj.userData.hiddenMeshIndices.includes(bgIdx)) obj.userData.hiddenMeshIndices.push(bgIdx);
+            
+            window.showToast("Самый большой контур скрыт", "success");
+            selectObject(obj); 
+            if (window.requestSceneRender) window.requestSceneRender();
+        }
+    });
+
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
         if (!vectorState.activeObj) return;
         const newText = e.target.value;
-        if (!newText.trim()) { const currentTextMesh = getPrimaryMesh(vectorState.activeObj); e.target.value = currentTextMesh?.userData.text || 'Текст'; window.showToast('Текст не может быть пустым', 'error'); return; }
+        if (!newText.trim()) { const currentTextMesh = getPrimaryVisibleMesh(vectorState.activeObj); e.target.value = currentTextMesh?.userData.text || 'Текст'; window.showToast('Текст не может быть пустым', 'error'); return; }
         const obj = vectorState.activeObj;
         const meshes = getMeshes(obj, false);
         
@@ -569,16 +640,23 @@ document.addEventListener("DOMContentLoaded", () => {
             forceRebuildStroke = true;
         }
 
+        // ИСПРАВЛЕНИЕ: Параллакс и Z-fighting. Ставим слой и обводку очень близко по Z.
         primaryMeshes.forEach(mesh => {
+            let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
+            
+            if (!mesh.visible) {
+                if (strokeMesh) strokeMesh.visible = false;
+                return;
+            }
+
             if (!obj.userData.isSvg || obj.userData.styleOverridden) {
                 mesh.material.color.set(colorHex);
                 mesh.material.opacity = alpha;
                 mesh.material.transparent = alpha < 1;
             }
             mesh.renderOrder = 999;
-            mesh.position.z = 0.1;
+            mesh.position.z = 0.01;
 
-            let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
                 if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || forceRebuildStroke) {
                     const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal);
@@ -598,10 +676,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
                 if (strokeMesh) {
+                    strokeMesh.visible = true;
                     strokeMesh.material.color.set(strokeHex); 
                     strokeMesh.material.opacity = alpha; 
                     strokeMesh.material.transparent = alpha < 1;
-                    strokeMesh.position.z = -0.1;
+                    strokeMesh.position.z = -0.01;
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
                 }
@@ -714,45 +793,46 @@ document.addEventListener("DOMContentLoaded", () => {
         return group;
     }
 
+    // ИСПРАВЛЕНИЕ: Базовые размеры фигур увеличены до 10, чтобы они совпадали с текстом
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.moveTo(-0.5, -0.5); shape.lineTo(0.5, -0.5); shape.lineTo(0.5, 0.5); shape.lineTo(-0.5, 0.5); shape.lineTo(-0.5, -0.5);
+        const shape = new THREE.Shape(); shape.moveTo(-5, -5); shape.lineTo(5, -5); shape.lineTo(5, 5); shape.lineTo(-5, 5); shape.lineTo(-5, -5);
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Квадрат', 'square', false, '', 100); 
+        startPlacement(geo, 'Квадрат', 'square', false, '', 10); 
     });
 
     document.getElementById('btnAddCircle')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.absarc(0, 0, 0.5, 0, Math.PI * 2, false);
+        const shape = new THREE.Shape(); shape.absarc(0, 0, 5, 0, Math.PI * 2, false);
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Круг', 'circle', false, '', 100);
+        startPlacement(geo, 'Круг', 'circle', false, '', 10);
     });
 
     document.getElementById('btnAddTriangle')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.moveTo(0, 0.5); shape.lineTo(0.433, -0.25); shape.lineTo(-0.433, -0.25); shape.lineTo(0, 0.5);
+        const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Треугольник', 'triangle', false, '', 100);
+        startPlacement(geo, 'Треугольник', 'triangle', false, '', 10);
     });
     
     document.getElementById('btnAddMarker')?.addEventListener('click', () => {
         const shape = new THREE.Shape(); 
-        shape.moveTo(0, -0.5);
-        shape.bezierCurveTo(0.15, -0.15, 0.3, 0, 0.3, 0.2);
-        shape.absarc(0, 0.2, 0.3, 0, Math.PI, false);
-        shape.bezierCurveTo(-0.3, 0, -0.15, -0.15, 0, -0.5);
+        shape.moveTo(0, -5);
+        shape.bezierCurveTo(1.5, -1.5, 3, 0, 3, 2);
+        shape.absarc(0, 2, 3, 0, Math.PI, false);
+        shape.bezierCurveTo(-3, 0, -1.5, -1.5, 0, -5);
         
         const hole = new THREE.Path();
-        hole.absarc(0, 0.2, 0.12, 0, Math.PI * 2, true);
+        hole.absarc(0, 2, 1.2, 0, Math.PI * 2, true);
         shape.holes.push(hole);
 
         const geo = new THREE.ShapeGeometry(shape); 
         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
         geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Маркер', 'map-pin', false, '', 100);
+        startPlacement(geo, 'Маркер', 'map-pin', false, '', 10);
     });
 
     document.getElementById('btnAddText')?.addEventListener('click', () => {
@@ -784,23 +864,31 @@ document.addEventListener("DOMContentLoaded", () => {
             svgData.paths.forEach((path) => {
                 const fillColor = path.userData.style.fill;
                 if (fillColor !== undefined && fillColor !== 'none') {
+                    const colorObj = new THREE.Color().setStyle(fillColor);
                     const material = new THREE.MeshBasicMaterial({
-                        color: new THREE.Color().setStyle(fillColor),
+                        color: colorObj,
                         opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
                         transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                     });
-                    const shapes = THREE.SVGLoader.createShapes(path);
-                    shapes.forEach((shape) => {
-                        const geo = new THREE.ShapeGeometry(shape);
-                        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-                        geo.userData.tX = 0; geo.userData.tY = 0;
-                        const mesh = new THREE.Mesh(geo, material);
-                        mesh.frustumCulled = false;
-                        group.add(mesh);
-                    });
+                    
+                    try {
+                        const shapes = THREE.SVGLoader.createShapes(path);
+                        shapes.forEach((shape) => {
+                            const geo = new THREE.ShapeGeometry(shape);
+                            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                            geo.userData.tX = 0; geo.userData.tY = 0;
+                            const mesh = new THREE.Mesh(geo, material);
+                            mesh.userData.originalColorHex = colorObj.getHexString();
+                            mesh.frustumCulled = false;
+                            group.add(mesh);
+                        });
+                    } catch (pathError) {
+                        console.warn('Пропущен сложный или некорректный контур SVG:', pathError);
+                    }
                 }
             });
-            if (getMeshes(group, false).length === 0) throw new Error('SVG не содержит поддерживаемых залитых контуров');
+            
+            if (getMeshes(group, false).length === 0) throw new Error('SVG не содержит поддерживаемых залитых контуров (или они вызвали ошибку)');
 
             const box = new THREE.Box3().setFromObject(group);
             const center = box.getCenter(new THREE.Vector3());
@@ -996,7 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             wrapper.updateMatrixWorld(true);
             wrapper.traverse((child) => {
-                if (child.isMesh && child.geometry) {
+                if (child.isMesh && child.geometry && child.visible) {
                     const geo = child.geometry.clone();
                     geo.applyMatrix4(child.matrixWorld);
 
@@ -1113,7 +1201,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 styleOverridden: Boolean(obj.userData.styleOverridden)
             };
             
-            const firstMesh = getPrimaryMesh(obj);
+            const firstMesh = getPrimaryVisibleMesh(obj);
             if (firstMesh) {
                 if (firstMesh.material) {
                     data.color = "#" + firstMesh.material.color.getHexString();
@@ -1131,6 +1219,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (obj.userData.isSvg) {
                     data.isSvg = true;
                     data.svgString = obj.userData.svgString;
+                    data.hiddenMeshIndices = obj.userData.hiddenMeshIndices || [];
                 }
                 
                 const strokeMesh = getStrokeMeshes(obj)[0];
@@ -1160,20 +1249,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 svgData.paths.forEach((path) => {
                     const fillColor = path.userData.style.fill;
                     if (fillColor !== undefined && fillColor !== 'none') {
+                        const colorObj = new THREE.Color().setStyle(fillColor);
                         const material = new THREE.MeshBasicMaterial({
-                            color: new THREE.Color().setStyle(fillColor),
+                            color: colorObj,
                             opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
                             transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                         });
-                        const shapes = THREE.SVGLoader.createShapes(path);
-                        shapes.forEach((shape) => {
-                            const geo = new THREE.ShapeGeometry(shape);
-                            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-                            geo.userData.tX = 0; geo.userData.tY = 0;
-                            const mesh = new THREE.Mesh(geo, material);
-                            mesh.frustumCulled = false;
-                            group.add(mesh);
-                        });
+                        try {
+                            const shapes = THREE.SVGLoader.createShapes(path);
+                            shapes.forEach((shape) => {
+                                const geo = new THREE.ShapeGeometry(shape);
+                                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                                geo.userData.tX = 0; geo.userData.tY = 0;
+                                const mesh = new THREE.Mesh(geo, material);
+                                mesh.userData.originalColorHex = colorObj.getHexString();
+                                mesh.frustumCulled = false;
+                                group.add(mesh);
+                            });
+                        } catch (pathError) { console.warn(pathError); }
                     }
                 });
                 
@@ -1190,6 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 wrapper.userData.isSvg = true;
                 wrapper.userData.svgString = data.svgString;
                 wrapper.userData.styleOverridden = Boolean(data.styleOverridden);
+                wrapper.userData.hiddenMeshIndices = data.hiddenMeshIndices || [];
                 
                 applyTransformAndProperties(wrapper, data);
             } else if (data.isText) {
@@ -1208,32 +1302,32 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (attempts > 50) clearInterval(checkFont); 
                 }, 100);
             } else if (data.icon === 'square') {
-                const shape = new THREE.Shape(); shape.moveTo(-0.5, -0.5); shape.lineTo(0.5, -0.5); shape.lineTo(0.5, 0.5); shape.lineTo(-0.5, 0.5); shape.lineTo(-0.5, -0.5);
+                const shape = new THREE.Shape(); shape.moveTo(-5, -5); shape.lineTo(5, -5); shape.lineTo(5, 5); shape.lineTo(-5, 5); shape.lineTo(-5, -5);
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'circle') {
-                const shape = new THREE.Shape(); shape.absarc(0, 0, 0.5, 0, Math.PI * 2, false);
+                const shape = new THREE.Shape(); shape.absarc(0, 0, 5, 0, Math.PI * 2, false);
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'triangle') {
-                const shape = new THREE.Shape(); shape.moveTo(0, 0.5); shape.lineTo(0.433, -0.25); shape.lineTo(-0.433, -0.25); shape.lineTo(0, 0.5);
+                const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'map-pin') {
                 const shape = new THREE.Shape(); 
-                shape.moveTo(0, -0.5);
-                shape.bezierCurveTo(0.15, -0.15, 0.3, 0, 0.3, 0.2);
-                shape.absarc(0, 0.2, 0.3, 0, Math.PI, false);
-                shape.bezierCurveTo(-0.3, 0, -0.15, -0.15, 0, -0.5);
+                shape.moveTo(0, -5);
+                shape.bezierCurveTo(1.5, -1.5, 3, 0, 3, 2);
+                shape.absarc(0, 2, 3, 0, Math.PI, false);
+                shape.bezierCurveTo(-3, 0, -1.5, -1.5, 0, -5);
                 
                 const hole = new THREE.Path();
-                hole.absarc(0, 0.2, 0.12, 0, Math.PI * 2, true);
+                hole.absarc(0, 2, 1.2, 0, Math.PI * 2, true);
                 shape.holes.push(hole);
 
                 const geo = new THREE.ShapeGeometry(shape); 
@@ -1275,8 +1369,15 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.scale.set(data.scale.x, data.scale.y, 1);
         wrapper.renderOrder = 999;
 
+        if (data.isSvg && wrapper.userData.hiddenMeshIndices) {
+            getMeshes(wrapper, false).forEach((mesh, idx) => {
+                if (wrapper.userData.hiddenMeshIndices.includes(idx)) mesh.visible = false;
+            });
+        }
+
         if (!data.isSvg || data.styleOverridden) {
             getMeshes(wrapper, false).forEach(mesh => {
+                if (!mesh.visible) return; 
                 if (data.color && mesh.material && mesh.material.color) mesh.material.color.set(data.color);
                 if (data.opacity !== undefined && mesh.material) {
                     mesh.material.opacity = data.opacity;
@@ -1287,8 +1388,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (data.hasStroke) {
             getMeshes(wrapper, false).forEach(firstMesh => {
-              if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
-                firstMesh.renderOrder = 999; firstMesh.position.z = 0.1;
+              if (firstMesh.geometry && firstMesh.geometry.userData.shapesData && firstMesh.visible) {
+                firstMesh.renderOrder = 999; firstMesh.position.z = 0.01;
                 const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
                 if (strokeGeo) {
                     const restoredOpacity = data.opacity ?? 1;
@@ -1299,7 +1400,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                    strokeMesh.position.z = -0.1;
+                    strokeMesh.position.z = -0.01;
                     strokeMesh.renderOrder = 998;
                     
                     const tX = firstMesh.geometry.userData.tX || 0;
