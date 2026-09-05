@@ -3,6 +3,7 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.GeometryUtils = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+    
     function lerpVertex(v1, v2, t) {
         t = Math.max(0, Math.min(1, t));
         return {
@@ -49,8 +50,9 @@
         if (parts.length < 7) throw new Error('YDD vertex must contain x, y, z, r, g, b, a');
         const coordinates = parts.slice(0, 3).map(Number);
         const colors = parts.slice(3, 7).map(Number);
+        const extra = parts.slice(7); 
         if (![...coordinates, ...colors].every(Number.isFinite)) throw new Error('YDD vertex contains a non-numeric value');
-        return { coordinates, colors };
+        return { coordinates, colors, extra };
     }
 
     function vertexKey(vertex) {
@@ -59,69 +61,15 @@
     }
 
     function formatVertex(vertex) {
-        const { coordinates, colors } = parseVertex(vertex);
-        return `                ${coordinates[0].toFixed(7)} ${coordinates[1].toFixed(7)} ${coordinates[2].toFixed(7)}   ${colors.map(value => Math.trunc(value)).join(' ')}`;
+        const { coordinates, colors, extra } = parseVertex(vertex);
+        const extraStr = (extra && extra.length > 0) ? ' ' + extra.join(' ') : '';
+        return `                ${coordinates[0].toFixed(7)} ${coordinates[1].toFixed(7)} ${coordinates[2].toFixed(7)}   ${colors.map(value => Math.trunc(value)).join(' ')}${extraStr}`;
     }
 
     function triangleKey(a, b, c) {
         const rotations = [`${a}|${b}|${c}`, `${b}|${c}|${a}`, `${c}|${a}|${b}`];
         rotations.sort();
         return rotations[0];
-    }
-
-    function calculateBoundsFromVertices(vertices) {
-        const parsed = vertices.map(parseVertex);
-        const min = { x: Infinity, y: Infinity, z: Infinity };
-        const max = { x: -Infinity, y: -Infinity, z: -Infinity };
-        for (const { coordinates } of parsed) {
-            min.x = Math.min(min.x, coordinates[0]);
-            min.y = Math.min(min.y, coordinates[1]);
-            min.z = Math.min(min.z, coordinates[2]);
-            max.x = Math.max(max.x, coordinates[0]);
-            max.y = Math.max(max.y, coordinates[1]);
-            max.z = Math.max(max.z, coordinates[2]);
-        }
-        if (!parsed.length) return null;
-        const center = {
-            x: (min.x + max.x) / 2,
-            y: (min.y + max.y) / 2,
-            z: (min.z + max.z) / 2
-        };
-        let radiusSq = 0;
-        for (const { coordinates } of parsed) {
-            const dx = coordinates[0] - center.x;
-            const dy = coordinates[1] - center.y;
-            const dz = coordinates[2] - center.z;
-            radiusSq = Math.max(radiusSq, dx * dx + dy * dy + dz * dz);
-        }
-        return { min, max, center, radius: Math.sqrt(radiusSq) };
-    }
-
-    function setDirectBounds(node, bounds, pad = 0) {
-        if (!node || !bounds) return;
-        const directChild = name => Array.from(node.children || []).find(child => child.nodeName === name);
-        const minNode = directChild('BoundingBoxMin');
-        const maxNode = directChild('BoundingBoxMax');
-        if (minNode) {
-            minNode.setAttribute('x', (bounds.min.x - pad).toFixed(6));
-            minNode.setAttribute('y', (bounds.min.y - pad).toFixed(6));
-            minNode.setAttribute('z', (bounds.min.z - pad).toFixed(6));
-            minNode.removeAttribute('w');
-        }
-        if (maxNode) {
-            maxNode.setAttribute('x', (bounds.max.x + pad).toFixed(6));
-            maxNode.setAttribute('y', (bounds.max.y + pad).toFixed(6));
-            maxNode.setAttribute('z', (bounds.max.z + pad).toFixed(6));
-            maxNode.removeAttribute('w');
-        }
-        const centerNode = directChild('BoundingSphereCenter');
-        const radiusNode = directChild('BoundingSphereRadius');
-        if (centerNode && radiusNode) {
-            centerNode.setAttribute('x', bounds.center.x.toFixed(6));
-            centerNode.setAttribute('y', bounds.center.y.toFixed(6));
-            centerNode.setAttribute('z', bounds.center.z.toFixed(6));
-            radiusNode.setAttribute('value', (bounds.radius + pad).toFixed(6));
-        }
     }
 
     function mergeYddGeometry(baseVertices, baseIndices, addedVertices, addedIndices) {
@@ -188,26 +136,92 @@
         };
     }
 
-    function applyYddGeometryMerge(vertexDataNode, indexDataNode, geometryNode, addedVertices, addedIndices) {
-        const baseVertices = String(vertexDataNode.textContent || '').split('\n').map(line => line.trim()).filter(line => line.split(/\s+/).length >= 7);
-        const baseIndices = String(indexDataNode.textContent || '').trim().split(/\s+/).filter(Boolean).map(Number);
-        const result = mergeYddGeometry(baseVertices, baseIndices, addedVertices, addedIndices);
+    function calculateBoundsFromVertices(vertices) {
+        if (!vertices || vertices.length === 0) return null;
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
-        vertexDataNode.textContent = `\n${result.vertices.join('\n')}\n              `;
-        let indexText = '\n';
-        for (let i = 0; i < result.indices.length; i += 24) indexText += `                ${result.indices.slice(i, i + 24).join(' ')}\n`;
-        indexDataNode.textContent = `${indexText}              `;
+        vertices.forEach(v => {
+            if (v.x < minX) minX = v.x; if (v.y < minY) minY = v.y; if (v.z < minZ) minZ = v.z;
+            if (v.x > maxX) maxX = v.x; if (v.y > maxY) maxY = v.y; if (v.z > maxZ) maxZ = v.z;
+        });
 
-        if (geometryNode) {
-            geometryNode.querySelectorAll('Vertices, VertexCount').forEach(node => { if (node.hasAttribute('value')) node.setAttribute('value', result.vertices.length); });
-            geometryNode.querySelectorAll('Indices, IndicesCount').forEach(node => { if (node.hasAttribute('value')) node.setAttribute('value', result.indices.length); });
-            geometryNode.querySelectorAll('PrimitiveCount').forEach(node => { if (node.hasAttribute('value')) node.setAttribute('value', result.indices.length / 3); });
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const centerZ = (minZ + maxZ) / 2;
 
-            const bounds = calculateBoundsFromVertices(result.vertices);
-            setDirectBounds(geometryNode, bounds, 0);
-        }
-        return result;
+        let maxRadiusSq = 0;
+        vertices.forEach(v => {
+            const dx = v.x - centerX, dy = v.y - centerY, dz = v.z - centerZ;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq > maxRadiusSq) maxRadiusSq = distSq;
+        });
+
+        return {
+            min: { x: minX, y: minY, z: minZ },
+            max: { x: maxX, y: maxY, z: maxZ },
+            center: { x: centerX, y: centerY, z: centerZ },
+            radius: Math.sqrt(maxRadiusSq)
+        };
     }
 
-    return { lerpVertex, clipPolygonAgainstEdge, clipTriangleToCell, vertexKey, triangleKey, mergeYddGeometry, applyYddGeometryMerge, calculateBoundsFromVertices };
+    function setDirectBounds(geomItem, bounds) {
+        if (!bounds) return;
+        const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
+        
+        const bMin = getDirectChild(geomItem, 'BoundingBoxMin');
+        if (bMin) { bMin.setAttribute('x', bounds.min.x.toFixed(6)); bMin.setAttribute('y', bounds.min.y.toFixed(6)); bMin.setAttribute('z', bounds.min.z.toFixed(6)); bMin.removeAttribute('w'); }
+        
+        const bMax = getDirectChild(geomItem, 'BoundingBoxMax');
+        if (bMax) { bMax.setAttribute('x', bounds.max.x.toFixed(6)); bMax.setAttribute('y', bounds.max.y.toFixed(6)); bMax.setAttribute('z', bounds.max.z.toFixed(6)); bMax.removeAttribute('w'); }
+        
+        const bCenter = getDirectChild(geomItem, 'BoundingSphereCenter');
+        if (bCenter) { bCenter.setAttribute('x', bounds.center.x.toFixed(6)); bCenter.setAttribute('y', bounds.center.y.toFixed(6)); bCenter.setAttribute('z', bounds.center.z.toFixed(6)); }
+        
+        const bRadius = getDirectChild(geomItem, 'BoundingSphereRadius');
+        if (bRadius) { bRadius.setAttribute('value', bounds.radius.toFixed(6)); }
+    }
+
+    function applyYddGeometryMerge(vDataNode, iDataNode, geomItem, newVertices, newIndices) {
+        let baseVLines = [];
+        vDataNode.textContent.split('\n').forEach(line => {
+            const p = line.trim().split(/\s+/).filter(Boolean);
+            if (p.length >= 7) baseVLines.push(`                ${p[0]} ${p[1]} ${p[2]}   ${p.slice(3).join(' ')}`);
+        });
+
+        let baseITokens = iDataNode.textContent.trim().split(/\s+/).filter(t => t !== '');
+
+        const mergeResult = mergeYddGeometry(baseVLines, baseITokens, newVertices, newIndices);
+
+        vDataNode.textContent = "\n" + mergeResult.vertices.join('\n') + "\n              ";
+        let iStr = "\n";
+        for (let i = 0; i < mergeResult.indices.length; i += 24) {
+            iStr += "                " + mergeResult.indices.slice(i, i + 24).join(" ") + "\n";
+        }
+        iDataNode.textContent = iStr + "              ";
+
+        geomItem.querySelectorAll('Vertices, VertexCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', mergeResult.vertices.length); });
+        geomItem.querySelectorAll('Indices, IndicesCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', mergeResult.indices.length); });
+        geomItem.querySelectorAll('PrimitiveCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', mergeResult.indices.length / 3); });
+
+        const parsedVerts = mergeResult.vertices.map(line => {
+            const p = line.trim().split(/\s+/).filter(Boolean);
+            return { x: parseFloat(p[0]), y: parseFloat(p[1]), z: parseFloat(p[2]) };
+        });
+        const bounds = calculateBoundsFromVertices(parsedVerts);
+        setDirectBounds(geomItem, bounds);
+        
+        const rootItem = geomItem.closest('Item');
+        if (rootItem && rootItem !== geomItem) setDirectBounds(rootItem, bounds);
+
+        return mergeResult;
+    }
+
+    return {
+        clipTriangleToCell,
+        mergeYddGeometry,
+        calculateBoundsFromVertices,
+        setDirectBounds,
+        applyYddGeometryMerge
+    };
 });

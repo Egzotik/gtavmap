@@ -44,7 +44,6 @@ function base64ToArrayBuffer(value) {
 
 window.getVectorCount = () => vectorState.objects.length;
 
-// Очистка векторов
 window.clearVectors = function() {
     if (window.vectorTransformControl) window.vectorTransformControl.detach();
     vectorState.objects.forEach(obj => { scene.remove(obj); disposeObject3D(obj); });
@@ -197,7 +196,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) > 0.001) {
                         pts.push(pts[0].clone());
                     }
-                    // Уменьшаем количество вертексов в 10 раз за счет прямых углов
                     const geo = THREE.SVGLoader.pointsToStroke(pts, { 
                         strokeWidth: strokeWidth, 
                         strokeLineJoin: 'miter', 
@@ -602,7 +600,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         group.scale.set(defaultScale, defaultScale, 1);
         
-        // Фикс "параллакса" (отступ всего 0.5)
         let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         group.position.set(window.mapBounds ? window.mapBounds.centerX : 0, window.mapBounds ? window.mapBounds.centerY : 0, spawnZ);
         
@@ -749,13 +746,23 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecModeRotate')?.addEventListener('click', () => setTransformMode('rotate', 'vecModeRotate'));
     document.getElementById('vecModeScale')?.addEventListener('click', () => setTransformMode('scale', 'vecModeScale'));
     
-    // ЭКСПОРТ И ИНЖЕКТ СЛОЕВ ПО РАЗНЫМ ТАЙЛАМ (MCL -> 1_1, Вектора -> 2_2)
+    // ЭКСПОРТ И ИНЖЕКТ СЛОЕВ ПО РАЗНЫМ ТАЙЛАМ
     window.exportVectorsToXMLFiles = function(stateFilesArray, customFilesArray) {
         if (vectorState.objects.length === 0 && (!customFilesArray || customFilesArray.length === 0)) return 0;
         
         let modifiedCount = 0;
         const startX = -4500, stepX = 1175, topY = 8000, stepY = 1388;
         const { clipTriangleToCell } = window.GeometryUtils;
+
+        function calcPolyArea(poly) {
+            let area = 0;
+            for (let i = 0; i < poly.length; i++) {
+                let p1 = poly[i];
+                let p2 = poly[(i + 1) % poly.length];
+                area += (p1.x * p2.y) - (p2.x * p1.y);
+            }
+            return Math.abs(area) * 0.5;
+        }
 
         function processAndInject(trianglesArray, tileNameSuffix) {
             if (trianglesArray.length === 0) return;
@@ -783,19 +790,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         const clippedPoly = clipTriangleToCell(v1, v2, v3, cellMinX, cellMaxX, cellMinY, cellMaxY);
 
-                        if (clippedPoly.length >= 3) {
+                        if (clippedPoly.length >= 3 && calcPolyArea(clippedPoly) > 1e-6) {
                             const tileKey = `${gx}_${gy}`;
                             if (!tiles[tileKey]) {
-                                tiles[tileKey] = { gx: gx, gy: gy, vertices: [], indices: [], vertexMap: new Map(), minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
+                                tiles[tileKey] = { 
+                                    gx: gx, gy: gy, 
+                                    vertices: [], indices: [], vertexMap: new Map(),
+                                    minX: Infinity, minY: Infinity, minZ: Infinity, 
+                                    maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity
+                                };
                             }
                             const tile = tiles[tileKey];
                             const addVertex = (v) => {
                                 const vStr = `                ${v.x.toFixed(7)} ${v.y.toFixed(7)} ${v.z.toFixed(7)}   ${Math.round(v.r)} ${Math.round(v.g)} ${Math.round(v.b)} ${Math.round(v.a)}`;
                                 if (tile.vertexMap.has(vStr)) return tile.vertexMap.get(vStr);
-                                const newIdx = tile.vertices.length; tile.vertices.push(vStr); tile.vertexMap.set(vStr, newIdx);
+                                const newIdx = tile.vertices.length; 
+                                tile.vertices.push(vStr); 
+                                tile.vertexMap.set(vStr, newIdx);
+
                                 if(v.x < tile.minX) tile.minX = v.x; if(v.x > tile.maxX) tile.maxX = v.x;
                                 if(v.y < tile.minY) tile.minY = v.y; if(v.y > tile.maxY) tile.maxY = v.y;
                                 if(v.z < tile.minZ) tile.minZ = v.z; if(v.z > tile.maxZ) tile.maxZ = v.z;
+
                                 return newIdx;
                             };
                             const idx0 = addVertex(clippedPoly[0]);
@@ -812,7 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (t.vertices.length === 0) return;
                 
                 const targetFileName = `minimap_${t.gx}_${t.gy}.ydd.xml`;
-                const fullItemName = `supertile_fore_${t.gx}_${t.gy}_${tileNameSuffix}`;
+                const fullItemName = tileNameSuffix ? `supertile_fore_${t.gx}_${t.gy}_${tileNameSuffix}` : `supertile_fore_${t.gx}_${t.gy}`;
 
                 let targetFile = stateFilesArray.find(f => f.name.toLowerCase() === targetFileName.toLowerCase());
 
@@ -874,14 +890,24 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // --- Собираем треугольники для ТЕКСТА И ФИГУР ---
-        let allVectorTriangles = [];
+        let shapeTriangles = [];
+        let textTriangles = [];
+
         vectorState.objects.forEach(wrapper => {
+            let isTextWrapper = false;
+            wrapper.traverse((c) => {
+                if (c.isMesh && c.userData && c.userData.isText) isTextWrapper = true;
+            });
+
             wrapper.updateMatrixWorld(true);
             wrapper.traverse((child) => {
                 if (child.isMesh && child.geometry) {
                     const geo = child.geometry.clone();
                     geo.applyMatrix4(child.matrixWorld);
+
+                    // ФИКС НОРМАЛЕЙ SVG
+                    const det = child.matrixWorld.determinant();
+                    const flipWinding = det < 0;
 
                     const matColor = child.material.color || new THREE.Color(1,1,1);
                     const opacity = child.material.opacity !== undefined ? child.material.opacity : 1;
@@ -898,20 +924,28 @@ document.addEventListener("DOMContentLoaded", () => {
                     const faceCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
 
                     for (let i = 0; i < faceCount; i++) {
-                        const idx1 = indexAttr ? indexAttr.getX(i * 3) : i * 3;
-                        const idx2 = indexAttr ? indexAttr.getX(i * 3 + 1) : i * 3 + 1;
-                        const idx3 = indexAttr ? indexAttr.getX(i * 3 + 2) : i * 3 + 2;
+                        let idx1 = indexAttr ? indexAttr.getX(i * 3) : i * 3;
+                        let idx2 = indexAttr ? indexAttr.getX(i * 3 + 1) : i * 3 + 1;
+                        let idx3 = indexAttr ? indexAttr.getX(i * 3 + 2) : i * 3 + 2;
+
+                        if (flipWinding) {
+                            let temp = idx2; idx2 = idx3; idx3 = temp;
+                        }
 
                         const v1 = getVertex(idx1), v2 = getVertex(idx2), v3 = getVertex(idx3);
                         const avgZ = (v1.z + v2.z + v3.z) / 3;
-                        allVectorTriangles.push({ v1, v2, v3, z: avgZ });
+
+                        if (isTextWrapper) {
+                            textTriangles.push({ v1, v2, v3, z: avgZ });
+                        } else {
+                            shapeTriangles.push({ v1, v2, v3, z: avgZ });
+                        }
                     }
                     geo.dispose();
                 }
             });
         });
 
-        // --- Собираем треугольники для MCL ЗОН (customFilesArray) ---
         let allMclTriangles = [];
         if (customFilesArray && customFilesArray.length > 0) {
             customFilesArray.forEach(file => {
@@ -949,9 +983,11 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // ИНЖЕКТИМ
-        processAndInject(allMclTriangles, 'tile_1_1'); // MCL Зоны -> tile_1_1
-        processAndInject(allVectorTriangles, 'tile_2_2'); // Текст и обводка -> tile_2_2
+        // ТЕСТОВЫЙ РЕЖИМ: сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
+        const allTrianglesFor2_2 = allMclTriangles.concat(shapeTriangles).concat(textTriangles);
+
+        // Инжектим всё исключительно в слой tile_2_2
+        processAndInject(allTrianglesFor2_2, 'tile_2_2');
         
         return modifiedCount;
     };

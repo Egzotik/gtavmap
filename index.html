@@ -24,21 +24,36 @@
     
     <style>
         ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #090d16; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(30, 41, 59, 0.8); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(51, 65, 85, 0.9); }
         .color-picker-wrapper { background: conic-gradient(#334155 90deg, #0f172a 90deg 180deg, #334155 180deg 270deg, #0f172a 270deg) 0 0 / 8px 8px; }
-        #leftToolsPanel, #sidebarPanel { transition: width 0.3s ease, opacity 0.3s ease; }
-        #leftToolsPanel.hidden-panel, #sidebarPanel.hidden-panel { width: 0 !important; opacity: 0 !important; overflow: hidden !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+        
+        /* Плавная анимация скрытия плавающих панелей */
+        #leftToolsPanel, #sidebarPanel { 
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; 
+        }
+        #leftToolsPanel.hidden-panel { 
+            /* Уводим за экран с учетом отступа left-4 (1rem) */
+            transform: translateX(calc(-100% - 1rem)); 
+            opacity: 0; 
+            pointer-events: none; 
+        }
+        #sidebarPanel.hidden-panel { 
+            /* Уводим за экран с учетом отступа right-4 (1rem) */
+            transform: translateX(calc(100% + 1rem)); 
+            opacity: 0; 
+            pointer-events: none; 
+        }
     </style>
 </head>
 <body class="bg-darkbg text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans antialiased">
 
-    <header class="h-12 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-3 flex items-center justify-between shrink-0 z-30 text-xs">
+    <!-- Верхняя шапка (Header) -->
+    <header class="h-12 bg-slate-900/60 backdrop-blur-lg border-b border-slate-700/50 px-3 flex items-center justify-between shrink-0 z-40 text-xs relative shadow-sm">
         <div class="flex items-center space-x-2">
-            <!-- Кнопки панелей убраны отсюда -->
             <div class="p-1 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-emerald-400"><i data-lucide="map" class="w-4 h-4"></i></div>
-            <h1 class="font-bold text-white flex items-center gap-1.5">Map Editor <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">v7.7</span></h1>
+            <h1 class="font-bold text-white flex items-center gap-1.5">Map Editor <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">v8.0</span></h1>
             <a href="https://discord.gg/HNfHccg2qd" target="_blank" rel="noopener noreferrer" class="ml-2 px-2 py-1 bg-[#5865F2]/20 hover:bg-[#5865F2]/40 border border-[#5865F2]/50 rounded-md text-[#5865F2] transition flex items-center gap-1.5 text-[10px] font-bold">
                 <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 127.14 96.36" xmlns="http://www.w3.org/2000/svg"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg> Discord
             </a>
@@ -46,36 +61,38 @@
 
         <div class="flex items-center space-x-2">
             <div id="quickLoadContainer" class="flex items-center gap-1.5 mr-2 border-r border-slate-700 pr-3">
-                <button data-xml-url="xml/mcl.xml" data-z-offset="20" class="quick-xml-btn px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
+                <button data-xml-url="xml/mcl.ydr.xml" data-z-offset="20" class="quick-xml-btn w-24 justify-center px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i> Зоны MCL
                 </button>
-                <button data-xml-url="xml/dm.xml" data-z-offset="20" class="quick-xml-btn px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
+                <button data-xml-url="xml/dm.ydr.xml" data-z-offset="20" class="quick-xml-btn w-24 justify-center px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i> Деморган
                 </button>
-                <button data-xml-url="xml/fz.xml" data-z-offset="20" class="quick-xml-btn px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
+                <button data-xml-url="xml/fz.ydr.xml" data-z-offset="20" class="quick-xml-btn w-24 justify-center px-2.5 py-1 text-[11px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-md transition flex items-center gap-1 shadow-sm">
                     <i data-lucide="layers" class="w-3.5 h-3.5"></i> ФЗ
                 </button>
             </div>
 
-            <button id="toggleSeaBtn" class="btn-toggle px-2.5 py-1 text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700 rounded-md transition flex items-center gap-1 mr-1">
+            <button id="toggleSeaBtn" class="btn-toggle px-2.5 py-1 text-[11px] font-medium bg-slate-800/80 text-slate-300 hover:text-slate-200 border border-slate-700/80 rounded-md transition flex items-center gap-1 mr-1 backdrop-blur-sm">
                 <i data-lucide="waves" class="w-3 h-3"></i> Непрозрачное море
             </button>
             <button id="invertAllColorsBtn" class="px-2.5 py-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-md transition flex items-center gap-1"><i data-lucide="flip-horizontal" class="w-3 h-3"></i> Инвертировать все</button>
-            <div class="h-3.5 w-px bg-slate-800"></div>
-            <button id="screenshotBtn" class="px-2.5 py-1 text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition flex items-center gap-1">
+            <div class="h-3.5 w-px bg-slate-700"></div>
+            <button id="screenshotBtn" onclick="window.takeScreenshot()" class="px-2.5 py-1 text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-md transition flex items-center gap-1 backdrop-blur-sm">
                 <i data-lucide="camera" class="w-3 h-3 text-emerald-400"></i> Скриншот
             </button>
-            <button id="saveProjectBtn" disabled class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded-md transition flex items-center gap-1"><i data-lucide="file-json" class="w-3 h-3 text-blue-400"></i> Сохранить JSON</button>
-            <label class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition flex items-center gap-1 cursor-pointer">
+            <button id="saveProjectBtn" disabled class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-40 border border-slate-700/80 rounded-md transition flex items-center gap-1 backdrop-blur-sm"><i data-lucide="file-json" class="w-3 h-3 text-blue-400"></i> Сохранить JSON</button>
+            <label class="px-2.5 py-1 text-[11px] font-medium text-slate-200 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 rounded-md transition flex items-center gap-1 cursor-pointer backdrop-blur-sm">
                 <i data-lucide="folder-open" class="w-3 h-3 text-amber-400"></i> Открыть JSON <input type="file" id="loadJsonInput" accept=".json" class="hidden">
             </label>
             <button id="exportZipBtn" disabled class="px-3 py-1 text-[11px] font-semibold text-slate-900 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 rounded-md transition flex items-center gap-1 shadow-sm"><i data-lucide="download" class="w-3 h-3"></i> Скачать ZIP</button>
         </div>
     </header>
 
-    <div class="flex-1 flex w-full h-[calc(100vh-3rem)] overflow-hidden relative">
-        <aside id="leftToolsPanel" class="w-72 bg-sidebarbg border-r border-slate-800 flex flex-col h-full z-20 shrink-0 hidden-panel">
-            <div class="p-2.5 border-b border-slate-800 bg-slate-900/50 shrink-0 flex justify-between items-center">
+    <div class="flex-1 w-full h-[calc(100vh-3rem)] overflow-hidden relative">
+        
+        <!-- Левая плавающая панель -->
+        <aside id="leftToolsPanel" class="absolute left-4 top-4 bottom-24 w-72 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl flex flex-col z-30 shrink-0 shadow-2xl overflow-hidden">
+            <div class="p-2.5 border-b border-slate-700/50 bg-slate-900/40 shrink-0 flex justify-between items-center">
                 <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="pen-tool" class="w-3.5 h-3.5 text-emerald-400"></i> Векторные слои</h2>
             </div>
             <div class="flex-1 overflow-y-auto p-3 flex flex-col text-xs">
@@ -83,32 +100,32 @@
                 <div class="space-y-2">
                     <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">Создание</label>
                     <div class="flex gap-1.5 mb-1">
-                        <textarea id="vectorTextInput" rows="2" placeholder="Текст (Enter - перенос)..." class="flex-1 bg-slate-900 border border-slate-700 rounded text-slate-200 px-2 py-1.5 outline-none focus:border-emerald-500 font-bold resize-none"></textarea>
-                        <button id="btnAddText" title="Добавить Текст" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded transition"><i data-lucide="type" class="w-3.5 h-3.5"></i></button>
+                        <textarea id="vectorTextInput" rows="2" placeholder="Текст (Enter - перенос)..." class="flex-1 bg-slate-950/50 border border-slate-700/80 rounded-lg text-slate-200 px-2 py-1.5 outline-none focus:border-emerald-500 font-bold resize-none"></textarea>
+                        <button id="btnAddText" title="Добавить Текст" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition"><i data-lucide="type" class="w-3.5 h-3.5"></i></button>
                     </div>
                     <div class="flex gap-1.5 mt-1">
-                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700 hover:border-emerald-500 bg-slate-800/50 hover:bg-slate-800 rounded cursor-pointer transition text-slate-300">
-                            <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-[9px]">Шрифт (.TTF / .OTF)</span>
+                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
+                            <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-[9px]">Шрифт (.TTF)</span>
                             <input type="file" id="vectorFontInput" accept=".ttf,.otf" class="hidden">
                         </label>
-                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700 hover:border-emerald-500 bg-slate-800/50 hover:bg-slate-800 rounded cursor-pointer transition text-slate-300">
+                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
                             <i data-lucide="image" class="w-3.5 h-3.5 text-amber-400"></i> <span class="text-[9px]">Свой SVG (.svg)</span>
                             <input type="file" id="vectorSvgInput" accept=".svg" class="hidden">
                         </label>
                     </div>
                     <div class="grid grid-cols-3 gap-1.5 pt-1">
-                        <button id="btnAddSquare" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="square" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Квадрат</span></button>
-                        <button id="btnAddCircle" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="circle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Круг</span></button>
-                        <button id="btnAddTriangle" class="py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="triangle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Треугол.</span></button>
+                        <button id="btnAddSquare" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="square" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Квадрат</span></button>
+                        <button id="btnAddCircle" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="circle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Круг</span></button>
+                        <button id="btnAddTriangle" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="triangle" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Треугол.</span></button>
                     </div>
                 </div>
 
-                <div id="vectorPropsPanel" class="space-y-3 pt-3 border-t border-slate-800/60 hidden mt-3">
+                <div id="vectorPropsPanel" class="space-y-3 pt-3 border-t border-slate-700/50 hidden mt-3">
                     <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
                         <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i> Настройки слоя
                     </label>
                     
-                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800 space-y-2.5 shadow-inner">
+                    <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2.5 shadow-inner">
                         <div id="vecPropTextContainer" class="hidden flex flex-col gap-1 mb-1">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-slate-400 text-[9px] uppercase tracking-wider font-semibold">Текст:</span>
@@ -118,72 +135,72 @@
                                     <button id="vecAlignRight" class="p-0.5 rounded text-slate-400 bg-slate-800 border border-slate-700 hover:text-emerald-400"><i data-lucide="align-right" class="w-3 h-3"></i></button>
                                 </div>
                             </div>
-                            <textarea id="vecPropTextValue" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 font-medium text-[10px] shadow-inner resize-none"></textarea>
+                            <textarea id="vecPropTextValue" rows="2" class="w-full bg-slate-950/50 border border-slate-700/80 rounded-lg text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 font-medium text-[10px] shadow-inner resize-none"></textarea>
                             <div class="flex items-center justify-between mt-1">
                                 <span class="text-slate-400 text-[9px]">Интервал строк:</span>
-                                <input type="number" id="vecLineHeight" step="0.1" value="1.2" class="w-12 bg-slate-950 border border-slate-700 rounded p-0.5 text-emerald-400 font-bold outline-none text-[9px] text-center shadow-inner">
+                                <input type="number" id="vecLineHeight" step="0.1" value="1.2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-0.5 text-emerald-400 font-bold outline-none text-[9px] text-center shadow-inner">
                             </div>
                         </div>
 
                         <!-- Масштаб -->
                         <div class="flex items-center gap-2">
                             <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" title="1 единица = 1 метр">Размер:</span>
-                            <input type="range" id="vecPropScale" min="1" max="5000" step="1" value="100" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="vecPropScaleNum" min="1" max="5000" step="1" value="100" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            <input type="range" id="vecPropScale" min="1" max="5000" step="1" value="100" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropScaleNum" min="1" max="5000" step="1" value="100" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
 
                         <!-- Поворот -->
-                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/50">
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-700/50">
                             <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0">Поворот:</span>
-                            <input type="range" id="vecPropRot" min="-180" max="180" step="1" value="0" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="vecPropRotNum" min="-180" max="180" step="1" value="0" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            <input type="range" id="vecPropRot" min="-180" max="180" step="1" value="0" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropRotNum" min="-180" max="180" step="1" value="0" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
                         
                         <!-- Качество -->
-                        <div class="flex items-center gap-2 pt-1 border-t border-slate-800/50">
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-700/50">
                             <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" title="Влияет на плавность контуров и вес файла">Качество:</span>
-                            <input type="range" id="vecPropQuality" min="1" max="40" step="1" value="12" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="vecPropQualityNum" min="1" max="40" step="1" value="12" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            <input type="range" id="vecPropQuality" min="1" max="40" step="1" value="12" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropQualityNum" min="1" max="40" step="1" value="12" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
 
                         <!-- Цвет и Прозрачность -->
-                        <div class="flex items-center gap-2 pt-1.5 border-t border-slate-800/50">
+                        <div class="flex items-center gap-2 pt-1.5 border-t border-slate-700/50">
                             <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0">Цвет:</span>
-                            <input type="color" id="vecPropColor" value="#ffffff" class="w-6 h-6 rounded bg-slate-950 border border-slate-700 cursor-pointer shrink-0 shadow-sm">
-                            <input type="range" id="vecPropAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer ml-1" title="Прозрачность">
+                            <input type="color" id="vecPropColor" value="#ffffff" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
+                            <input type="range" id="vecPropAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer ml-1" title="Прозрачность">
                         </div>
                     </div>
 
-                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800 space-y-2 shadow-inner">
+                    <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2 shadow-inner">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="vecPropStroke" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded"> 
                             <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wide">Внешняя Обводка</span>
                         </label>
                         
                         <div id="vecPropStrokeTools" class="flex items-center gap-2 hidden pt-1">
-                            <input type="color" id="vecPropStrokeColor" value="#000000" class="w-6 h-6 rounded bg-slate-950 border border-slate-700 cursor-pointer shrink-0 shadow-sm">
-                            <input type="range" id="vecPropStrokeWidth" min="1" max="150" step="1" value="10" class="flex-1 accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="vecPropStrokeWidthNum" min="1" max="150" step="1" value="10" class="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            <input type="color" id="vecPropStrokeColor" value="#000000" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
+                            <input type="range" id="vecPropStrokeWidth" min="1" max="150" step="1" value="10" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="vecPropStrokeWidthNum" min="1" max="150" step="1" value="10" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
                     </div>
                 </div>
 
-                <div class="space-y-2 pt-3 border-t border-slate-800/60 mt-3">
+                <div class="space-y-2 pt-3 border-t border-slate-700/50 mt-3">
                     <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider">
                         <span>Pivot (Горячие: W E R)</span>
                         <span class="text-[8px] text-amber-500/70 normal-case bg-amber-500/10 px-1 rounded">Shift = масштаб 1:1</span>
                     </label>
                     <div class="flex gap-1">
-                        <button id="vecModeTranslate" class="flex-1 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded transition flex justify-center items-center" title="Перемещение (W)"><i data-lucide="move" class="w-3.5 h-3.5"></i></button>
-                        <button id="vecModeRotate" class="flex-1 py-1 bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 rounded transition flex justify-center items-center" title="Вращение (E)"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
-                        <button id="vecModeScale" class="flex-1 py-1 bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 rounded transition flex justify-center items-center" title="Масштаб (R)"><i data-lucide="maximize" class="w-3.5 h-3.5"></i></button>
+                        <button id="vecModeTranslate" class="flex-1 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded-lg transition flex justify-center items-center" title="Перемещение (W)"><i data-lucide="move" class="w-3.5 h-3.5"></i></button>
+                        <button id="vecModeRotate" class="flex-1 py-1 bg-slate-800/40 text-slate-400 border border-slate-700/80 hover:bg-slate-800/60 rounded-lg transition flex justify-center items-center" title="Вращение (E)"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                        <button id="vecModeScale" class="flex-1 py-1 bg-slate-800/40 text-slate-400 border border-slate-700/80 hover:bg-slate-800/60 rounded-lg transition flex justify-center items-center" title="Масштаб (R)"><i data-lucide="maximize" class="w-3.5 h-3.5"></i></button>
                     </div>
                 </div>
 
-                <div class="space-y-2 pt-3 border-t border-slate-800/60 flex-1 flex flex-col mt-3">
+                <div class="space-y-2 pt-3 border-t border-slate-700/50 flex-1 flex flex-col mt-3">
                     <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider w-full">
                         <span>Менеджер слоев</span>
-                        <span id="vectorLayerCount" class="bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
+                        <span id="vectorLayerCount" class="bg-slate-800/60 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
                     </label>
                     <div id="vectorLayersList" class="space-y-1 flex-1 overflow-y-auto pr-1 pb-2">
                         <div class="text-[10px] text-slate-500 text-center py-2">Слоев нет</div>
@@ -192,62 +209,66 @@
             </div>
         </aside>
         
-        <main class="flex-1 relative bg-[#020617] bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px] h-full flex flex-col min-w-0">
-            <!-- Обертка для элементов поверх канваса -->
-            <div class="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
-                
-                <!-- Левый блок: Тогл + Статистика -->
-                <div class="flex items-center gap-2">
-                    <button id="toggleLeftPanelBtn" title="Скрыть/показать панель векторов" class="pointer-events-auto p-1.5 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-lg text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition shadow-md flex items-center justify-center">
-                        <i data-lucide="chevron-left" id="panelToggleIcon" class="w-4 h-4 transition-transform duration-300"></i>
-                    </button>
-                    
-                    <span id="vertexStats" class="text-[11px] text-slate-300 bg-slate-900/90 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 shadow-md flex items-center gap-1.5 pointer-events-auto">
-                        <i data-lucide="box" class="w-3 h-3 text-emerald-400"></i> Вертексов: 0
-                    </span>
-                </div>
-
-                <!-- Правый блок: Инструменты карты + Тогл -->
-                <div class="flex items-center gap-2">
-                    <div class="flex items-center space-x-1.5 pointer-events-auto bg-slate-900/90 backdrop-blur p-1 rounded-lg border border-slate-800 shadow-md">
-                        <button id="eyedropperBtn" title="Взять цвет с карты" class="p-1 text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
-                            <i data-lucide="pipette" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button id="lockRotationBtn" title="Заблокировать вращение камеры" class="p-1 text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
-                            <i data-lucide="unlock" id="lockRotationIcon" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button id="toggleGridBtn" title="Показать/Скрыть сетку радара (1175x1388)" class="p-1 text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
-                            <i data-lucide="grid" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button id="resetViewBtn" title="Сбросить камеру" class="p-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition">
-                            <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-
-                    <button id="toggleRightPanelBtn" title="Скрыть/показать правую панель" class="pointer-events-auto p-1.5 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-lg text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition shadow-md flex items-center justify-center">
-                        <i data-lucide="chevron-right" id="rightPanelIcon" class="w-4 h-4 transition-transform duration-300"></i>
-                    </button>
-                </div>
+        <!-- Основной полноэкранный контейнер канваса -->
+        <main class="absolute inset-0 bg-[#020617] bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px] h-full flex flex-col min-w-0">
+            
+            <!-- Статистика сверху по центру -->
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center pointer-events-none">
+                <span id="vertexStats" class="text-[11px] text-slate-300 bg-slate-900/60 backdrop-blur-xl px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-xl flex items-center gap-1.5 pointer-events-auto">
+                    <i data-lucide="box" class="w-3 h-3 text-emerald-400"></i> Вертексов: 0
+                </span>
             </div>
 
-            <!-- Canvas Container -->
-            <div class="w-full h-full relative flex-1">
+            <!-- Главная панель инструментов (снизу по центру) -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 pointer-events-none">
+                
+                <!-- Тогл левой панели -->
+                <button id="toggleLeftPanelBtn" title="Скрыть/показать панель векторов" class="pointer-events-auto p-2 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-xl text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition shadow-2xl flex items-center justify-center">
+                    <i data-lucide="chevron-left" id="panelToggleIcon" class="w-4 h-4 transition-transform duration-300"></i>
+                </button>
+
+                <!-- Основные инструменты карты -->
+                <div class="flex items-center space-x-1.5 pointer-events-auto bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-700/50 shadow-2xl">
+                    <button id="eyedropperBtn" title="Взять цвет с карты" class="p-2 text-slate-300 hover:text-emerald-400 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition">
+                        <i data-lucide="pipette" class="w-4 h-4"></i>
+                    </button>
+                    <button id="lockRotationBtn" title="Заблокировать вращение камеры" class="p-2 text-slate-300 hover:text-emerald-400 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition">
+                        <i data-lucide="unlock" id="lockRotationIcon" class="w-4 h-4"></i>
+                    </button>
+                    <button id="toggleGridBtn" title="Показать/Скрыть сетку радара (1175x1388)" class="p-2 text-slate-300 hover:text-emerald-400 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition">
+                        <i data-lucide="grid" class="w-4 h-4"></i>
+                    </button>
+                    <button id="resetViewBtn" title="Сбросить камеру" class="p-2 text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition">
+                        <i data-lucide="navigation" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Тогл правой панели -->
+                <button id="toggleRightPanelBtn" title="Скрыть/показать правую панель" class="pointer-events-auto p-2 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-xl text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition shadow-2xl flex items-center justify-center">
+                    <i data-lucide="chevron-right" id="rightPanelIcon" class="w-4 h-4 transition-transform duration-300"></i>
+                </button>
+                
+            </div>
+
+            <!-- Контейнер Canvas -->
+            <div id="canvas-container" class="w-full h-full relative flex-1">
                 <canvas id="mapCanvas" class="w-full h-full block"></canvas>
+                
                 <div id="loadingOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-40 transition-opacity duration-300">
-                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-2">
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl mb-2">
                         <i data-lucide="loader" class="w-6 h-6 text-emerald-400 animate-spin"></i>
                     </div>
                     <p id="loadingText" class="text-xs font-semibold text-slate-200">Загрузка...</p>
                     <p id="loadingSubtext" class="text-[10px] text-slate-400 mt-0.5">Пожалуйста, подождите</p>
                 </div>
                 
-                <div id="localFolderPrompt" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-amber-950/90 border border-amber-500/40 text-amber-200 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur flex items-center gap-3 text-xs">
+                <div id="localFolderPrompt" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-amber-950/80 border border-amber-500/40 text-amber-200 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3 text-xs">
                     <i data-lucide="folder-search" class="w-5 h-5 text-amber-400 shrink-0"></i>
                     <div>
                         <p class="font-bold text-amber-100">Браузер блокирует автозагрузку (режим file://)</p>
                         <p class="text-[10px] text-amber-300/80">Выберите папку <code class="bg-black/30 px-1 rounded">map</code> напрямую:</p>
                     </div>
-                    <label class="px-2.5 py-1 text-[11px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-md cursor-pointer transition shrink-0">
+                    <label class="px-2.5 py-1 text-[11px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg cursor-pointer transition shrink-0">
                         Выбрать папку
                         <input type="file" id="folderPickerInput" webkitdirectory directory multiple class="hidden">
                     </label>
@@ -255,22 +276,27 @@
             </div>
         </main>
 
-        <!-- Right Side Panel -->
-        <aside id="sidebarPanel" class="w-80 bg-sidebarbg border-l border-slate-800 flex flex-col h-full z-20 shrink-0 overflow-hidden">
-            <div class="p-2.5 border-b border-slate-800 shrink-0">
-                <div id="dropZone" class="border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-900/40 hover:bg-slate-800/40 rounded-lg p-2.5 text-center transition cursor-pointer relative group">
+        <!-- Правая плавающая панель -->
+        <aside id="sidebarPanel" class="absolute right-4 top-4 bottom-24 w-80 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl flex flex-col z-30 shrink-0 overflow-hidden shadow-2xl">
+            <div class="p-2.5 border-b border-slate-700/50 shrink-0 bg-slate-900/40">
+                <div id="dropZone" class="border border-dashed border-slate-600 hover:border-emerald-500/50 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl p-2.5 text-center transition cursor-pointer relative group">
                     <input type="file" id="fileInput" multiple accept=".xml,.zip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                     <div class="flex items-center justify-center space-x-2">
                         <i data-lucide="upload-cloud" class="w-4 h-4 text-emerald-400"></i>
                         <span class="text-xs font-semibold text-slate-200">Загрузить <span class="text-emerald-400">XML / ZIP</span></span>
                     </div>
                 </div>
-                <div id="filesContainer" class="hidden mt-2 bg-slate-900/80 border border-slate-800 rounded-lg p-2 flex flex-col resize-y overflow-hidden h-auto max-h-[40vh]">
+                
+                <div id="filesContainer" class="hidden mt-2 bg-slate-950/40 border border-slate-700/50 rounded-xl p-2 flex flex-col h-32 min-h-[80px] max-h-[60vh] relative shadow-inner transition-all duration-75">
                     <div class="flex items-center justify-between mb-1.5 shrink-0">
                         <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Файлы (<span id="fileCount">0</span>)</span>
                         <button id="clearFilesBtn" class="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-0.5 transition"><i data-lucide="trash-2" class="w-3 h-3"></i> Очистить</button>
                     </div>
                     <div id="fileList" class="flex-1 overflow-y-auto pr-1 space-y-1"></div>
+                    
+                    <div id="fileResizeHandle" class="w-full h-3 cursor-ns-resize flex items-center justify-center shrink-0 mt-1 hover:bg-slate-800/60 rounded-lg transition-colors group">
+                        <div class="w-12 h-1 bg-slate-600 group-hover:bg-emerald-500/70 rounded-full transition-colors"></div>
+                    </div>
                 </div>
             </div>
             
@@ -280,25 +306,25 @@
                     <span id="uniqueColorCount" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-full">0 цветов</span>
                 </div>
                 <div class="flex flex-col gap-1.5 mt-2 mb-1">
-                    <label class="flex items-center gap-2 cursor-pointer bg-slate-800/50 p-1.5 rounded-md border border-slate-700 transition">
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-800/40 p-1.5 rounded-xl border border-slate-700/50 transition">
                         <input type="checkbox" id="separateZToggle" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-900 border-slate-700 rounded">
                         <span class="text-[10px] text-slate-300 font-medium">Разделять цвета по высоте (Z)</span>
                     </label>
                 </div>
                 <div class="flex items-center space-x-1.5">
                     <div class="relative flex-1 group">
-                        <i data-lucide="search" class="w-3 h-3 text-slate-500 absolute left-2 top-2 pointer-events-none"></i>
-                        <input type="text" id="colorSearchInput" placeholder="Поиск HEX / RGB / Имени..." class="w-full bg-slate-900 border border-slate-700/80 rounded-md pl-7 pr-7 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors">
+                        <i data-lucide="search" class="w-3 h-3 text-slate-500 absolute left-2.5 top-2 pointer-events-none"></i>
+                        <input type="text" id="colorSearchInput" placeholder="Поиск HEX / RGB / Имени..." class="w-full bg-slate-950/50 border border-slate-700/80 rounded-xl pl-8 pr-7 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors">
                         <button id="clearSearchBtn" class="absolute right-2 top-1.5 text-slate-500 hover:text-rose-400 hidden transition-colors" title="Очистить поиск">
                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                    <button id="resetAllColorsBtn" title="Сбросить все изменения" class="p-1 text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition shrink-0"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
+                    <button id="resetAllColorsBtn" title="Сбросить все изменения" class="p-1.5 text-slate-300 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition shrink-0"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
                 </div>
             </div>
             
             <div class="flex-1 min-h-0 flex flex-col px-2 pb-2">
-                <div class="flex-1 bg-slate-900/40 border border-slate-800 rounded-lg p-2 flex flex-col min-h-0">
+                <div class="flex-1 bg-slate-950/30 border border-slate-700/50 rounded-xl p-2 flex flex-col min-h-0 shadow-inner">
                     <div id="paletteContainer" class="flex-1 overflow-y-scroll pr-1 space-y-1.5 block"></div>
                 </div>
             </div>
@@ -307,7 +333,7 @@
 
     <!-- Notification Toast -->
     <div id="toast" class="fixed bottom-4 right-4 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-        <div class="bg-slate-800 text-slate-100 border border-slate-700 px-3 py-2 rounded-lg shadow-xl flex items-center space-x-2 text-xs">
+        <div class="bg-slate-800/90 backdrop-blur text-slate-100 border border-slate-700/50 px-3 py-2 rounded-xl shadow-2xl flex items-center space-x-2 text-xs">
             <div id="toastIcon" class="text-emerald-400"><i data-lucide="check-circle" class="w-4 h-4"></i></div>
             <p id="toastMessage" class="font-medium"></p>
         </div>
@@ -315,6 +341,37 @@
 
     <script src="geometry_utils.js"></script>
     <script src="app.js"></script>       
-    <script src="vector_tools.js"></script> 
+    <script src="vector_tools.js"></script>
+    <script src="screenshot.js"></script>
+
+    <!-- Скрипт для ресайза контейнера файлов по центру -->
+    <script>
+        const filesContainerEl = document.getElementById('filesContainer');
+        const fileResizeHandleEl = document.getElementById('fileResizeHandle');
+        let isResizingFiles = false;
+
+        fileResizeHandleEl.addEventListener('mousedown', (e) => {
+            isResizingFiles = true;
+            document.body.style.cursor = 'ns-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizingFiles) return;
+            const containerRect = filesContainerEl.getBoundingClientRect();
+            let newHeight = e.clientY - containerRect.top;
+            
+            if (newHeight >= 80 && newHeight <= window.innerHeight * 0.6) {
+                filesContainerEl.style.height = newHeight + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizingFiles) {
+                isResizingFiles = false;
+                document.body.style.cursor = '';
+            }
+        });
+    </script>
 </body>
 </html>
