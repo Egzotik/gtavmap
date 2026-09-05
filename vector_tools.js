@@ -8,28 +8,14 @@ const vectorState = {
     loadedFont: null,
     loadedFontName: 'Roboto Black',
     loadedFontData: null,
-    pendingSelectId: null 
+    pendingSelectId: null,
+    placementMode: null
 };
 
-// --- СОСТОЯНИЕ РЕЖИМА РАЗМЕЩЕНИЯ ---
-const placementState = {
-    active: false, geo: null, name: '', icon: '', isText: false, textContent: '', defaultScale: 100,
-    startPoint: new THREE.Vector3(), currentGroup: null, isDragging: false, prebuiltWrapper: null
-};
-
-function startPlacement(geometry, name, icon, isText = false, textContent = '', defaultScale = 100, prebuiltWrapper = null) {
-    placementState.active = true;
-    placementState.geo = geometry;
-    placementState.name = name;
-    placementState.icon = icon;
-    placementState.isText = isText;
-    placementState.textContent = textContent;
-    placementState.defaultScale = defaultScale;
-    placementState.prebuiltWrapper = prebuiltWrapper;
-    
-    renderer.domElement.style.cursor = 'crosshair';
-    window.showToast("Кликните на карту, зажмите и потяните для масштаба.", "success");
-    selectObject(null);
+function activatePlacementMode(actionCallback, toolName) {
+    vectorState.placementMode = actionCallback;
+    document.body.style.cursor = 'crosshair';
+    window.showToast(`Кликните ЛКМ по карте, чтобы разместить: ${toolName}`, 'success');
 }
 
 function getMeshes(object, includeStrokes = false) {
@@ -40,7 +26,6 @@ function getMeshes(object, includeStrokes = false) {
 }
 
 function getPrimaryMesh(object) { return getMeshes(object, false)[0] || null; }
-function getPrimaryVisibleMesh(object) { return getMeshes(object, false).find(m => m.visible) || getPrimaryMesh(object); }
 function getStrokeMeshes(object) { return getMeshes(object, true).filter(mesh => mesh.userData.isStroke); }
 
 function disposeObject3D(object) {
@@ -104,8 +89,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 vectorState.loadedFontName = file.name;
                 vectorState.loadedFontData = event.target.result.slice(0);
                 if (vectorState.activeObj) {
-                    const firstMesh = getPrimaryVisibleMesh(vectorState.activeObj);
-                    if (firstMesh && firstMesh.userData.isText) applyPropsToActive(true);
+                    const firstMesh = getPrimaryMesh(vectorState.activeObj);
+                    if (firstMesh && firstMesh.userData.isText) {
+                        applyPropsToActive(true);
+                    }
                 }
                 window.showToast("Шрифт (.ttf/.otf) загружен!", "success");
             } catch(err) { window.showToast("Ошибка при разборе шрифта!", "error"); }
@@ -117,20 +104,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let initialScale = new THREE.Vector3();
     
     window.addEventListener('keydown', (e) => { 
-        if (e.key === 'Escape' && placementState.active) {
-            placementState.active = false;
-            placementState.isDragging = false;
-            if (placementState.currentGroup) {
-                scene.remove(placementState.currentGroup);
-                disposeObject3D(placementState.currentGroup);
-                vectorState.objects = vectorState.objects.filter(o => o !== placementState.currentGroup);
-                placementState.currentGroup = null;
-                renderLayersList();
-                if (window.requestSceneRender) window.requestSceneRender();
-            }
-            renderer.domElement.style.cursor = 'default';
-            controls.enabled = true;
-            window.showToast("Создание фигуры отменено");
+        if (e.key === 'Escape' && vectorState.placementMode) {
+            vectorState.placementMode = null;
+            document.body.style.cursor = 'default';
+            window.showToast("Размещение отменено", "error");
+            return;
         }
 
         if (e.key === 'Shift') isShiftDown = true; 
@@ -180,6 +158,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
+
+        if (vectorState.placementMode) {
+            if (e.button !== 0) return; 
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            
+            let spawnX = 0, spawnY = 0;
+            
+            const mapMeshes = scene.children.filter(c => c.isMesh && c.userData.isMapMesh);
+            const intersects = raycaster.intersectObjects(mapMeshes, false);
+            
+            if (intersects.length > 0) {
+                spawnX = intersects[0].point.x;
+                spawnY = intersects[0].point.y;
+            } else {
+                const zPlane = window.mapBounds ? window.mapBounds.maxZ : 10;
+                const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -zPlane);
+                const target = new THREE.Vector3();
+                raycaster.ray.intersectPlane(plane, target);
+                if (target) { spawnX = target.x; spawnY = target.y; }
+            }
+
+            vectorState.placementMode(spawnX, spawnY);
+            vectorState.placementMode = null;
+            document.body.style.cursor = 'default';
+            return;
+        }
+
         if (transformControl.axis !== null) return; 
         if (e.button !== 0) return; 
 
@@ -188,33 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
-
-        if (placementState.active) {
-            controls.enabled = false; 
-            const planeZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
-            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
-            raycaster.ray.intersectPlane(plane, placementState.startPoint);
-            
-            if (placementState.startPoint) {
-                if (placementState.prebuiltWrapper) {
-                    placementState.currentGroup = placementState.prebuiltWrapper;
-                    placementState.currentGroup.position.copy(placementState.startPoint);
-                    placementState.currentGroup.scale.set(0.1, placementState.currentGroup.userData.isSvg ? -0.1 : 0.1, 1);
-                    scene.add(placementState.currentGroup);
-                    vectorState.objects.unshift(placementState.currentGroup); 
-                    updateVectorsOrder();
-                } else {
-                    placementState.currentGroup = createVectorGroup(
-                        placementState.geo, placementState.name, placementState.icon, 
-                        placementState.isText, placementState.textContent, 0.1,
-                        placementState.startPoint
-                    );
-                }
-                placementState.isDragging = true;
-                renderLayersList();
-            }
-            return;
-        }
         
         let allMeshes = [];
         vectorState.objects.forEach(obj => {
@@ -235,47 +218,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    renderer.domElement.addEventListener('pointermove', (e) => {
-        if (placementState.isDragging && placementState.currentGroup) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-            
-            raycaster.setFromCamera(mouse, camera);
-            const planeZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
-            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
-            const currentPoint = new THREE.Vector3();
-            raycaster.ray.intersectPlane(plane, currentPoint);
-            
-            if (currentPoint) {
-                const dist = placementState.startPoint.distanceTo(currentPoint);
-                const signY = placementState.currentGroup.userData.isSvg ? -1 : 1;
-                const newScale = Math.max(1, dist); 
-                placementState.currentGroup.scale.set(newScale, newScale * signY, 1);
-                
-                if (window.requestSceneRender) window.requestSceneRender();
-            }
-        }
-    });
-
-    renderer.domElement.addEventListener('pointerup', (e) => {
-        if (placementState.isDragging && placementState.currentGroup) {
-            controls.enabled = true; 
-            placementState.isDragging = false;
-            
-            const signY = placementState.currentGroup.userData.isSvg ? -1 : 1;
-            if (Math.abs(placementState.currentGroup.scale.x) < 5) {
-                placementState.currentGroup.scale.set(placementState.defaultScale, placementState.defaultScale * signY, 1);
-            }
-            
-            selectObject(placementState.currentGroup);
-            placementState.active = false;
-            placementState.currentGroup = null;
-            renderer.domElement.style.cursor = 'default';
-            if (window.requestSceneRender) window.requestSceneRender();
-        }
-    });
-
     function updateVectorsOrder() {
         const baseZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         const len = vectorState.objects.length;
@@ -286,7 +228,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
-    // ИСПРАВЛЕНИЕ: Обводка больше не имеет острых шипов и принудительно замыкает пути 
     function generateStrokeGeometry(shapesData, strokeWidth, quality) {
         if (!shapesData || shapesData.length === 0) return null;
         let strokeGeometries = [];
@@ -297,18 +238,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 const ptsData = shape.extractPoints(quality);
                 
                 const processPath = (pts) => {
-                    if (!pts || pts.length < 2) return;
+                    if (pts.length < 2) return;
                     
-                    const vec2Pts = pts.map(p => new THREE.Vector2(p.x, p.y));
-                    
-                    // Защита от открытых контуров: смыкаем первую и последнюю точку
-                    if (vec2Pts[0].distanceTo(vec2Pts[vec2Pts.length - 1]) > 0.0001) {
-                        vec2Pts.push(vec2Pts[0].clone());
+                    while (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 0.1) {
+                        pts.pop();
                     }
                     
-                    const geo = THREE.SVGLoader.pointsToStroke(vec2Pts, { 
+                    pts.push(pts[0].clone());
+                
+                    const geo = THREE.SVGLoader.pointsToStroke(pts, { 
                         strokeWidth: strokeWidth, 
-                        strokeLineJoin: 'round', // Устраняет дикие шипы (вместо miter)
+                        strokeLineJoin: 'round', 
                         strokeLineCap: 'round'
                     });
                     
@@ -319,7 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
 
                 processPath(ptsData.shape);
-                if (ptsData.holes) ptsData.holes.forEach(processPath);
+                ptsData.holes.forEach(processPath);
             });
         });
         
@@ -396,23 +336,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         vectorState.activeObj = obj;
-        const svgTools = document.getElementById('vecSvgTools');
-
         if (obj) {
             transformControl.attach(obj);
             document.getElementById('vectorPropsPanel').classList.remove('hidden');
             
-            if (svgTools) {
-                if (obj.userData.isSvg) {
-                    svgTools.classList.remove('hidden');
-                    svgTools.classList.add('flex');
-                } else {
-                    svgTools.classList.add('hidden');
-                    svgTools.classList.remove('flex');
-                }
-            }
-
-            const firstMesh = getPrimaryVisibleMesh(obj);
+            const firstMesh = getPrimaryMesh(obj);
             
             if (firstMesh && firstMesh.userData.isText) {
                 document.getElementById('vecPropTextContainer').classList.remove('hidden');
@@ -466,72 +394,32 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             transformControl.detach();
             document.getElementById('vectorPropsPanel').classList.add('hidden');
-            if (svgTools) {
-                svgTools.classList.add('hidden');
-                svgTools.classList.remove('flex');
-            }
         }
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
-    document.getElementById('vecBtnRemoveWhite')?.addEventListener('click', () => {
-        if (!vectorState.activeObj || !vectorState.activeObj.userData.isSvg) return;
-        const obj = vectorState.activeObj;
-        const meshes = getMeshes(obj, false);
-        let removed = 0;
-        if (!obj.userData.hiddenMeshIndices) obj.userData.hiddenMeshIndices = [];
-        
-        meshes.forEach((mesh, idx) => {
-            if (mesh.userData.originalColorHex === 'ffffff' && mesh.visible) {
-                mesh.visible = false;
-                if (!obj.userData.hiddenMeshIndices.includes(idx)) obj.userData.hiddenMeshIndices.push(idx);
-                removed++;
+    transformControl.addEventListener('change', () => {
+        if (vectorState.activeObj) {
+            if (transformControl.mode === 'scale') {
+                const currentScale = Math.abs(vectorState.activeObj.scale.x);
+                const scaleSlider = document.getElementById('vecPropScale');
+                const scaleNum = document.getElementById('vecPropScaleNum');
+                if (scaleSlider && scaleNum) { scaleSlider.value = currentScale; scaleNum.value = currentScale.toFixed(2); }
             }
-        });
-        
-        if (removed > 0) {
-            window.showToast(`Удалено белых элементов: ${removed}`, 'success');
-            selectObject(obj);
-            if (window.requestSceneRender) window.requestSceneRender();
-        } else {
-            window.showToast('Белый фон не найден', 'error');
-        }
-    });
-
-    document.getElementById('vecBtnRemoveBg')?.addEventListener('click', () => {
-        if (!vectorState.activeObj || !vectorState.activeObj.userData.isSvg) return;
-        const obj = vectorState.activeObj;
-        const meshes = getMeshes(obj, false);
-        let maxArea = -1;
-        let bgIdx = -1;
-        
-        meshes.forEach((m, idx) => {
-            if (!m.visible) return; 
-            m.geometry.computeBoundingBox();
-            const box = m.geometry.boundingBox;
-            const area = (box.max.x - box.min.x) * (box.max.y - box.min.y);
-            if (area > maxArea) {
-                maxArea = area;
-                bgIdx = idx;
+            if (transformControl.mode === 'rotate') {
+                const degZ = THREE.MathUtils.radToDeg(vectorState.activeObj.rotation.z);
+                const rotSlider = document.getElementById('vecPropRot');
+                const rotNum = document.getElementById('vecPropRotNum');
+                if (rotSlider && rotNum) { rotSlider.value = degZ; rotNum.value = degZ.toFixed(1); }
             }
-        });
-        
-        if (bgIdx !== -1) {
-            if (!obj.userData.hiddenMeshIndices) obj.userData.hiddenMeshIndices = [];
-            meshes[bgIdx].visible = false;
-            if (!obj.userData.hiddenMeshIndices.includes(bgIdx)) obj.userData.hiddenMeshIndices.push(bgIdx);
-            
-            window.showToast("Самый большой контур скрыт", "success");
-            selectObject(obj); 
-            if (window.requestSceneRender) window.requestSceneRender();
         }
     });
 
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
         if (!vectorState.activeObj) return;
         const newText = e.target.value;
-        if (!newText.trim()) { const currentTextMesh = getPrimaryVisibleMesh(vectorState.activeObj); e.target.value = currentTextMesh?.userData.text || 'Текст'; window.showToast('Текст не может быть пустым', 'error'); return; }
+        if (!newText.trim()) { const currentTextMesh = getPrimaryMesh(vectorState.activeObj); e.target.value = currentTextMesh?.userData.text || 'Текст'; window.showToast('Текст не может быть пустым', 'error'); return; }
         const obj = vectorState.activeObj;
         const meshes = getMeshes(obj, false);
         
@@ -640,23 +528,16 @@ document.addEventListener("DOMContentLoaded", () => {
             forceRebuildStroke = true;
         }
 
-        // ИСПРАВЛЕНИЕ: Параллакс и Z-fighting. Ставим слой и обводку очень близко по Z.
         primaryMeshes.forEach(mesh => {
-            let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
-            
-            if (!mesh.visible) {
-                if (strokeMesh) strokeMesh.visible = false;
-                return;
-            }
-
             if (!obj.userData.isSvg || obj.userData.styleOverridden) {
                 mesh.material.color.set(colorHex);
                 mesh.material.opacity = alpha;
                 mesh.material.transparent = alpha < 1;
             }
             mesh.renderOrder = 999;
-            mesh.position.z = 0.01;
+            mesh.position.z = 0.005;
 
+            let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
                 if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || forceRebuildStroke) {
                     const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal);
@@ -676,11 +557,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
                 if (strokeMesh) {
-                    strokeMesh.visible = true;
                     strokeMesh.material.color.set(strokeHex); 
                     strokeMesh.material.opacity = alpha; 
                     strokeMesh.material.transparent = alpha < 1;
-                    strokeMesh.position.z = -0.01;
+                    strokeMesh.position.z = -0.005;
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
                 }
@@ -759,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.lucide) window.lucide.createIcons();
     }
 
-    function createVectorGroup(geometry, name, icon, isText, textContent, scale, position) {
+    function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
         mesh.frustumCulled = false; 
@@ -768,8 +648,13 @@ document.addEventListener("DOMContentLoaded", () => {
         group.uuid = THREE.MathUtils.generateUUID(); 
         group.add(mesh);
         
-        group.scale.set(scale, scale, 1);
-        group.position.copy(position);
+        group.scale.set(defaultScale, defaultScale, 1);
+        
+        let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+        let sX = posX !== null ? posX : (window.mapBounds ? window.mapBounds.centerX : 0);
+        let sY = posY !== null ? posY : (window.mapBounds ? window.mapBounds.centerY : 0);
+
+        group.position.set(sX, sY, spawnZ);
         
         group.name = name;
         group.userData.icon = icon;
@@ -787,62 +672,71 @@ document.addEventListener("DOMContentLoaded", () => {
         scene.add(group);
         vectorState.objects.unshift(group); 
         updateVectorsOrder();
+        selectObject(group);
         
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
-        return group;
     }
 
-    // ИСПРАВЛЕНИЕ: Базовые размеры фигур увеличены до 10, чтобы они совпадали с текстом
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.moveTo(-5, -5); shape.lineTo(5, -5); shape.lineTo(5, 5); shape.lineTo(-5, 5); shape.lineTo(-5, -5);
-        const geo = new THREE.ShapeGeometry(shape); 
-        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-        geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Квадрат', 'square', false, '', 10); 
+        activatePlacementMode((x, y) => {
+            const shape = new THREE.Shape(); shape.moveTo(-5, -5); shape.lineTo(5, -5); shape.lineTo(5, 5); shape.lineTo(-5, 5); shape.lineTo(-5, -5);
+            const geo = new THREE.ShapeGeometry(shape); 
+            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+            geo.userData.tX = 0; geo.userData.tY = 0;
+            spawnVectorMesh(geo, 'Квадрат', 'square', false, '', 100, x, y); 
+        }, 'Квадрат');
     });
 
     document.getElementById('btnAddCircle')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.absarc(0, 0, 5, 0, Math.PI * 2, false);
-        const geo = new THREE.ShapeGeometry(shape); 
-        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-        geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Круг', 'circle', false, '', 10);
+        activatePlacementMode((x, y) => {
+            const shape = new THREE.Shape(); shape.absarc(0, 0, 5, 0, Math.PI * 2, false);
+            const geo = new THREE.ShapeGeometry(shape); 
+            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+            geo.userData.tX = 0; geo.userData.tY = 0;
+            spawnVectorMesh(geo, 'Круг', 'circle', false, '', 100, x, y);
+        }, 'Круг');
     });
 
     document.getElementById('btnAddTriangle')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
-        const geo = new THREE.ShapeGeometry(shape); 
-        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-        geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Треугольник', 'triangle', false, '', 10);
+        activatePlacementMode((x, y) => {
+            const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
+            const geo = new THREE.ShapeGeometry(shape); 
+            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+            geo.userData.tX = 0; geo.userData.tY = 0;
+            spawnVectorMesh(geo, 'Треугольник', 'triangle', false, '', 100, x, y);
+        }, 'Треугольник');
+    });
+
+    document.getElementById('btnAddMarker')?.addEventListener('click', () => {
+        activatePlacementMode((x, y) => {
+            const shape = new THREE.Shape(); 
+            shape.moveTo(0, -5); 
+            shape.lineTo(3, 1); 
+            shape.absarc(0, 1, 3, 0, Math.PI, false); 
+            shape.lineTo(0, -5);
+            
+            const hole = new THREE.Path();
+            hole.absarc(0, 1, 1.2, 0, Math.PI * 2, true);
+            shape.holes.push(hole);
+            
+            const geo = new THREE.ShapeGeometry(shape); 
+            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+            geo.userData.tX = 0; geo.userData.tY = 0;
+            spawnVectorMesh(geo, 'Маркер', 'map-pin', false, '', 100, x, y);
+        }, 'Маркер');
     });
     
-    document.getElementById('btnAddMarker')?.addEventListener('click', () => {
-        const shape = new THREE.Shape(); 
-        shape.moveTo(0, -5);
-        shape.bezierCurveTo(1.5, -1.5, 3, 0, 3, 2);
-        shape.absarc(0, 2, 3, 0, Math.PI, false);
-        shape.bezierCurveTo(-3, 0, -1.5, -1.5, 0, -5);
-        
-        const hole = new THREE.Path();
-        hole.absarc(0, 2, 1.2, 0, Math.PI * 2, true);
-        shape.holes.push(hole);
-
-        const geo = new THREE.ShapeGeometry(shape); 
-        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-        geo.userData.tX = 0; geo.userData.tY = 0;
-        startPlacement(geo, 'Маркер', 'map-pin', false, '', 10);
-    });
-
     document.getElementById('btnAddText')?.addEventListener('click', () => {
         const textNode = document.getElementById('vectorTextInput');
         const text = textNode ? textNode.value || 'GTA 5' : 'GTA 5';
         if (!vectorState.loadedFont) { window.showToast("Шрифт загружается...", "error"); return; }
         
-        const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
-        const displayName = text.split('\n')[0] || 'Текст';
-        startPlacement(geometry, displayName, 'type', true, text, 100); 
+        activatePlacementMode((x, y) => {
+            const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
+            const displayName = text.split('\n')[0] || 'Текст';
+            spawnVectorMesh(geometry, displayName, 'type', true, text, 10, x, y); 
+        }, 'Текст');
     });
 
     document.getElementById('vectorSvgInput')?.addEventListener('change', (e) => {
@@ -864,31 +758,23 @@ document.addEventListener("DOMContentLoaded", () => {
             svgData.paths.forEach((path) => {
                 const fillColor = path.userData.style.fill;
                 if (fillColor !== undefined && fillColor !== 'none') {
-                    const colorObj = new THREE.Color().setStyle(fillColor);
                     const material = new THREE.MeshBasicMaterial({
-                        color: colorObj,
+                        color: new THREE.Color().setStyle(fillColor),
                         opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
                         transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                     });
-                    
-                    try {
-                        const shapes = THREE.SVGLoader.createShapes(path);
-                        shapes.forEach((shape) => {
-                            const geo = new THREE.ShapeGeometry(shape);
-                            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-                            geo.userData.tX = 0; geo.userData.tY = 0;
-                            const mesh = new THREE.Mesh(geo, material);
-                            mesh.userData.originalColorHex = colorObj.getHexString();
-                            mesh.frustumCulled = false;
-                            group.add(mesh);
-                        });
-                    } catch (pathError) {
-                        console.warn('Пропущен сложный или некорректный контур SVG:', pathError);
-                    }
+                    const shapes = THREE.SVGLoader.createShapes(path);
+                    shapes.forEach((shape) => {
+                        const geo = new THREE.ShapeGeometry(shape);
+                        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                        geo.userData.tX = 0; geo.userData.tY = 0;
+                        const mesh = new THREE.Mesh(geo, material);
+                        mesh.frustumCulled = false;
+                        group.add(mesh);
+                    });
                 }
             });
-            
-            if (getMeshes(group, false).length === 0) throw new Error('SVG не содержит поддерживаемых залитых контуров (или они вызвали ошибку)');
+            if (getMeshes(group, false).length === 0) throw new Error('SVG не содержит поддерживаемых залитых контуров');
 
             const box = new THREE.Box3().setFromObject(group);
             const center = box.getCenter(new THREE.Vector3());
@@ -904,9 +790,21 @@ document.addEventListener("DOMContentLoaded", () => {
             wrapper.userData.svgString = svgString;
             wrapper.userData.styleOverridden = false;
             wrapper.uuid = group.uuid;
-            wrapper.renderOrder = 999;
+
+            activatePlacementMode((posX, posY) => {
+                let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+                wrapper.position.set(posX, posY, spawnZ);
+                wrapper.renderOrder = 999;
+                
+                scene.add(wrapper);
+                vectorState.objects.unshift(wrapper);
+                updateVectorsOrder();
+                selectObject(wrapper);
+                
+                if (window.updateExportState) window.updateExportState();
+                if (window.requestSceneRender) window.requestSceneRender();
+            }, 'SVG Иконка');
             
-            startPlacement(null, wrapper.name, 'image', false, '', 100, wrapper);
             e.target.value = "";
           } catch (err) {
             console.error(err);
@@ -930,6 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecModeRotate')?.addEventListener('click', () => setTransformMode('rotate', 'vecModeRotate'));
     document.getElementById('vecModeScale')?.addEventListener('click', () => setTransformMode('scale', 'vecModeScale'));
     
+    // ЭКСПОРТ И ИНЖЕКТ СЛОЕВ ПО РАЗНЫМ ТАЙЛАМ
     window.exportVectorsToXMLFiles = function(stateFilesArray, customFilesArray) {
         if (vectorState.objects.length === 0 && (!customFilesArray || customFilesArray.length === 0)) return 0;
         
@@ -1084,10 +983,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             wrapper.updateMatrixWorld(true);
             wrapper.traverse((child) => {
-                if (child.isMesh && child.geometry && child.visible) {
+                if (child.isMesh && child.geometry) {
                     const geo = child.geometry.clone();
                     geo.applyMatrix4(child.matrixWorld);
 
+                    // ФИКС НОРМАЛЕЙ SVG
                     const det = child.matrixWorld.determinant();
                     const flipWinding = det < 0;
 
@@ -1165,14 +1065,16 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        const tile1_1_Triangles = allMclTriangles.concat(shapeTriangles);
+        // ТЕСТОВЫЙ РЕЖИМ: сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
+        const allTrianglesFor2_2 = allMclTriangles.concat(shapeTriangles).concat(textTriangles);
 
-        processAndInject(tile1_1_Triangles, 'tile_1_1');
-        processAndInject(textTriangles, 'tile_2_2');
+        // Инжектим всё исключительно в слой tile_2_2
+        processAndInject(allTrianglesFor2_2, 'tile_2_2');
         
         return modifiedCount;
     };
     
+    // === JSON СЕРИАЛИЗАЦИЯ И ИМПОРТ ===
     window.getVectorFontForJSON = function() {
         if (!vectorState.loadedFontData) return { name: vectorState.loadedFontName, data: null };
         return { name: vectorState.loadedFontName, data: arrayBufferToBase64(vectorState.loadedFontData) };
@@ -1201,7 +1103,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 styleOverridden: Boolean(obj.userData.styleOverridden)
             };
             
-            const firstMesh = getPrimaryVisibleMesh(obj);
+            const firstMesh = getPrimaryMesh(obj);
             if (firstMesh) {
                 if (firstMesh.material) {
                     data.color = "#" + firstMesh.material.color.getHexString();
@@ -1219,7 +1121,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (obj.userData.isSvg) {
                     data.isSvg = true;
                     data.svgString = obj.userData.svgString;
-                    data.hiddenMeshIndices = obj.userData.hiddenMeshIndices || [];
                 }
                 
                 const strokeMesh = getStrokeMeshes(obj)[0];
@@ -1249,24 +1150,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 svgData.paths.forEach((path) => {
                     const fillColor = path.userData.style.fill;
                     if (fillColor !== undefined && fillColor !== 'none') {
-                        const colorObj = new THREE.Color().setStyle(fillColor);
                         const material = new THREE.MeshBasicMaterial({
-                            color: colorObj,
+                            color: new THREE.Color().setStyle(fillColor),
                             opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
                             transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                         });
-                        try {
-                            const shapes = THREE.SVGLoader.createShapes(path);
-                            shapes.forEach((shape) => {
-                                const geo = new THREE.ShapeGeometry(shape);
-                                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-                                geo.userData.tX = 0; geo.userData.tY = 0;
-                                const mesh = new THREE.Mesh(geo, material);
-                                mesh.userData.originalColorHex = colorObj.getHexString();
-                                mesh.frustumCulled = false;
-                                group.add(mesh);
-                            });
-                        } catch (pathError) { console.warn(pathError); }
+                        const shapes = THREE.SVGLoader.createShapes(path);
+                        shapes.forEach((shape) => {
+                            const geo = new THREE.ShapeGeometry(shape);
+                            geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                            geo.userData.tX = 0; geo.userData.tY = 0;
+                            const mesh = new THREE.Mesh(geo, material);
+                            mesh.frustumCulled = false;
+                            group.add(mesh);
+                        });
                     }
                 });
                 
@@ -1283,7 +1180,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 wrapper.userData.isSvg = true;
                 wrapper.userData.svgString = data.svgString;
                 wrapper.userData.styleOverridden = Boolean(data.styleOverridden);
-                wrapper.userData.hiddenMeshIndices = data.hiddenMeshIndices || [];
                 
                 applyTransformAndProperties(wrapper, data);
             } else if (data.isText) {
@@ -1315,21 +1211,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'triangle') {
                 const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
-                const geo = new THREE.ShapeGeometry(shape); 
-                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
-                geo.userData.tX = 0; geo.userData.tY = 0;
-                spawnLoadedVectorMesh(geo, data);
-            } else if (data.icon === 'map-pin') {
-                const shape = new THREE.Shape(); 
-                shape.moveTo(0, -5);
-                shape.bezierCurveTo(1.5, -1.5, 3, 0, 3, 2);
-                shape.absarc(0, 2, 3, 0, Math.PI, false);
-                shape.bezierCurveTo(-3, 0, -1.5, -1.5, 0, -5);
-                
-                const hole = new THREE.Path();
-                hole.absarc(0, 2, 1.2, 0, Math.PI * 2, true);
-                shape.holes.push(hole);
-
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;
@@ -1369,15 +1250,8 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.scale.set(data.scale.x, data.scale.y, 1);
         wrapper.renderOrder = 999;
 
-        if (data.isSvg && wrapper.userData.hiddenMeshIndices) {
-            getMeshes(wrapper, false).forEach((mesh, idx) => {
-                if (wrapper.userData.hiddenMeshIndices.includes(idx)) mesh.visible = false;
-            });
-        }
-
         if (!data.isSvg || data.styleOverridden) {
             getMeshes(wrapper, false).forEach(mesh => {
-                if (!mesh.visible) return; 
                 if (data.color && mesh.material && mesh.material.color) mesh.material.color.set(data.color);
                 if (data.opacity !== undefined && mesh.material) {
                     mesh.material.opacity = data.opacity;
@@ -1388,8 +1262,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (data.hasStroke) {
             getMeshes(wrapper, false).forEach(firstMesh => {
-              if (firstMesh.geometry && firstMesh.geometry.userData.shapesData && firstMesh.visible) {
-                firstMesh.renderOrder = 999; firstMesh.position.z = 0.01;
+              if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
+                firstMesh.renderOrder = 999; firstMesh.position.z = 0.005;
                 const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
                 if (strokeGeo) {
                     const restoredOpacity = data.opacity ?? 1;
@@ -1400,7 +1274,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                    strokeMesh.position.z = -0.01;
+                    strokeMesh.position.z = -0.005;
                     strokeMesh.renderOrder = 998;
                     
                     const tX = firstMesh.geometry.userData.tX || 0;
