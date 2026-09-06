@@ -11,6 +11,13 @@ function takeScreenshot() {
     setTimeout(() => {
         if (typeof transformControl !== 'undefined' && transformControl.object) transformControl.detach();
 
+        // ОТКЛЮЧАЕМ ТЕСТ ГЛУБИНЫ ДЛЯ ВЕКТОРОВ, ЧТОБЫ ОНИ НЕ ПРОПАДАЛИ НА СКРИНШОТЕ
+        scene.traverse(child => {
+            if (child.isMesh && child.material && (!child.userData || !child.userData.isMapMesh)) {
+                child.material.depthTest = false;
+            }
+        });
+
         const container = document.getElementById('mapCanvas').parentElement;
         const oldWidth = container.clientWidth;
         const oldHeight = container.clientHeight;
@@ -99,6 +106,13 @@ function takeScreenshot() {
         scene.background = oldBg;
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         renderer.render(scene, camera);
+
+        // ВОЗВРАЩАЕМ ТЕСТ ГЛУБИНЫ ОБРАТНО ДЛЯ ВЕКТОРОВ
+        scene.traverse(child => {
+            if (child.isMesh && child.material && (!child.userData || !child.userData.isMapMesh)) {
+                child.material.depthTest = true;
+            }
+        });
 
         canvas2D.toBlob(function(blob) {
             if (!blob) {

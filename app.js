@@ -4,6 +4,7 @@
 
 const state = { files: [], colorsMap: new Map(), modifiedColorsCount: 0, hasUserUploaded: false, separateByZ: false };
 window.state = state; 
+window.layerDictionary = {}; // СЛОВАРЬ НАЗВАНИЙ СЛОЕВ
 const fastColorPointers = new Map();
 window.mapBounds = null; 
 window.isSeaSolid = false;
@@ -346,6 +347,17 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 async function loadDefaultMapFromFolder() {
     if (window.location.protocol === 'file:') { window.hideLoading(); if(localFolderPrompt) localFolderPrompt.classList.remove('hidden'); window.showToast("Для автозагрузки нужен сервер", "error"); return; }
     window.showLoading("Поиск карты в папке /map/...", "Загрузка всех XML файлов...");
+
+    // ПОПЫТКА ЗАГРУЗИТЬ СЛОВАРЬ ИЗ ПАПКИ map/
+    try {
+        const dictResponse = await fetch('map/dictionary.json', { cache: 'no-store' });
+        if (dictResponse.ok) {
+            window.layerDictionary = await dictResponse.json();
+        }
+    } catch (err) {
+        console.warn("Файл dictionary.json не найден или содержит ошибку.");
+    }
+
     const mapFilesToLoad = [
         "minimap_0_3.ydd.xml", "minimap_0_4.ydd.xml", "minimap_0_5.ydd.xml", "minimap_0_6.ydd.xml", "minimap_1_1.ydd.xml", "minimap_1_2.ydd.xml", "minimap_1_3.ydd.xml", "minimap_1_4.ydd.xml", "minimap_1_5.ydd.xml", "minimap_1_6.ydd.xml", "minimap_1_7.ydd.xml", "minimap_1_8.ydd.xml", "minimap_2_0.ydd.xml", "minimap_2_1.ydd.xml", "minimap_2_2.ydd.xml", "minimap_2_3.ydd.xml", "minimap_2_4.ydd.xml", "minimap_2_5.ydd.xml", "minimap_2_6.ydd.xml", "minimap_2_7.ydd.xml", "minimap_2_8.ydd.xml", "minimap_3_0.ydd.xml", "minimap_3_1.ydd.xml", "minimap_3_2.ydd.xml", "minimap_3_3.ydd.xml", "minimap_3_4.ydd.xml", "minimap_3_5.ydd.xml", "minimap_3_6.ydd.xml", "minimap_0_2.ydd.xml", "minimap_4_2.ydd.xml", "minimap_4_3.ydd.xml", "minimap_4_4.ydd.xml", "minimap_4_5.ydd.xml", "minimap_4_6.ydd.xml", "minimap_4_7.ydd.xml", "minimap_4_8.ydd.xml", "minimap_5_0.ydd.xml", "minimap_5_1.ydd.xml", "minimap_5_2.ydd.xml", "minimap_5_3.ydd.xml", "minimap_5_4.ydd.xml", "minimap_5_5.ydd.xml", "minimap_5_6.ydd.xml", "minimap_5_7.ydd.xml", "minimap_5_8.ydd.xml", "minimap_6_0.ydd.xml", "minimap_6_1.ydd.xml", "minimap_6_2.ydd.xml", "minimap_6_3.ydd.xml", "minimap_6_4.ydd.xml", "minimap_6_5.ydd.xml", "minimap_6_6.ydd.xml", "minimap_6_7.ydd.xml", "minimap_6_8.ydd.xml", "minimap_7_0.ydd.xml", "minimap_7_1.ydd.xml", "minimap_7_2.ydd.xml", "minimap_7_3.ydd.xml", "minimap_7_4.ydd.xml", "minimap_7_5.ydd.xml", "minimap_7_6.ydd.xml", "minimap_3_7.ydd.xml", "minimap_3_8.ydd.xml", "minimap_4_0.ydd.xml", "minimap_4_1.ydd.xml"
     ];
@@ -363,7 +375,17 @@ async function loadDefaultMapFromFolder() {
 
 if(folderPickerInput) {
     folderPickerInput.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.xml')).slice(0, IMPORT_LIMITS.maxFiles); if (files.length === 0) return;
+        const allFiles = Array.from(e.target.files);
+        
+        // ПОИСК ФАЙЛА dictionary.json В ВЫБРАННОЙ ПАПКЕ
+        const dictFile = allFiles.find(f => f.name.toLowerCase() === 'dictionary.json');
+        if (dictFile) {
+            try { window.layerDictionary = JSON.parse(await dictFile.text()); } catch(err) {}
+        }
+
+        const files = allFiles.filter(f => f.name.toLowerCase().endsWith('.xml')).slice(0, IMPORT_LIMITS.maxFiles); 
+        if (files.length === 0) return;
+        
         window.showLoading("Импорт файлов из папки..."); if(localFolderPrompt) localFolderPrompt.classList.add('hidden');
         try {
             let totalBytes = 0;
@@ -475,7 +497,20 @@ function extractUniqueColors() {
             const baseKey = makeRgbaKey(v.r, v.g, v.b, v.a); const zSuffix = state.separateByZ ? `_${Math.round(v.z)}` : ''; const key = baseKey + zSuffix; const hex = rgbToHex(v.r, v.g, v.b);
             if (state.colorsMap.has(key)) { state.colorsMap.get(key).count++; } else {
                 let oldItem = oldMap.get(key); if (!oldItem && state.separateByZ) oldItem = oldMap.get(baseKey); else if (!oldItem && !state.separateByZ) { const matchKey = Array.from(oldMap.keys()).find(k => k.startsWith(baseKey + '_')); if (matchKey) oldItem = oldMap.get(matchKey); }
-                state.colorsMap.set(key, { key: key, origHex: hex, origR: v.r, origG: v.g, origB: v.b, origA: v.a, origZ: Math.round(v.z), currentHex: oldItem ? oldItem.currentHex : hex, currentR: oldItem ? oldItem.currentR : v.r, currentG: oldItem ? oldItem.currentG : v.g, currentB: oldItem ? oldItem.currentB : v.b, currentA: oldItem ? oldItem.currentA : v.a, customName: oldItem && oldItem.customName ? oldItem.customName : "", count: 1 });
+                
+                // ПРИСВАИВАЕМ ИМЯ ИЗ СЛОВАРЯ
+                let defaultName = "";
+                if (window.layerDictionary && window.layerDictionary[hex.toLowerCase()]) {
+                    defaultName = window.layerDictionary[hex.toLowerCase()];
+                }
+                
+                state.colorsMap.set(key, { 
+                    key: key, origHex: hex, origR: v.r, origG: v.g, origB: v.b, origA: v.a, origZ: Math.round(v.z), 
+                    currentHex: oldItem ? oldItem.currentHex : hex, 
+                    currentR: oldItem ? oldItem.currentR : v.r, currentG: oldItem ? oldItem.currentG : v.g, currentB: oldItem ? oldItem.currentB : v.b, currentA: oldItem ? oldItem.currentA : v.a, 
+                    customName: oldItem && oldItem.customName ? oldItem.customName : defaultName, 
+                    count: 1 
+                });
             }
         }
     }
