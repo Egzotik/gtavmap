@@ -125,7 +125,11 @@
                     <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
                         <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i> Настройки слоя
                     </label>
-                    
+                    <!-- Утилиты SVG -->
+                    <div id="vecSvgTools" class="hidden gap-1.5 pt-1.5 border-t border-slate-700/50 mt-1.5">
+                        <button id="vecBtnRemoveWhite" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition shadow-sm" title="Удалить все белые элементы">Удал. белое</button>
+                        <button id="vecBtnRemoveBg" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition shadow-sm" title="Удалить самый большой контур">Удал. фон</button>
+                    </div>
                     <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2.5 shadow-inner">
                         <div id="vecPropTextContainer" class="hidden flex flex-col gap-1 mb-1">
                             <div class="flex justify-between items-center mb-1">
