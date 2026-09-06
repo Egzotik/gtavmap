@@ -9,7 +9,7 @@ const vectorState = {
     loadedFontName: 'Roboto Black',
     loadedFontData: null,
     pendingSelectId: null,
-    placementMode: null
+    placementMode: null // Флаг режима размещения
 };
 
 function activatePlacementMode(actionCallback, toolName) {
@@ -195,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
 
+        // Обработка режима ручного размещения кликом
         if (vectorState.placementMode) {
             if (e.button !== 0) return; 
 
@@ -230,6 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const intersects = raycaster.intersectObjects(allMeshes, true);
+
         if (intersects.length > 0) {
             let clicked = intersects[0].object;
             while (clicked.parent && clicked.parent.type === 'Group' && clicked.parent !== scene) {
@@ -286,15 +288,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 const processPath = (pts) => {
                     if (pts.length < 2) return;
                     
+                    // Удаляем дублирующиеся последние точки для фикса артефактов
                     while (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 0.1) {
                         pts.pop();
                     }
-                    
-                    pts.push(pts[0].clone());
+                    pts.push(pts[0].clone()); // Замыкаем контур чисто
                 
                     const geo = THREE.SVGLoader.pointsToStroke(pts, { 
                         strokeWidth: strokeWidth, 
-                        strokeLineJoin: 'round', 
+                        strokeLineJoin: 'round', // Закругленные края
                         strokeLineCap: 'round'
                     });
                     
@@ -581,7 +583,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 mesh.material.transparent = alpha < 1;
             }
             mesh.renderOrder = 999;
-            mesh.position.z = 0.005;
+            mesh.position.z = 0.005; // Фикс z-offset для геометрии
 
             let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
@@ -606,7 +608,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.material.color.set(strokeHex); 
                     strokeMesh.material.opacity = alpha; 
                     strokeMesh.material.transparent = alpha < 1;
-                    strokeMesh.position.z = -0.005;
+                    strokeMesh.position.z = -0.005; // Фикс z-offset для обводки
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
                 }
@@ -723,7 +725,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
         
-        return group; // Возвращаем для драг-скейла
+        return group; // Возвращаем для drag-to-size
     }
 
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
@@ -759,16 +761,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btnAddMarker')?.addEventListener('click', () => {
         activatePlacementMode((x, y) => {
             const shape = new THREE.Shape(); 
-            // КРАСИВЫЙ МАРКЕР, идентичный map-pin
             shape.moveTo(0, -5); 
             shape.quadraticCurveTo(4, -1, 4, 2);
             shape.absarc(0, 2, 4, 0, Math.PI, false); 
             shape.quadraticCurveTo(-4, -1, 0, -5);
-            
             const hole = new THREE.Path();
             hole.absarc(0, 2, 1.5, 0, Math.PI * 2, true);
             shape.holes.push(hole);
-            
             const geo = new THREE.ShapeGeometry(shape); 
             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
             geo.userData.tX = 0; geo.userData.tY = 0;
@@ -830,10 +829,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y) || 1;
             
-            // ЦЕНТРИРУЕМ И НОРМАЛИЗУЕМ БАЗОВЫЙ РАЗМЕР SVG ДО ~10 ЕДИНИЦ
             group.position.x = -center.x;
             group.position.y = -center.y;
-            group.scale.setScalar(10 / maxDim);
+            group.scale.setScalar(10 / maxDim); // Нормализуем масштаб для drag-to-size
             
             const wrapper = new THREE.Group();
             wrapper.add(group);
@@ -1120,10 +1118,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // КАК В VECTOR_TOOLS(4): сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
+        // ТЕСТОВЫЙ РЕЖИМ: сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
         const allTrianglesFor2_2 = allMclTriangles.concat(shapeTriangles).concat(textTriangles);
 
-        // Инжектим всё исключительно в слой tile_2_2 (1_1 больше нигде не используется)
+        // Инжектим всё исключительно в слой tile_2_2
         processAndInject(allTrianglesFor2_2, 'tile_2_2');
         
         return modifiedCount;
