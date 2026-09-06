@@ -2,6 +2,13 @@
 // ОСНОВНОЙ КОД ПРИЛОЖЕНИЯ (app.js)
 // ==========================================
 
+window.currentLang = localStorage.getItem('map_editor_lang') || 'ru';
+window.t = function(ru, en, uk) {
+    if (window.currentLang === 'en' && en) return en;
+    if (window.currentLang === 'uk' && uk) return uk;
+    return ru;
+};
+
 const state = { files: [], colorsMap: new Map(), modifiedColorsCount: 0, hasUserUploaded: false, separateByZ: false };
 window.state = state; 
 window.layerDictionary = {}; // СЛОВАРЬ НАЗВАНИЙ СЛОЕВ
@@ -9,19 +16,19 @@ const fastColorPointers = new Map();
 window.mapBounds = null; 
 window.isSeaSolid = false;
 
-const IMPORT_LIMITS = Object.freeze({ maxFiles: 500, maxFileBytes: 50 * 1024 * 1024, maxTotalBytes: 200 * 1024 * 1024 });
+const IMPORT_LIMITS = Object.freeze({ maxFiles: 500, maxFileBytes: 500 * 1024 * 1024, maxTotalBytes: 1000 * 1024 * 1024 });
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
 }
 
 function parseXmlOrThrow(xmlText, fileName = 'XML') {
-    if (typeof xmlText !== 'string' || xmlText.length === 0) throw new Error(`${fileName}: пустой файл`);
-    if (xmlText.length > IMPORT_LIMITS.maxFileBytes) throw new Error(`${fileName}: файл слишком большой`);
+    if (typeof xmlText !== 'string' || xmlText.length === 0) throw new Error(`${fileName}: ${window.t('пустой файл', 'empty file', 'порожній файл')}`);
+    if (xmlText.length > IMPORT_LIMITS.maxFileBytes) throw new Error(`${fileName}: ${window.t('файл слишком большой', 'file too large', 'файл занадто великий')}`);
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
     const parserError = doc.querySelector('parsererror');
-    if (parserError) throw new Error(`${fileName}: некорректный XML`);
-    if (!doc.documentElement) throw new Error(`${fileName}: отсутствует корневой элемент`);
+    if (parserError) throw new Error(`${fileName}: ${window.t('некорректный XML', 'invalid XML', 'некоректний XML')}`);
+    if (!doc.documentElement) throw new Error(`${fileName}: ${window.t('отсутствует корневой элемент', 'missing root element', 'відсутній кореневий елемент')}`);
     return doc;
 }
 
@@ -72,6 +79,16 @@ if(clearSearchBtn) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const langSwitcher = document.getElementById('langSwitcher');
+    if(langSwitcher) {
+        langSwitcher.addEventListener('change', (e) => {
+            window.currentLang = e.target.value;
+            if(window.renderFileList) window.renderFileList();
+            if(window.renderPalette) window.renderPalette(colorSearchInput ? colorSearchInput.value : '');
+            if(window.renderLayersList) window.renderLayersList();
+        });
+    }
+
     const toggleLeftPanelBtn = document.getElementById('toggleLeftPanelBtn');
     const leftToolsPanel = document.getElementById('leftToolsPanel');
     const panelToggleIcon = document.getElementById('panelToggleIcon');
@@ -105,14 +122,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 btn.classList.remove('bg-purple-500/40', 'border-purple-400', 'text-white');
                 btn.classList.add('bg-purple-500/10', 'text-purple-300');
-                window.showToast(`Слой ${fileName} скрыт!`);
+                window.showToast(window.t(`Слой ${fileName} скрыт!`, `Layer ${fileName} hidden!`, `Шар ${fileName} приховано!`));
                 return;
             }
 
-            window.showLoading(`Загрузка ${fileName}...`, "Скачивание и обработка...");
+            window.showLoading(window.t(`Загрузка ${fileName}...`, `Loading ${fileName}...`, `Завантаження ${fileName}...`), window.t("Скачивание и обработка...", "Downloading and processing...", "Завантаження та обробка..."));
             try {
                 const response = await fetch(url, { cache: 'no-store' });
-                if (!response.ok) throw new Error(`Не удалось загрузить файл: ${response.status}`);
+                if (!response.ok) throw new Error(`${window.t('Не удалось загрузить файл:', 'Failed to load file:', 'Не вдалося завантажити файл:')} ${response.status}`);
                 const xmlText = await response.text();
                 
                 const { meshesData, globalVertices } = parseGtaMapTo3D(xmlText, fileName);
@@ -173,10 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); 
                 build3DScene(false); 
                 updateExportState(); 
-                window.showToast(`Слой ${fileName} успешно добавлен!`);
+                window.showToast(window.t(`Слой ${fileName} успешно добавлен!`, `Layer ${fileName} successfully added!`, `Шар ${fileName} успішно додано!`));
             } catch (err) {
                 console.error(err);
-                window.showToast(`Ошибка: файл ${url} не найден`, "error");
+                window.showToast(window.t(`Ошибка: файл ${url} не найден`, `Error: file ${url} not found`, `Помилка: файл ${url} не знайдено`), "error");
             } finally {
                 window.hideLoading();
             }
@@ -236,13 +253,13 @@ if (lockRotationBtn) {
             lockRotationBtn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
             lockRotationBtn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
             if (helpRotateText) helpRotateText.classList.remove('opacity-30', 'line-through');
-            window.showToast("Вращение камеры разрешено", "success");
+            window.showToast(window.t("Вращение камеры разрешено", "Camera rotation enabled", "Обертання камери дозволено"), "success");
         } else {
             lockRotationIcon.setAttribute('data-lucide', 'lock');
             lockRotationBtn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
             lockRotationBtn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
             if (helpRotateText) helpRotateText.classList.add('opacity-30', 'line-through');
-            window.showToast("Вращение камеры заблокировано", "success");
+            window.showToast(window.t("Вращение камеры заблокировано", "Camera rotation locked", "Обертання камери заблоковано"), "success");
         }
         if (window.lucide) window.lucide.createIcons();
     });
@@ -263,9 +280,9 @@ function rgbToHex(r, g, b) { return '#' + [r, g, b].map(x => { const hex = Math.
 function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 0, g: 0, b: 0 }; }
 function makeRgbaKey(r, g, b, a) { return `${r}_${g}_${b}_${a}`; }
 
-window.showLoading = function(text, subtext = "Пожалуйста, подождите") {
-    if(loadingText) loadingText.textContent = text || "Загрузка...";
-    if(loadingSubtext) loadingSubtext.textContent = subtext;
+window.showLoading = function(text, subtext) {
+    if(loadingText) loadingText.textContent = text || window.t("Загрузка...", "Loading...", "Завантаження...");
+    if(loadingSubtext) loadingSubtext.textContent = subtext || window.t("Пожалуйста, подождите", "Please wait", "Будь ласка, зачекайте");
     if(loadingOverlay) loadingOverlay.classList.remove('opacity-0', 'pointer-events-none');
 };
 
@@ -291,7 +308,7 @@ if (eyedropperBtn) {
             eyedropperBtn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
             eyedropperBtn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
             mapCanvas.style.cursor = 'crosshair';
-            window.showToast("Пипетка активирована", "success");
+            window.showToast(window.t("Пипетка активирована", "Eyedropper activated", "Піпетка активована"), "success");
         } else {
             eyedropperBtn.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
             eyedropperBtn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
@@ -339,16 +356,15 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
                 eyedropperBtn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
             }
             mapCanvas.style.cursor = 'default';
-            window.showToast(`Цвет ${hex} скопирован в поиск!`, 'success');
+            window.showToast(window.t(`Цвет ${hex} скопирован в поиск!`, `Color ${hex} copied to search!`, `Колір ${hex} скопійовано в пошук!`), 'success');
         }
     }
 });
 
 async function loadDefaultMapFromFolder() {
-    if (window.location.protocol === 'file:') { window.hideLoading(); if(localFolderPrompt) localFolderPrompt.classList.remove('hidden'); window.showToast("Для автозагрузки нужен сервер", "error"); return; }
-    window.showLoading("Поиск карты в папке /map/...", "Загрузка всех XML файлов...");
+    if (window.location.protocol === 'file:') { window.hideLoading(); if(localFolderPrompt) localFolderPrompt.classList.remove('hidden'); window.showToast(window.t("Для автозагрузки нужен сервер", "Server needed for auto-load", "Для автозавантаження потрібен сервер"), "error"); return; }
+    window.showLoading(window.t("Поиск карты в папке /map/...", "Searching map in /map/ folder...", "Пошук карти в папці /map/..."), window.t("Загрузка всех XML файлов...", "Loading all XML files...", "Завантаження всіх XML файлів..."));
 
-    // ПОПЫТКА ЗАГРУЗИТЬ СЛОВАРЬ ИЗ ПАПКИ map/
     try {
         const dictResponse = await fetch('map/dictionary.json', { cache: 'no-store' });
         if (dictResponse.ok) {
@@ -370,28 +386,25 @@ async function loadDefaultMapFromFolder() {
         return true;
     }));
     loadedCount = results.filter(result => result.status === 'fulfilled' && result.value).length;
-    if (loadedCount > 0) { extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast(`Автоматически загружено: ${loadedCount}`); } else { if(localFolderPrompt) localFolderPrompt.classList.remove('hidden'); } window.hideLoading();
+    if (loadedCount > 0) { extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast(window.t(`Автоматически загружено: ${loadedCount}`, `Auto-loaded: ${loadedCount}`, `Автоматично завантажено: ${loadedCount}`)); } else { if(localFolderPrompt) localFolderPrompt.classList.remove('hidden'); } window.hideLoading();
 }
 
 if(folderPickerInput) {
     folderPickerInput.addEventListener('change', async (e) => {
         const allFiles = Array.from(e.target.files);
-        
-        // ПОИСК ФАЙЛА dictionary.json В ВЫБРАННОЙ ПАПКЕ
         const dictFile = allFiles.find(f => f.name.toLowerCase() === 'dictionary.json');
         if (dictFile) {
             try { window.layerDictionary = JSON.parse(await dictFile.text()); } catch(err) {}
         }
-
         const files = allFiles.filter(f => f.name.toLowerCase().endsWith('.xml')).slice(0, IMPORT_LIMITS.maxFiles); 
         if (files.length === 0) return;
         
-        window.showLoading("Импорт файлов из папки..."); if(localFolderPrompt) localFolderPrompt.classList.add('hidden');
+        window.showLoading(window.t("Импорт файлов из папки...", "Importing folder files...", "Імпорт файлів з папки...")); if(localFolderPrompt) localFolderPrompt.classList.add('hidden');
         try {
             let totalBytes = 0;
-            for (const file of files) { totalBytes += file.size; if (file.size > IMPORT_LIMITS.maxFileBytes || totalBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error('Превышен допустимый размер импорта'); const text = await file.text(); processSingleXmlText(text, file.name, false); }
-            extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast(`Загружено: ${files.length}`);
-        } catch (err) { console.error(err); window.showToast(err.message || 'Ошибка импорта', 'error'); }
+            for (const file of files) { totalBytes += file.size; if (file.size > IMPORT_LIMITS.maxFileBytes || totalBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error(window.t('Превышен допустимый размер импорта', 'Import size limit exceeded', 'Перевищено допустимий розмір імпорту')); const text = await file.text(); processSingleXmlText(text, file.name, false); }
+            extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast(window.t(`Загружено: ${files.length}`, `Loaded: ${files.length}`, `Завантажено: ${files.length}`));
+        } catch (err) { console.error(err); window.showToast(err.message || window.t('Ошибка импорта', 'Import error', 'Помилка імпорту'), 'error'); }
         finally { window.hideLoading(); }
     });
 }
@@ -399,13 +412,13 @@ if(folderPickerInput) {
 window.focusOnColor = function(key) {
     const item = state.colorsMap.get(key); if (!item) return; let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity, found = false;
     state.files.forEach(file => { file.vertices.forEach(v => { if (v.r === item.origR && v.g === item.origG && v.b === item.origB && v.a === item.origA) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y; if (v.z < minZ) minZ = v.z; if (v.z > maxZ) maxZ = v.z; found = true; } }); });
-    if (found) { const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2; const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 10); camera.position.set(centerX, centerY, maxZ + maxDim * 1.5); controls.target.set(centerX, centerY, centerZ); controls.update(); window.showToast(`Телепортировано`); } else { window.showToast("Не найдено", "error"); }
+    if (found) { const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2; const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 10); camera.position.set(centerX, centerY, maxZ + maxDim * 1.5); controls.target.set(centerX, centerY, centerZ); controls.update(); window.showToast(window.t("Телепортировано", "Teleported", "Телепортовано")); } else { window.showToast(window.t("Не найдено", "Not found", "Не знайдено"), "error"); }
 };
 
 window.deleteColor = function(key) {
-    if (!confirm("Удалить треугольники с этим цветом?")) return;
+    if (!confirm(window.t("Удалить треугольники с этим цветом?", "Delete triangles with this color?", "Видалити трикутники з цим кольором?"))) return;
     const itemToRemove = state.colorsMap.get(key); if (!itemToRemove) return;
-    window.showLoading("Вырезание геометрии...");
+    window.showLoading(window.t("Вырезание геометрии...", "Cutting geometry...", "Вирізання геометрії..."));
     setTimeout(() => {
         try {
             let deletedTrianglesCount = 0, completelyDeletedMeshes = 0;
@@ -426,8 +439,8 @@ window.deleteColor = function(key) {
                 if (fileModified) { const serializer = new XMLSerializer(); let newXml = serializer.serializeToString(doc); newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); file.text = newXml; }
             }
             const currentFiles = [...state.files]; state.files = []; currentFiles.forEach(f => { processSingleXmlText(f.text, f.name, f.isDefault); }); extractUniqueColors(); renderFileList(); renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); build3DScene(false); updateExportState();
-            if (deletedTrianglesCount > 0) window.showToast(`Вырезано полигонов: ${deletedTrianglesCount}`); else window.showToast("Геометрия не найдена", "error");
-        } catch (err) { window.showToast("Ошибка при удалении", "error"); } finally { window.hideLoading(); }
+            if (deletedTrianglesCount > 0) window.showToast(window.t(`Вырезано полигонов: ${deletedTrianglesCount}`, `Polygons removed: ${deletedTrianglesCount}`, `Вирізано полігонів: ${deletedTrianglesCount}`)); else window.showToast(window.t("Геометрия не найдена", "Geometry not found", "Геометрію не знайдено"), "error");
+        } catch (err) { window.showToast(window.t("Ошибка при удалении", "Delete error", "Помилка при видаленні"), "error"); } finally { window.hideLoading(); }
     }, 50); 
 };
 
@@ -438,35 +451,35 @@ if(dropZone) {
     dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('border-emerald-500', 'bg-slate-800/60'); if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files); });
 }
 if(clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => { state.files = []; state.colorsMap.clear(); fastColorPointers.clear(); if (window.clearVectors) window.clearVectors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast("Очищено"); });
+    clearFilesBtn.addEventListener('click', () => { state.files = []; state.colorsMap.clear(); fastColorPointers.clear(); if (window.clearVectors) window.clearVectors(); renderFileList(); renderPalette(); build3DScene(); updateExportState(); window.showToast(window.t("Очищено", "Cleared", "Очищено")); });
 }
 
 async function handleFiles(fileListInput) {
-    const rawFiles = Array.from(fileListInput); if (rawFiles.length === 0) return; window.showLoading("Обработка файлов..."); if(localFolderPrompt) localFolderPrompt.classList.add('hidden'); if (!state.hasUserUploaded) state.hasUserUploaded = true;
+    const rawFiles = Array.from(fileListInput); if (rawFiles.length === 0) return; window.showLoading(window.t("Обработка файлов...", "Processing files...", "Обробка файлів...")); if(localFolderPrompt) localFolderPrompt.classList.add('hidden'); if (!state.hasUserUploaded) state.hasUserUploaded = true;
     try {
-        if (rawFiles.length > IMPORT_LIMITS.maxFiles) throw new Error(`Слишком много файлов: максимум ${IMPORT_LIMITS.maxFiles}`);
+        if (rawFiles.length > IMPORT_LIMITS.maxFiles) throw new Error(window.t(`Слишком много файлов: максимум ${IMPORT_LIMITS.maxFiles}`, `Too many files: max ${IMPORT_LIMITS.maxFiles}`, `Занадто багато файлів: максимум ${IMPORT_LIMITS.maxFiles}`));
         let totalBytes = rawFiles.reduce((sum, file) => sum + file.size, 0);
-        if (totalBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error('Слишком большой общий объём файлов');
+        if (totalBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error(window.t('Слишком большой общий объём файлов', 'Total file size too large', 'Занадто великий загальний обсяг файлів'));
         for (const file of rawFiles) {
             const lowerName = file.name.toLowerCase();
-            if (file.size > IMPORT_LIMITS.maxFileBytes) throw new Error(`${file.name}: файл слишком большой`);
+            if (file.size > IMPORT_LIMITS.maxFileBytes) throw new Error(`${file.name}: ${window.t('файл слишком большой', 'file too large', 'файл занадто великий')}`);
             if (lowerName.endsWith('.zip')) {
                 const zip = await JSZip.loadAsync(file);
                 const xmlNames = Object.keys(zip.files).filter(filename => filename.toLowerCase().endsWith('.xml') && !zip.files[filename].dir);
-                if (xmlNames.length > IMPORT_LIMITS.maxFiles) throw new Error(`${file.name}: слишком много XML`);
+                if (xmlNames.length > IMPORT_LIMITS.maxFiles) throw new Error(`${file.name}: ${window.t('слишком много XML', 'too many XMLs', 'занадто багато XML')}`);
                 let unpackedBytes = 0;
                 for (const filename of xmlNames) {
                     const declaredSize = zip.files[filename]._data && zip.files[filename]._data.uncompressedSize;
-                    if (Number.isFinite(declaredSize) && declaredSize > IMPORT_LIMITS.maxFileBytes) throw new Error(`${filename}: файл слишком большой`);
+                    if (Number.isFinite(declaredSize) && declaredSize > IMPORT_LIMITS.maxFileBytes) throw new Error(`${filename}: ${window.t('файл слишком большой', 'file too large', 'файл занадто великий')}`);
                     const xmlText = await zip.files[filename].async('string');
                     unpackedBytes += xmlText.length;
-                    if (xmlText.length > IMPORT_LIMITS.maxFileBytes || unpackedBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error(`${file.name}: превышен размер распакованных данных`);
+                    if (xmlText.length > IMPORT_LIMITS.maxFileBytes || unpackedBytes > IMPORT_LIMITS.maxTotalBytes) throw new Error(`${file.name}: ${window.t('превышен размер распакованных данных', 'unpacked size limit exceeded', 'перевищено розмір розпакованих даних')}`);
                     processSingleXmlText(xmlText, filename.split('/').pop(), false);
                 }
             } else if (lowerName.endsWith('.xml')) { const xmlText = await file.text(); processSingleXmlText(xmlText, file.name, false); }
         }
-        extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(false); updateExportState(); window.showToast("Загружено!");
-    } catch (err) { console.error(err); window.showToast(err.message || "Ошибка импорта", "error"); } finally { window.hideLoading(); }
+        extractUniqueColors(); renderFileList(); renderPalette(); build3DScene(false); updateExportState(); window.showToast(window.t("Загружено!", "Loaded!", "Завантажено!"));
+    } catch (err) { console.error(err); window.showToast(err.message || window.t("Ошибка импорта", "Import error", "Помилка імпорту"), "error"); } finally { window.hideLoading(); }
 }
 
 function processSingleXmlText(xmlText, fileName, isDefault = false) {
@@ -484,7 +497,7 @@ function parseGtaMapTo3D(xmlText, fileName = 'XML') {
             const p = line.trim().split(/\s+/).filter(Boolean);
             if (p.length >= 7) { const x = parseFloat(p[0]), y = parseFloat(p[1]), z = parseFloat(p[2]), r = parseInt(p[3]), g = parseInt(p[4]), b = parseInt(p[5]), a = parseInt(p[6]); if (!isNaN(x) && !isNaN(y) && !isNaN(r)) { positions.push(x, y, z); colors.push(r / 255, g / 255, b / 255, a / 255); globalVertices.push({ x, y, z, r, g, b, a }); originalColorsList.push({ r, g, b, a, z }); } }
         });
-        const indices = []; if (iData) { const iTokens = iData.textContent.trim().split(/\s+/).filter(Boolean); iTokens.forEach(t => { const index = Number(t); if (!Number.isInteger(index) || index < 0 || index >= positions.length / 3) throw new Error(`${fileName}: некорректный индекс вершины`); indices.push(index); }); if (indices.length % 3 !== 0) throw new Error(`${fileName}: число индексов не кратно трём`); } else { for(let i = 0; i < positions.length / 3; i++) indices.push(i); }
+        const indices = []; if (iData) { const iTokens = iData.textContent.trim().split(/\s+/).filter(Boolean); iTokens.forEach(t => { const index = Number(t); if (!Number.isInteger(index) || index < 0 || index >= positions.length / 3) throw new Error(`${fileName}: ${window.t('некорректный индекс вершины', 'invalid vertex index', 'некоректний індекс вершини')}`); indices.push(index); }); if (indices.length % 3 !== 0) throw new Error(`${fileName}: ${window.t('число индексов не кратно трём', 'indices not multiple of 3', 'кількість індексів не кратна трьом')}`); } else { for(let i = 0; i < positions.length / 3; i++) indices.push(i); }
         if (positions.length > 0) meshesData.push({ positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices), originalColorsList: originalColorsList });
     });
     return { meshesData, globalVertices };
@@ -497,12 +510,8 @@ function extractUniqueColors() {
             const baseKey = makeRgbaKey(v.r, v.g, v.b, v.a); const zSuffix = state.separateByZ ? `_${Math.round(v.z)}` : ''; const key = baseKey + zSuffix; const hex = rgbToHex(v.r, v.g, v.b);
             if (state.colorsMap.has(key)) { state.colorsMap.get(key).count++; } else {
                 let oldItem = oldMap.get(key); if (!oldItem && state.separateByZ) oldItem = oldMap.get(baseKey); else if (!oldItem && !state.separateByZ) { const matchKey = Array.from(oldMap.keys()).find(k => k.startsWith(baseKey + '_')); if (matchKey) oldItem = oldMap.get(matchKey); }
-                
-                // ПРИСВАИВАЕМ ИМЯ ИЗ СЛОВАРЯ
                 let defaultName = "";
-                if (window.layerDictionary && window.layerDictionary[hex.toLowerCase()]) {
-                    defaultName = window.layerDictionary[hex.toLowerCase()];
-                }
+                if (window.layerDictionary && window.layerDictionary[hex.toLowerCase()]) { defaultName = window.layerDictionary[hex.toLowerCase()]; }
                 
                 state.colorsMap.set(key, { 
                     key: key, origHex: hex, origR: v.r, origG: v.g, origB: v.b, origA: v.a, origZ: Math.round(v.z), 
@@ -521,7 +530,7 @@ function renderFileList() {
     if (state.files.length === 0) { filesContainer.classList.add('hidden'); return; } filesContainer.classList.remove('hidden'); fileCount.textContent = state.files.length; fileList.innerHTML = '';
     state.files.forEach(file => {
         const div = document.createElement('div'); div.className = 'flex flex-col bg-slate-800/80 rounded border border-slate-700/50 mb-1.5 text-[11px] overflow-hidden transition-all shrink-0';
-        div.innerHTML = `<div class="file-header flex items-center justify-between p-1.5 cursor-pointer hover:bg-slate-700/50 transition-colors"><div class="flex items-center space-x-1.5 truncate"><i data-lucide="chevron-right" id="file-icon-${file.id}" class="w-3 h-3 text-slate-400 shrink-0 transition-transform duration-200"></i><i data-lucide="file-code" class="w-3 h-3 text-emerald-400 shrink-0"></i><span class="file-name font-medium text-slate-200 truncate text-[10px]"></span></div><button type="button" class="remove-file text-slate-400 hover:text-rose-400 transition p-0.5" title="Удалить файл"><i data-lucide="x" class="w-3 h-3"></i></button></div><div id="file-settings-${file.id}" class="hidden px-1.5 pb-1.5 pt-0 space-y-1.5"><div class="flex items-center justify-between bg-slate-900/50 px-1.5 py-1 rounded border border-slate-700/50"><span class="text-[9px] text-slate-400" title="Опустить или поднять весь файл">Смещение Z:</span><input type="number" class="z-offset w-16 bg-transparent text-right text-[10px] font-mono font-bold text-emerald-400 outline-none focus:bg-slate-950 transition-colors rounded px-1" step="1"></div></div>`;
+        div.innerHTML = `<div class="file-header flex items-center justify-between p-1.5 cursor-pointer hover:bg-slate-700/50 transition-colors"><div class="flex items-center space-x-1.5 truncate"><i data-lucide="chevron-right" id="file-icon-${file.id}" class="w-3 h-3 text-slate-400 shrink-0 transition-transform duration-200"></i><i data-lucide="file-code" class="w-3 h-3 text-emerald-400 shrink-0"></i><span class="file-name font-medium text-slate-200 truncate text-[10px]"></span></div><button type="button" class="remove-file text-slate-400 hover:text-rose-400 transition p-0.5" title="${window.t('Удалить файл', 'Delete file', 'Видалити файл')}"><i data-lucide="x" class="w-3 h-3"></i></button></div><div id="file-settings-${file.id}" class="hidden px-1.5 pb-1.5 pt-0 space-y-1.5"><div class="flex items-center justify-between bg-slate-900/50 px-1.5 py-1 rounded border border-slate-700/50"><span class="text-[9px] text-slate-400" title="${window.t('Опустить или поднять весь файл', 'Lower or raise entire file', 'Опустити або підняти весь файл')}">${window.t('Смещение Z:', 'Z-Offset:', 'Зміщення Z:')}</span><input type="number" class="z-offset w-16 bg-transparent text-right text-[10px] font-mono font-bold text-emerald-400 outline-none focus:bg-slate-950 transition-colors rounded px-1" step="1"></div></div>`;
         const nameNode = div.querySelector('.file-name'); nameNode.textContent = file.name; nameNode.title = file.name;
         div.querySelector('.file-header').addEventListener('click', () => window.toggleFileExpanded(file.id));
         div.querySelector('.remove-file').addEventListener('click', event => { event.stopPropagation(); window.removeFile(file.id); });
@@ -533,9 +542,9 @@ function renderFileList() {
 
 window.toggleFileExpanded = function(fileId) { const settingsBlock = document.getElementById(`file-settings-${fileId}`); const icon = document.getElementById(`file-icon-${fileId}`); if (!settingsBlock || !icon) return; if (settingsBlock.classList.contains('hidden')) { settingsBlock.classList.remove('hidden'); icon.classList.add('rotate-90'); } else { settingsBlock.classList.add('hidden'); icon.classList.remove('rotate-90'); } };
 window.applyFileZOffset = function(fileId, inputVal) {
-    const file = state.files.find(f => f.id === fileId); if (!file) return; const newZOffset = parseFloat(inputVal) || 0; const currentZOffset = file.zOffset || 0; const deltaZ = newZOffset - currentZOffset; if (deltaZ === 0) return; window.showLoading("Смещение Z координаты...", "Пересчет геометрии файла");
+    const file = state.files.find(f => f.id === fileId); if (!file) return; const newZOffset = parseFloat(inputVal) || 0; const currentZOffset = file.zOffset || 0; const deltaZ = newZOffset - currentZOffset; if (deltaZ === 0) return; window.showLoading(window.t("Смещение Z координаты...", "Z-offsetting...", "Зміщення Z координати..."), window.t("Пересчет геометрии файла", "Recalculating geometry", "Перерахунок геометрії файлу"));
     setTimeout(() => {
-        try { file.zOffset = newZOffset; file.meshesData.forEach(data => { for (let i = 0; i < data.positions.length; i += 3) data.positions[i + 2] += deltaZ; data.originalColorsList.forEach(orig => { orig.z += deltaZ; }); }); file.vertices.forEach(v => { v.z += deltaZ; }); const parser = new DOMParser(); const doc = parser.parseFromString(file.text, 'application/xml'); doc.querySelectorAll('VertexBuffer').forEach(vb => { const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data'); if (!vDataNode) return; const rawLines = vDataNode.textContent.split('\n'); let newVLines = rawLines.map(line => { const p = line.trim().split(/\s+/).filter(Boolean); if (p.length >= 7) { p[2] = (parseFloat(p[2]) + deltaZ).toFixed(6); return `                ${p[0]} ${p[1]} ${p[2]}   ${p.slice(3).join(' ')}`; } return line; }); vDataNode.textContent = "\n" + newVLines.join("\n") + "\n              "; const geomItem = vb.closest('Geometry') || vb.closest('Item'); if (geomItem) { ['BoundingBoxMin', 'BoundingBoxMax', 'BoundingSphereCenter'].forEach(tag => { const node = geomItem.querySelector(tag); if (node && node.hasAttribute('z')) node.setAttribute('z', (parseFloat(node.getAttribute('z')) + deltaZ).toFixed(6)); }); } }); const serializer = new XMLSerializer(); let newXml = serializer.serializeToString(doc); newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); file.text = newXml; extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); build3DScene(false); updateExportState(); window.showToast(`Файл "${file.name}" смещен по Z на ${deltaZ > 0 ? '+' : ''}${deltaZ}`, "success"); } catch (err) { console.error(err); window.showToast("Ошибка при смещении Z", "error"); } finally { window.hideLoading(); }
+        try { file.zOffset = newZOffset; file.meshesData.forEach(data => { for (let i = 0; i < data.positions.length; i += 3) data.positions[i + 2] += deltaZ; data.originalColorsList.forEach(orig => { orig.z += deltaZ; }); }); file.vertices.forEach(v => { v.z += deltaZ; }); const parser = new DOMParser(); const doc = parser.parseFromString(file.text, 'application/xml'); doc.querySelectorAll('VertexBuffer').forEach(vb => { const vDataNode = vb.querySelector('Data2') || vb.querySelector('Data'); if (!vDataNode) return; const rawLines = vDataNode.textContent.split('\n'); let newVLines = rawLines.map(line => { const p = line.trim().split(/\s+/).filter(Boolean); if (p.length >= 7) { p[2] = (parseFloat(p[2]) + deltaZ).toFixed(6); return `                ${p[0]} ${p[1]} ${p[2]}   ${p.slice(3).join(' ')}`; } return line; }); vDataNode.textContent = "\n" + newVLines.join("\n") + "\n              "; const geomItem = vb.closest('Geometry') || vb.closest('Item'); if (geomItem) { ['BoundingBoxMin', 'BoundingBoxMax', 'BoundingSphereCenter'].forEach(tag => { const node = geomItem.querySelector(tag); if (node && node.hasAttribute('z')) node.setAttribute('z', (parseFloat(node.getAttribute('z')) + deltaZ).toFixed(6)); }); } }); const serializer = new XMLSerializer(); let newXml = serializer.serializeToString(doc); newXml = newXml.replace(/\s+xmlns="[^"]*"/g, ''); file.text = newXml; extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); build3DScene(false); updateExportState(); window.showToast(window.t(`Файл "${file.name}" смещен по Z на ${deltaZ > 0 ? '+' : ''}${deltaZ}`, `File "${file.name}" z-shifted by ${deltaZ > 0 ? '+' : ''}${deltaZ}`, `Файл "${file.name}" зміщено по Z на ${deltaZ > 0 ? '+' : ''}${deltaZ}`), "success"); } catch (err) { console.error(err); window.showToast(window.t("Ошибка при смещении Z", "Z-offset error", "Помилка при зміщенні Z"), "error"); } finally { window.hideLoading(); }
     }, 50);
 };
 
@@ -544,12 +553,12 @@ window.updateColorName = function(key, newName) { const item = state.colorsMap.g
 
 function renderPalette(filterText = '') {
     const paletteContainer = document.getElementById('paletteContainer'); const uniqueColorCount = document.getElementById('uniqueColorCount'); if (!paletteContainer) return; paletteContainer.innerHTML = '';
-    if (state.colorsMap.size === 0) { paletteContainer.innerHTML = `<div class="py-12 text-center text-slate-500"><i data-lucide="palette" class="w-8 h-8 mx-auto mb-1 stroke-1"></i><p class="text-xs">Файлы не загружены</p></div>`; if (uniqueColorCount) uniqueColorCount.textContent = '0 цветов'; if (window.lucide) window.lucide.createIcons(); return; }
+    if (state.colorsMap.size === 0) { paletteContainer.innerHTML = `<div class="py-12 text-center text-slate-500"><i data-lucide="palette" class="w-8 h-8 mx-auto mb-1 stroke-1"></i><p class="text-xs">${window.t('Файлы не загружены', 'No files loaded', 'Файли не завантажені')}</p></div>`; if (uniqueColorCount) uniqueColorCount.textContent = `0 ${window.t('цветов', 'colors', 'кольорів')}`; if (window.lucide) window.lucide.createIcons(); return; }
     const search = filterText.toLowerCase().trim(); const sortedColors = Array.from(state.colorsMap.values()).sort((a, b) => { const aIsTransparent = a.origA < 255, bIsTransparent = b.origA < 255; if (aIsTransparent && !bIsTransparent) return 1; if (!aIsTransparent && bIsTransparent) return -1; return b.count - a.count; });
     sortedColors.forEach(item => {
         const hexLabel = item.origHex.toLowerCase(), currHexLabel = item.currentHex.toLowerCase(), rgbLabel = `rgb(${item.origR}, ${item.origG}, ${item.origB})`, customNameLabel = (item.customName || '').toLowerCase(); if (search && !hexLabel.includes(search) && !currHexLabel.includes(search) && !rgbLabel.includes(search) && !customNameLabel.includes(search)) return; const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const safeKey = item.key.replace(/[^a-zA-Z0-9]/g, '_');
         const card = document.createElement('div'); card.id = `color-card-${safeKey}`; card.className = `p-2 rounded-lg border transition-all duration-200 shrink-0 ${isModified ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-900/80 border-slate-800'}`;
-        card.innerHTML = `<div class="flex items-start justify-between gap-1"><div class="flex items-start space-x-2 w-full min-w-0"><div class="relative w-6 h-6 rounded overflow-hidden border border-slate-700 shrink-0 color-picker-wrapper mt-0.5"><div id="alpha-preview-${safeKey}" class="absolute inset-0 pointer-events-none" style="background-color: rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255});"></div><input type="color" id="color-picker-${safeKey}" value="${item.currentHex}" class="color-picker opacity-0 w-full h-full cursor-pointer absolute inset-0 m-0 p-0"></div><div class="flex flex-col flex-1 min-w-0"><div class="flex items-center flex-wrap gap-1 mb-1"><input type="text" id="hex-input-${safeKey}" value="${item.currentHex.toUpperCase()}" class="hex-input w-[48px] bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded text-[9px] font-mono font-bold text-slate-300 hover:text-white focus:text-emerald-400 outline-none uppercase p-0 m-0 transition-colors shrink-0"><span id="mod-badge-${safeKey}" class="text-[8px] text-emerald-400 bg-emerald-500/20 px-1 rounded font-medium shrink-0 ${isModified ? '' : 'hidden'}">mod</span>${state.separateByZ ? `<span class="text-[8px] text-blue-400 bg-blue-500/20 px-1 rounded font-medium shrink-0">Z:${item.origZ}</span>` : ''}</div><input type="text" id="name-input-${safeKey}" placeholder="Назвать слой..." class="name-input bg-slate-950 border border-slate-700 hover:border-slate-500 focus:border-emerald-500 rounded text-[10px] px-1 py-0.5 text-slate-200 outline-none w-full max-w-[120px] placeholder-slate-600 transition-colors"></div></div><div class="flex flex-col items-end shrink-0 gap-1"><div class="flex items-center space-x-0.5"><button type="button" data-action="focus" title="Телепорт" class="p-1 text-emerald-400 hover:bg-emerald-500/20 rounded transition"><i data-lucide="target" class="w-3.5 h-3.5"></i></button><button type="button" data-action="invert" title="Инверсия" class="p-1 text-amber-300 hover:bg-slate-700 rounded transition"><i data-lucide="flip-horizontal" class="w-3.5 h-3.5"></i></button><button type="button" data-action="reset" id="reset-btn-${safeKey}" title="Сброс" class="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition ${isModified ? '' : 'hidden'}"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button><button type="button" data-action="delete" title="Удалить" class="p-1 text-rose-400 hover:bg-rose-500/20 rounded transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div><span class="text-[9px] text-slate-400 bg-slate-800 px-1 py-0.5 rounded border border-slate-700/50 font-mono text-center">${item.count}</span></div></div><div class="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center space-x-2 text-[9px] text-slate-400"><span class="font-medium shrink-0">Alpha:</span><input type="range" id="alpha-range-${safeKey}" min="0" max="255" value="${item.currentA}" class="alpha-range w-full accent-emerald-400 bg-slate-800 h-1 rounded cursor-pointer"><input type="number" min="0" max="255" value="${item.currentA}" id="alpha-num-${safeKey}" class="alpha-num w-8 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 text-[9px] py-0.5 font-mono outline-none focus:border-emerald-500"></div>`;
+        card.innerHTML = `<div class="flex items-start justify-between gap-1"><div class="flex items-start space-x-2 w-full min-w-0"><div class="relative w-6 h-6 rounded overflow-hidden border border-slate-700 shrink-0 color-picker-wrapper mt-0.5"><div id="alpha-preview-${safeKey}" class="absolute inset-0 pointer-events-none" style="background-color: rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255});"></div><input type="color" id="color-picker-${safeKey}" value="${item.currentHex}" class="color-picker opacity-0 w-full h-full cursor-pointer absolute inset-0 m-0 p-0"></div><div class="flex flex-col flex-1 min-w-0"><div class="flex items-center flex-wrap gap-1 mb-1"><input type="text" id="hex-input-${safeKey}" value="${item.currentHex.toUpperCase()}" class="hex-input w-[48px] bg-transparent border border-transparent hover:border-slate-700 focus:border-emerald-500 rounded text-[9px] font-mono font-bold text-slate-300 hover:text-white focus:text-emerald-400 outline-none uppercase p-0 m-0 transition-colors shrink-0"><span id="mod-badge-${safeKey}" class="text-[8px] text-emerald-400 bg-emerald-500/20 px-1 rounded font-medium shrink-0 ${isModified ? '' : 'hidden'}">mod</span>${state.separateByZ ? `<span class="text-[8px] text-blue-400 bg-blue-500/20 px-1 rounded font-medium shrink-0">Z:${item.origZ}</span>` : ''}</div><input type="text" id="name-input-${safeKey}" placeholder="${window.t('Назвать слой...', 'Name layer...', 'Назвати шар...')}" class="name-input bg-slate-950 border border-slate-700 hover:border-slate-500 focus:border-emerald-500 rounded text-[10px] px-1 py-0.5 text-slate-200 outline-none w-full max-w-[120px] placeholder-slate-600 transition-colors"></div></div><div class="flex flex-col items-end shrink-0 gap-1"><div class="flex items-center space-x-0.5"><button type="button" data-action="focus" title="${window.t('Телепорт', 'Teleport', 'Телепорт')}" class="p-1 text-emerald-400 hover:bg-emerald-500/20 rounded transition"><i data-lucide="target" class="w-3.5 h-3.5"></i></button><button type="button" data-action="invert" title="${window.t('Инверсия', 'Invert', 'Інверсія')}" class="p-1 text-amber-300 hover:bg-slate-700 rounded transition"><i data-lucide="flip-horizontal" class="w-3.5 h-3.5"></i></button><button type="button" data-action="reset" id="reset-btn-${safeKey}" title="${window.t('Сброс', 'Reset', 'Скинути')}" class="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition ${isModified ? '' : 'hidden'}"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button><button type="button" data-action="delete" title="${window.t('Удалить', 'Delete', 'Видалити')}" class="p-1 text-rose-400 hover:bg-rose-500/20 rounded transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div><span class="text-[9px] text-slate-400 bg-slate-800 px-1 py-0.5 rounded border border-slate-700/50 font-mono text-center">${item.count}</span></div></div><div class="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center space-x-2 text-[9px] text-slate-400"><span class="font-medium shrink-0">Alpha:</span><input type="range" id="alpha-range-${safeKey}" min="0" max="255" value="${item.currentA}" class="alpha-range w-full accent-emerald-400 bg-slate-800 h-1 rounded cursor-pointer"><input type="number" min="0" max="255" value="${item.currentA}" id="alpha-num-${safeKey}" class="alpha-num w-8 bg-slate-950 border border-slate-700 rounded text-center text-slate-200 text-[9px] py-0.5 font-mono outline-none focus:border-emerald-500"></div>`;
         const nameInput = card.querySelector('.name-input'); nameInput.value = item.customName || ''; nameInput.addEventListener('change', () => window.updateColorName(item.key, nameInput.value));
         card.querySelector('.color-picker').addEventListener('input', event => window.fastUpdateColor(item.key, event.target.value, null));
         card.querySelector('.hex-input').addEventListener('change', event => window.fastUpdateColor(item.key, event.target.value, null));
@@ -561,7 +570,7 @@ function renderPalette(filterText = '') {
         card.querySelector('[data-action="delete"]').addEventListener('click', () => window.deleteColor(item.key));
         paletteContainer.appendChild(card);
     });
-    if (uniqueColorCount) uniqueColorCount.textContent = `${state.colorsMap.size} цветов`; if (window.lucide) window.lucide.createIcons();
+    if (uniqueColorCount) uniqueColorCount.textContent = `${state.colorsMap.size} ${window.t('цветов', 'colors', 'кольорів')}`; if (window.lucide) window.lucide.createIcons();
 }
 
 window.fastUpdateColor = function(key, newHex, newAlpha) {
@@ -575,11 +584,11 @@ window.fastUpdateColor = function(key, newHex, newAlpha) {
 };
 
 window.invertSingleColor = function(key) { const item = state.colorsMap.get(key); if (!item) return; window.fastUpdateColor(key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA); };
-if(invertAllColorsBtn) { invertAllColorsBtn.addEventListener('click', () => { state.colorsMap.forEach(item => window.fastUpdateColor(item.key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA)); window.showToast("Все цвета инвертированы"); }); }
+if(invertAllColorsBtn) { invertAllColorsBtn.addEventListener('click', () => { state.colorsMap.forEach(item => window.fastUpdateColor(item.key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA)); window.showToast(window.t("Все цвета инвертированы", "All colors inverted", "Всі кольори інвертовані")); }); }
 window.resetSingleColor = function(key) { const item = state.colorsMap.get(key); if (!item) return; window.fastUpdateColor(key, item.origHex, item.origA); };
-if(resetAllColorsBtn) { resetAllColorsBtn.addEventListener('click', () => { state.colorsMap.forEach(item => window.fastUpdateColor(item.key, item.origHex, item.origA)); window.showToast("Все цвета сброшены"); }); }
+if(resetAllColorsBtn) { resetAllColorsBtn.addEventListener('click', () => { state.colorsMap.forEach(item => window.fastUpdateColor(item.key, item.origHex, item.origA)); window.showToast(window.t("Все цвета сброшены", "All colors reset", "Всі кольори скинуто")); }); }
 
-function updateModifiedCount() { let mod = 0; state.colorsMap.forEach(item => { if (item.currentHex !== item.origHex || item.currentA !== item.origA) mod++; }); state.modifiedColorsCount = mod; if(modifiedCount) modifiedCount.textContent = `Изменено: ${mod}`; }
+function updateModifiedCount() { let mod = 0; state.colorsMap.forEach(item => { if (item.currentHex !== item.origHex || item.currentA !== item.origA) mod++; }); state.modifiedColorsCount = mod; if(modifiedCount) modifiedCount.textContent = window.t("Изменено: ", "Modified: ", "Змінено: ") + mod; }
 
 window.updateExportState = function() {
     const hasFiles = state.files.length > 0;
@@ -641,7 +650,7 @@ function build3DScene(resetCamera = true) {
         window.mapBounds = { centerX, centerY, centerZ, maxZ, maxDim };
         if (resetCamera) { camera.position.set(centerX, centerY, maxZ + maxDim * 1.5); controls.target.set(centerX, centerY, centerZ); controls.update(); }
     } else window.mapBounds = null;
-    if(vertexStats) vertexStats.textContent = `Вершин: ${totalVertices.toLocaleString('ru-RU')}`;
+    if(vertexStats) vertexStats.textContent = `${window.t('Вершин:', 'Vertices:', 'Вершин:')} ${totalVertices.toLocaleString('ru-RU')}`;
     requestSceneRender();
 }
 
@@ -650,7 +659,7 @@ if(resetViewBtn) { resetViewBtn.addEventListener('click', () => { if (window.map
 function saveProjectJson() {
     const vectorsData = window.getVectorsForJSON ? window.getVectorsForJSON() : [];
     if (state.files.length === 0 && vectorsData.length === 0) {
-        window.showToast("Нечего сохранять!", "error");
+        window.showToast(window.t("Нечего сохранять!", "Nothing to save!", "Нічого зберігати!"), "error");
         return;
     }
     
@@ -667,11 +676,11 @@ function saveProjectJson() {
     };
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `gta_map_project_${Date.now()}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    window.showToast("Проект сохранен в JSON!");
+    window.showToast(window.t("Проект сохранен в JSON!", "Project saved to JSON!", "Проект збережено в JSON!"));
 }
 
 async function loadProjectJson(file) {
-    window.showLoading("Загрузка JSON...");
+    window.showLoading(window.t("Загрузка JSON...", "Loading JSON...", "Завантаження JSON..."));
     try {
         if (file.size > IMPORT_LIMITS.maxTotalBytes) throw new Error('JSON проекта слишком большой');
         const text = await file.text(); const data = JSON.parse(text); if (!data.files && !data.vectors) throw new Error("Неверный формат");
@@ -702,8 +711,8 @@ async function loadProjectJson(file) {
         if (data.vectorFont && window.loadVectorFontFromJSON) await window.loadVectorFontFromJSON(data.vectorFont);
         if (data.vectors && window.loadVectorsFromJSON) { window.loadVectorsFromJSON(data.vectors); }
         
-        renderFileList(); renderPalette(); build3DScene(false); window.updateExportState(); window.showToast("Проект JSON загружен!");
-    } catch (err) { console.error(err); window.showToast("Ошибка с JSON файлом", "error"); } finally { window.hideLoading(); }
+        renderFileList(); renderPalette(); build3DScene(false); window.updateExportState(); window.showToast(window.t("Проект JSON загружен!", "JSON project loaded!", "Проект JSON завантажено!"));
+    } catch (err) { console.error(err); window.showToast(window.t("Ошибка с JSON файлом", "Error with JSON file", "Помилка з JSON файлом"), "error"); } finally { window.hideLoading(); }
 }
 
 if(saveProjectBtn) saveProjectBtn.addEventListener('click', saveProjectJson);
@@ -864,7 +873,7 @@ async function exportModifiedZip() {
     const hasVectors = window.getVectorCount ? (window.getVectorCount() > 0) : false;
     if (!hasFiles && !hasVectors) return;
 
-    window.showLoading("Сборка архива...", "Нарезка выполняется локально...");
+    window.showLoading(window.t("Сборка архива...", "Building archive...", "Складання архіву..."), window.t("Нарезка выполняется локально...", "Processing locally...", "Обробка виконується локально..."));
 
     try {
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -990,10 +999,10 @@ async function exportModifiedZip() {
         document.body.removeChild(a); 
         URL.revokeObjectURL(downloadUrl);
         
-        window.showToast("Архив скачан!");
+        window.showToast(window.t("Архив скачан!", "Archive downloaded!", "Архів завантажено!"));
     } catch (err) { 
         console.error(err); 
-        window.showToast("Ошибка при экспорте", "error"); 
+        window.showToast(window.t("Ошибка при экспорте", "Export error", "Помилка при експорті"), "error"); 
     } finally { 
         window.hideLoading(); 
     }
@@ -1007,7 +1016,7 @@ loadDefaultMapFromFolder();
 const separateZToggle = document.getElementById('separateZToggle');
 if (separateZToggle) {
     separateZToggle.addEventListener('change', (e) => {
-        state.separateByZ = e.target.checked; window.showLoading("Перестроение палитры..."); setTimeout(() => { extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); build3DScene(false); window.hideLoading(); }, 50);
+        state.separateByZ = e.target.checked; window.showLoading(window.t("Перестроение палитры...", "Rebuilding palette...", "Перебудова палітри...")); setTimeout(() => { extractUniqueColors(); renderPalette(document.getElementById('colorSearchInput') ? document.getElementById('colorSearchInput').value : ''); build3DScene(false); window.hideLoading(); }, 50);
     });
 }
 
@@ -1017,8 +1026,8 @@ function toggleMapGrid() {
     isGridVisible = !isGridVisible;
     if (isGridVisible) {
         if (!gridMesh) { const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthTest: false }); const points = []; const startX = -4500, endX = 4900, stepX = 1175; const startY = -4492, endY = 8000, stepY = 1388; const z = 0; for (let i = 0; i <= 8; i++) { const x = startX + i * stepX; points.push(new THREE.Vector3(x, startY, z)); points.push(new THREE.Vector3(x, endY, z)); } for (let i = 0; i <= 9; i++) { const y = startY + i * stepY; points.push(new THREE.Vector3(startX, y, z)); points.push(new THREE.Vector3(endX, y, z)); } const geometry = new THREE.BufferGeometry().setFromPoints(points); gridMesh = new THREE.LineSegments(geometry, material); gridMesh.renderOrder = 9999; }
-        scene.add(gridMesh); window.showToast("Сетка радара (8x9) включена", "success");
-    } else { if (gridMesh) scene.remove(gridMesh); window.showToast("Сетка выключена", "success"); } requestSceneRender(); return isGridVisible;
+        scene.add(gridMesh); window.showToast(window.t("Сетка радара (8x9) включена", "Radar grid (8x9) enabled", "Сітка радара (8x9) увімкнена"), "success");
+    } else { if (gridMesh) scene.remove(gridMesh); window.showToast(window.t("Сетка выключена", "Grid disabled", "Сітка вимкнена"), "success"); } requestSceneRender(); return isGridVisible;
 }
 if (gridBtn) {
     gridBtn.addEventListener('click', () => { 
