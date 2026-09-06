@@ -1,5 +1,5 @@
 // ==========================================
-// ИНСТРУМЕНТЫ ВЕКТОРОВ (Текст, SVG, Фигуры)
+// ИНСТРУМЕНТЫ ВЕКТОРОВ (Текст, SVG, Фигуры, Интерактивный размер)
 // ==========================================
 
 const vectorState = {
@@ -15,7 +15,7 @@ const vectorState = {
 function activatePlacementMode(actionCallback, toolName) {
     vectorState.placementMode = actionCallback;
     document.body.style.cursor = 'crosshair';
-    window.showToast(`Кликните ЛКМ по карте, чтобы разместить: ${toolName}`, 'success');
+    window.showToast(`Кликните ЛКМ для размещения, потяните для размера: ${toolName}`, 'success');
 }
 
 function getMeshes(object, includeStrokes = false) {
@@ -153,8 +153,44 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- ИНТЕРАКТИВНЫЙ ДРАГ ПРИ СОЗДАНИИ СЛОЯ ---
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let isPlacingDrag = false;
+    let placingStartPoint = new THREE.Vector2();
+    let placingObject = null;
+
+    function getMapIntersection(e) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        
+        let spawnX = 0, spawnY = 0;
+        const mapMeshes = scene.children.filter(c => c.isMesh && c.userData.isMapMesh);
+        const intersects = raycaster.intersectObjects(mapMeshes, false);
+        
+        if (intersects.length > 0) {
+            spawnX = intersects[0].point.x;
+            spawnY = intersects[0].point.y;
+        } else {
+            const zPlane = window.mapBounds ? window.mapBounds.maxZ : 10;
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -zPlane);
+            const target = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, target);
+            if (target) { spawnX = target.x; spawnY = target.y; }
+        }
+        return { x: spawnX, y: spawnY };
+    }
+
+    function updateScaleUIForDrag(scaleVal) {
+        const scaleSlider = document.getElementById('vecPropScale');
+        const scaleNum = document.getElementById('vecPropScaleNum');
+        if (scaleSlider && scaleNum) {
+            scaleSlider.value = scaleVal;
+            scaleNum.value = scaleVal.toFixed(2);
+        }
+    }
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
@@ -162,29 +198,21 @@ document.addEventListener("DOMContentLoaded", () => {
         if (vectorState.placementMode) {
             if (e.button !== 0) return; 
 
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
+            const pt = getMapIntersection(e);
             
-            let spawnX = 0, spawnY = 0;
+            placingObject = vectorState.placementMode(pt.x, pt.y);
             
-            const mapMeshes = scene.children.filter(c => c.isMesh && c.userData.isMapMesh);
-            const intersects = raycaster.intersectObjects(mapMeshes, false);
-            
-            if (intersects.length > 0) {
-                spawnX = intersects[0].point.x;
-                spawnY = intersects[0].point.y;
-            } else {
-                const zPlane = window.mapBounds ? window.mapBounds.maxZ : 10;
-                const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -zPlane);
-                const target = new THREE.Vector3();
-                raycaster.ray.intersectPlane(plane, target);
-                if (target) { spawnX = target.x; spawnY = target.y; }
+            if (placingObject) {
+                isPlacingDrag = true;
+                placingStartPoint.set(pt.x, pt.y);
+                
+                const signY = placingObject.userData.isSvg ? -1 : 1;
+                placingObject.scale.set(2, 2 * signY, 1);
+                updateScaleUIForDrag(2);
+                
+                if (typeof controls !== 'undefined') controls.enabled = false;
             }
 
-            vectorState.placementMode(spawnX, spawnY);
             vectorState.placementMode = null;
             document.body.style.cursor = 'default';
             return;
@@ -193,12 +221,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (transformControl.axis !== null) return; 
         if (e.button !== 0) return; 
 
-        const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        getMapIntersection(e);
 
-        raycaster.setFromCamera(mouse, camera);
-        
         let allMeshes = [];
         vectorState.objects.forEach(obj => {
             if (obj.isGroup) allMeshes.push(...obj.children);
@@ -206,7 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const intersects = raycaster.intersectObjects(allMeshes, true);
-
         if (intersects.length > 0) {
             let clicked = intersects[0].object;
             while (clicked.parent && clicked.parent.type === 'Group' && clicked.parent !== scene) {
@@ -215,6 +238,29 @@ document.addEventListener("DOMContentLoaded", () => {
             selectObject(clicked);
         } else {
             selectObject(null);
+        }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (isPlacingDrag && placingObject) {
+            const pt = getMapIntersection(e);
+            const dist = placingStartPoint.distanceTo(new THREE.Vector2(pt.x, pt.y));
+            const newScale = Math.max(2, dist);
+            
+            const signY = placingObject.userData.isSvg ? -1 : 1;
+            placingObject.scale.set(newScale, newScale * signY, 1);
+            updateScaleUIForDrag(newScale);
+            
+            if (window.requestSceneRender) window.requestSceneRender();
+        }
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (isPlacingDrag) {
+            isPlacingDrag = false;
+            placingObject = null;
+            if (typeof controls !== 'undefined') controls.enabled = true; 
+            if (window.requestSceneRender) window.requestSceneRender();
         }
     });
 
@@ -676,6 +722,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
+        
+        return group; // Возвращаем для драг-скейла
     }
 
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
@@ -684,7 +732,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const geo = new THREE.ShapeGeometry(shape); 
             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
             geo.userData.tX = 0; geo.userData.tY = 0;
-            spawnVectorMesh(geo, 'Квадрат', 'square', false, '', 100, x, y); 
+            return spawnVectorMesh(geo, 'Квадрат', 'square', false, '', 2, x, y); 
         }, 'Квадрат');
     });
 
@@ -694,7 +742,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const geo = new THREE.ShapeGeometry(shape); 
             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
             geo.userData.tX = 0; geo.userData.tY = 0;
-            spawnVectorMesh(geo, 'Круг', 'circle', false, '', 100, x, y);
+            return spawnVectorMesh(geo, 'Круг', 'circle', false, '', 2, x, y);
         }, 'Круг');
     });
 
@@ -704,26 +752,27 @@ document.addEventListener("DOMContentLoaded", () => {
             const geo = new THREE.ShapeGeometry(shape); 
             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
             geo.userData.tX = 0; geo.userData.tY = 0;
-            spawnVectorMesh(geo, 'Треугольник', 'triangle', false, '', 100, x, y);
+            return spawnVectorMesh(geo, 'Треугольник', 'triangle', false, '', 2, x, y);
         }, 'Треугольник');
     });
 
     document.getElementById('btnAddMarker')?.addEventListener('click', () => {
         activatePlacementMode((x, y) => {
             const shape = new THREE.Shape(); 
+            // КРАСИВЫЙ МАРКЕР, идентичный map-pin
             shape.moveTo(0, -5); 
-            shape.lineTo(3, 1); 
-            shape.absarc(0, 1, 3, 0, Math.PI, false); 
-            shape.lineTo(0, -5);
+            shape.quadraticCurveTo(4, -1, 4, 2);
+            shape.absarc(0, 2, 4, 0, Math.PI, false); 
+            shape.quadraticCurveTo(-4, -1, 0, -5);
             
             const hole = new THREE.Path();
-            hole.absarc(0, 1, 1.2, 0, Math.PI * 2, true);
+            hole.absarc(0, 2, 1.5, 0, Math.PI * 2, true);
             shape.holes.push(hole);
             
             const geo = new THREE.ShapeGeometry(shape); 
             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
             geo.userData.tX = 0; geo.userData.tY = 0;
-            spawnVectorMesh(geo, 'Маркер', 'map-pin', false, '', 100, x, y);
+            return spawnVectorMesh(geo, 'Маркер', 'map-pin', false, '', 2, x, y);
         }, 'Маркер');
     });
     
@@ -735,7 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
         activatePlacementMode((x, y) => {
             const geometry = createTextGeometry(text, vectorState.loadedFont, 12, 'center', 1.2);
             const displayName = text.split('\n')[0] || 'Текст';
-            spawnVectorMesh(geometry, displayName, 'type', true, text, 10, x, y); 
+            return spawnVectorMesh(geometry, displayName, 'type', true, text, 2, x, y); 
         }, 'Текст');
     });
 
@@ -778,8 +827,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const box = new THREE.Box3().setFromObject(group);
             const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y) || 1;
+            
+            // ЦЕНТРИРУЕМ И НОРМАЛИЗУЕМ БАЗОВЫЙ РАЗМЕР SVG ДО ~10 ЕДИНИЦ
             group.position.x = -center.x;
             group.position.y = -center.y;
+            group.scale.setScalar(10 / maxDim);
             
             const wrapper = new THREE.Group();
             wrapper.add(group);
@@ -803,6 +857,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (window.updateExportState) window.updateExportState();
                 if (window.requestSceneRender) window.requestSceneRender();
+                return wrapper;
             }, 'SVG Иконка');
             
             e.target.value = "";
@@ -1065,10 +1120,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // ТЕСТОВЫЙ РЕЖИМ: сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
+        // КАК В VECTOR_TOOLS(4): сливаем вообще всю кастомную геометрию (фигуры, MCL, текст) в один массив
         const allTrianglesFor2_2 = allMclTriangles.concat(shapeTriangles).concat(textTriangles);
 
-        // Инжектим всё исключительно в слой tile_2_2
+        // Инжектим всё исключительно в слой tile_2_2 (1_1 больше нигде не используется)
         processAndInject(allTrianglesFor2_2, 'tile_2_2');
         
         return modifiedCount;
@@ -1169,8 +1224,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 const box = new THREE.Box3().setFromObject(group);
                 const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y) || 1;
+
                 group.position.x = -center.x;
                 group.position.y = -center.y;
+                group.scale.setScalar(10 / maxDim);
                 
                 const wrapper = new THREE.Group();
                 wrapper.uuid = group.uuid;
@@ -1211,6 +1270,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 spawnLoadedVectorMesh(geo, data);
             } else if (data.icon === 'triangle') {
                 const shape = new THREE.Shape(); shape.moveTo(0, 5); shape.lineTo(4.33, -2.5); shape.lineTo(-4.33, -2.5); shape.lineTo(0, 5);
+                const geo = new THREE.ShapeGeometry(shape); 
+                geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+                geo.userData.tX = 0; geo.userData.tY = 0;
+                spawnLoadedVectorMesh(geo, data);
+            } else if (data.icon === 'map-pin') {
+                const shape = new THREE.Shape(); 
+                shape.moveTo(0, -5); 
+                shape.quadraticCurveTo(4, -1, 4, 2);
+                shape.absarc(0, 2, 4, 0, Math.PI, false); 
+                shape.quadraticCurveTo(-4, -1, 0, -5);
+                const hole = new THREE.Path();
+                hole.absarc(0, 2, 1.5, 0, Math.PI * 2, true);
+                shape.holes.push(hole);
                 const geo = new THREE.ShapeGeometry(shape); 
                 geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
                 geo.userData.tX = 0; geo.userData.tY = 0;
