@@ -47,7 +47,7 @@
         #vecPropAlphaNum { flex: 0 0 3rem; width: 3rem; }
 
         @media (max-width: 640px) {
-            header { height: auto !important; min-height: 3rem; flex-wrap: wrap; gap: 0.25rem; padding: 0.35rem 0.5rem; }
+            header { height: auto !important; min-height: 3rem; flex-wrap: wrap; gap: 0.25rem; padding: max(0.35rem, env(safe-area-inset-top)) 0.5rem 0.35rem; }
             body > div.flex-1 { height: auto !important; min-height: 0; }
             header > div:first-child { flex: 1 1 100%; min-width: 0; justify-content: space-between; }
             header > div:last-child { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: 1 1 100%; width: 100%; min-width: 0; gap: 0.25rem; overflow: visible; padding: 0; }
