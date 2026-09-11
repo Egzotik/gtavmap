@@ -680,7 +680,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
         if (!vectorState.activeObj) return;
         const newText = e.target.value;
-        if (!newText.trim()) { const currentTextMesh = getPrimaryMesh(vectorState.activeObj); e.target.value = currentTextMesh?.userData.text || 'Текст'; window.showToast('Текст не может быть пустым', 'error'); return; }
         const obj = vectorState.activeObj;
         const meshes = getMeshes(obj, false);
         
