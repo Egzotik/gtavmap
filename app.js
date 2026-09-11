@@ -666,6 +666,7 @@ function build3DScene(resetCamera = true) {
         file.meshesData.forEach(data => {
             const nLower = `${file.name} ${data.layerName || ''}`.toLowerCase();
             const layerRenderOrder = getMapLayerZ(nLower);
+            const transparencySource = layerRenderOrder <= 2;
             const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3)); const updatedColors = new Float32Array(data.positions.length / 3 * 4); const colorAttr = new THREE.BufferAttribute(updatedColors, 4); const localIndicesMap = new Map();
             for(let i=0; i < data.originalColorsList.length; i++) {
                 const orig = data.originalColorsList[i]; const zSuffix = state.separateByZ ? `_${Math.round(orig.z)}` : ''; const key = makeRgbaKey(orig.r, orig.g, orig.b, orig.a) + zSuffix; const colorItem = state.colorsMap.get(key);
@@ -681,12 +682,12 @@ function build3DScene(resetCamera = true) {
             const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: !isSeaLayer });
             
             const opaqueMesh = new THREE.Mesh(geometry, opaqueMaterial); 
-            opaqueMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder }; 
+            opaqueMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder, transparencySource }; 
             opaqueMesh.renderOrder = layerRenderOrder; 
             scene.add(opaqueMesh); 
             
             const transparentMesh = new THREE.Mesh(geometry, transparentMaterial); 
-            transparentMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder }; 
+            transparentMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder, transparencySource }; 
             transparentMesh.renderOrder = layerRenderOrder + 0.1;
             scene.add(transparentMesh);
         });
