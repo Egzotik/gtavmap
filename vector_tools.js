@@ -105,6 +105,66 @@ function barycentric2d(a, b, c, point) {
     return [wa, wb, 1 - wa - wb];
 }
 
+function svgPointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i], b = polygon[j];
+        const crosses = ((a.y > point.y) !== (b.y > point.y)) &&
+            point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+        if (crosses) inside = !inside;
+    }
+    return inside;
+}
+
+function svgPolygonArea(points) {
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+        const a = points[i], b = points[(i + 1) % points.length];
+        area += a.x * b.y - b.x * a.y;
+    }
+    return area * 0.5;
+}
+
+function createSvgShapesSafely(path) {
+    try {
+        const contours = (path.subPaths || []).map(subPath => {
+            const points = subPath.getPoints(12).map(point => ({ x: point.x, y: point.y }));
+            const cleaned = [];
+            points.forEach(point => {
+                const previous = cleaned[cleaned.length - 1];
+                if (!previous || previous.x !== point.x || previous.y !== point.y) cleaned.push(point);
+            });
+            if (cleaned.length > 2) {
+                const first = cleaned[0], last = cleaned[cleaned.length - 1];
+                if (first.x === last.x && first.y === last.y) cleaned.pop();
+            }
+            return cleaned.length >= 3 ? { points: cleaned, area: Math.abs(svgPolygonArea(cleaned)) } : null;
+        }).filter(Boolean).filter(contour => contour.area > 1e-8);
+
+        if (contours.length === 0) return [];
+
+        contours.forEach(contour => {
+            contour.depth = contours.reduce((depth, other) => {
+                if (other === contour || other.area <= contour.area) return depth;
+                return svgPointInPolygon(contour.points[0], other.points) ? depth + 1 : depth;
+            }, 0);
+        });
+
+        const shapes = [];
+        contours.filter(contour => contour.depth % 2 === 0).forEach(outer => {
+            const shape = new THREE.Shape(outer.points.map(point => new THREE.Vector2(point.x, point.y)));
+            contours.filter(hole => hole.depth === outer.depth + 1 && svgPointInPolygon(hole.points[0], outer.points)).forEach(hole => {
+                shape.holes.push(new THREE.Path(hole.points.map(point => new THREE.Vector2(point.x, point.y))));
+            });
+            shapes.push(shape);
+        });
+        return shapes;
+    } catch (error) {
+        console.warn('SVG contour skipped:', error);
+        return [];
+    }
+}
+
 function rebuildPseudoTransparency(wrapper) {
     if (!wrapper) return;
     removePseudoTransparency(wrapper);
@@ -345,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let isPlacingDrag = false;
     let placingStartPoint = new THREE.Vector2();
     let placingObject = null;
+    let placingStartScale = 2;
     let isPencilPanning = false;
 
     function getMapIntersection(e) {
@@ -419,8 +480,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 placingStartPoint.set(pt.x, pt.y);
                 
                 const signY = placingObject.userData.isSvg ? -1 : 1;
-                placingObject.scale.set(2, 2 * signY, 1);
-                updateScaleUIForDrag(2);
+                placingStartScale = placingObject.userData.isSvg
+                    ? Math.max(10, Math.min(100, (window.mapBounds?.maxDim || 2000) * 0.005))
+                    : 2;
+                placingObject.scale.set(placingStartScale, placingStartScale * signY, 1);
+                updateScaleUIForDrag(placingStartScale);
                 
                 if (typeof controls !== 'undefined') controls.enabled = false;
             }
@@ -464,7 +528,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isPlacingDrag && placingObject) {
             const pt = getMapIntersection(e);
             const dist = placingStartPoint.distanceTo(new THREE.Vector2(pt.x, pt.y));
-            const newScale = Math.max(2, dist);
+            const newScale = Math.max(placingStartScale, dist);
             
             const signY = placingObject.userData.isSvg ? -1 : 1;
             placingObject.scale.set(newScale, newScale * signY, 1);
@@ -1298,14 +1362,15 @@ document.addEventListener("DOMContentLoaded", () => {
             group.userData.icon = 'image';
             
             svgData.paths.forEach((path) => {
-                const fillColor = path.userData.style.fill;
-                if (fillColor !== undefined && fillColor !== 'none') {
+                const style = path.userData.style || {};
+                const fillColor = style.fill === undefined ? '#ffffff' : style.fill;
+                if (String(fillColor).toLowerCase() !== 'none') {
                     const material = new THREE.MeshBasicMaterial({
                         color: new THREE.Color().setStyle(fillColor),
-                        opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
+                        opacity: style.fillOpacity !== undefined ? style.fillOpacity : 1,
                         transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                     });
-                    const shapes = THREE.SVGLoader.createShapes(path);
+                    const shapes = createSvgShapesSafely(path);
                     shapes.forEach((shape) => {
                         const geo = new THREE.ShapeGeometry(shape);
                         geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
@@ -1323,9 +1388,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y) || 1;
             
-            group.position.x = -center.x;
-            group.position.y = -center.y;
-            group.scale.setScalar(10 / maxDim); // Нормализуем масштаб для drag-to-size
+            const normalizedScale = 10 / maxDim;
+            group.scale.setScalar(normalizedScale); // Нормализуем масштаб для drag-to-size
+            group.position.x = -center.x * normalizedScale;
+            group.position.y = -center.y * normalizedScale;
             
             const wrapper = new THREE.Group();
             wrapper.add(group);
@@ -1715,14 +1781,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 group.userData.icon = data.icon;
                 
                 svgData.paths.forEach((path) => {
-                    const fillColor = path.userData.style.fill;
-                    if (fillColor !== undefined && fillColor !== 'none') {
+                    const style = path.userData.style || {};
+                    const fillColor = style.fill === undefined ? '#ffffff' : style.fill;
+                    if (String(fillColor).toLowerCase() !== 'none') {
                         const material = new THREE.MeshBasicMaterial({
                             color: new THREE.Color().setStyle(fillColor),
-                            opacity: path.userData.style.fillOpacity !== undefined ? path.userData.style.fillOpacity : 1,
+                            opacity: style.fillOpacity !== undefined ? style.fillOpacity : 1,
                             transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                         });
-                        const shapes = THREE.SVGLoader.createShapes(path);
+                        const shapes = createSvgShapesSafely(path);
                         shapes.forEach((shape) => {
                             const geo = new THREE.ShapeGeometry(shape);
                             geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
@@ -1739,9 +1806,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const size = box.getSize(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.y) || 1;
 
-                group.position.x = -center.x;
-                group.position.y = -center.y;
-                group.scale.setScalar(10 / maxDim);
+                const normalizedScale = 10 / maxDim;
+                group.scale.setScalar(normalizedScale);
+                group.position.x = -center.x * normalizedScale;
+                group.position.y = -center.y * normalizedScale;
                 
                 const wrapper = new THREE.Group();
                 wrapper.uuid = group.uuid;
