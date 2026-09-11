@@ -13,6 +13,7 @@ const vectorState = {
 };
 
 function activatePlacementMode(actionCallback, toolName) {
+    if (vectorState.cancelPencil) vectorState.cancelPencil();
     vectorState.placementMode = actionCallback;
     document.body.style.cursor = 'crosshair';
     window.showToast(`Кликните ЛКМ для размещения, потяните для размера: ${toolName}`, 'success');
@@ -21,7 +22,9 @@ function activatePlacementMode(actionCallback, toolName) {
 function getMeshes(object, includeStrokes = false) {
     const meshes = [];
     if (!object) return meshes;
-    object.traverse(child => { if (child.isMesh && (includeStrokes || !child.userData.isStroke)) meshes.push(child); });
+    object.traverse(child => {
+        if (child.isMesh && !child.userData.isPseudoTransparency && (includeStrokes || !child.userData.isStroke)) meshes.push(child);
+    });
     return meshes;
 }
 
@@ -37,6 +40,141 @@ function disposeObject3D(object) {
     });
 }
 
+function removePseudoTransparency(wrapper) {
+    wrapper.children.filter(child => child.userData && child.userData.isPseudoTransparency).forEach(child => {
+        wrapper.remove(child);
+        disposeObject3D(child);
+    });
+}
+
+function clipPolygon(poly, edgeStart, edgeEnd, reference) {
+    if (poly.length === 0) return [];
+    const side = (point) => (edgeEnd.x - edgeStart.x) * (point.y - edgeStart.y) - (edgeEnd.y - edgeStart.y) * (point.x - edgeStart.x);
+    const referenceSide = side(reference);
+    if (Math.abs(referenceSide) < 1e-8) return poly;
+    const inside = point => side(point) * referenceSide >= -1e-8;
+    const intersection = (start, end) => {
+        const startSide = side(start), endSide = side(end);
+        const amount = startSide / (startSide - endSide);
+        return { x: start.x + (end.x - start.x) * amount, y: start.y + (end.y - start.y) * amount };
+    };
+    const result = [];
+    let previous = poly[poly.length - 1];
+    for (const current of poly) {
+        if (inside(current)) {
+            if (!inside(previous)) result.push(intersection(previous, current));
+            result.push(current);
+        } else if (inside(previous)) {
+            result.push(intersection(previous, current));
+        }
+        previous = current;
+    }
+    return result;
+}
+
+function barycentric2d(a, b, c, point) {
+    const denominator = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+    if (Math.abs(denominator) < 1e-8) return [1, 0, 0];
+    const wa = ((b.y - c.y) * (point.x - c.x) + (c.x - b.x) * (point.y - c.y)) / denominator;
+    const wb = ((c.y - a.y) * (point.x - c.x) + (a.x - c.x) * (point.y - c.y)) / denominator;
+    return [wa, wb, 1 - wa - wb];
+}
+
+function rebuildPseudoTransparency(wrapper) {
+    if (!wrapper) return;
+    removePseudoTransparency(wrapper);
+    wrapper.traverse(child => {
+        if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = true;
+    });
+
+    const mapTriangles = [];
+    const seenGeometries = new Set();
+    scene.children.forEach(mapMesh => {
+        if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.name === 'mapCutout' || mapMesh.userData.isSeaLayer || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
+        const geometry = mapMesh.geometry;
+        const positions = geometry.attributes.position;
+        const colors = geometry.attributes.customColor || geometry.attributes.color;
+        if (!positions) return;
+        seenGeometries.add(geometry);
+        mapMesh.updateMatrixWorld(true);
+        const index = geometry.index;
+        const count = index ? index.count : positions.count;
+        for (let i = 0; i + 2 < count; i += 3) {
+            const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
+            const vertices = ids.map(id => new THREE.Vector3(positions.getX(id), positions.getY(id), positions.getZ(id)).applyMatrix4(mapMesh.matrixWorld));
+            const color = ids.map(id => colors ? [colors.getX(id), colors.getY(id), colors.getZ(id)] : [1, 1, 1]);
+            mapTriangles.push({
+                vertices,
+                color,
+                minX: Math.min(vertices[0].x, vertices[1].x, vertices[2].x),
+                maxX: Math.max(vertices[0].x, vertices[1].x, vertices[2].x),
+                minY: Math.min(vertices[0].y, vertices[1].y, vertices[2].y),
+                maxY: Math.max(vertices[0].y, vertices[1].y, vertices[2].y)
+            });
+        }
+    });
+    if (mapTriangles.length === 0) return;
+
+    getMeshes(wrapper, true).forEach(sourceMesh => {
+        const opacity = sourceMesh.userData.pseudoOpacity ?? sourceMesh.material?.opacity ?? 1;
+        if (!sourceMesh.visible || !sourceMesh.geometry || !sourceMesh.material || opacity >= 0.999) return;
+        const positions = sourceMesh.geometry.attributes.position;
+        if (!positions) return;
+        sourceMesh.updateMatrixWorld(true);
+        const index = sourceMesh.geometry.index;
+        const count = index ? index.count : positions.count;
+        const sourceTriangles = [];
+        for (let i = 0; i + 2 < count; i += 3) {
+            const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
+            sourceTriangles.push(ids.map(id => new THREE.Vector3(positions.getX(id), positions.getY(id), positions.getZ(id)).applyMatrix4(sourceMesh.matrixWorld)));
+        }
+
+        const outputPositions = [], outputColors = [];
+        const figureColor = sourceMesh.material.color || new THREE.Color(1, 1, 1);
+        sourceTriangles.forEach(figure => {
+            const minX = Math.min(figure[0].x, figure[1].x, figure[2].x);
+            const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
+            const minY = Math.min(figure[0].y, figure[1].y, figure[2].y);
+            const maxY = Math.max(figure[0].y, figure[1].y, figure[2].y);
+            mapTriangles.forEach(map => {
+            if (map.maxX < minX || map.minX > maxX || map.maxY < minY || map.minY > maxY) return;
+            let polygon = [{ x: map.vertices[0].x, y: map.vertices[0].y }, { x: map.vertices[1].x, y: map.vertices[1].y }, { x: map.vertices[2].x, y: map.vertices[2].y }];
+            polygon = clipPolygon(polygon, figure[0], figure[1], figure[2]);
+            polygon = clipPolygon(polygon, figure[1], figure[2], figure[0]);
+            polygon = clipPolygon(polygon, figure[2], figure[0], figure[1]);
+            if (polygon.length < 3) return;
+            for (let i = 1; i < polygon.length - 1; i++) {
+                [polygon[0], polygon[i], polygon[i + 1]].forEach(point => {
+                    const weights = barycentric2d({ x: map.vertices[0].x, y: map.vertices[0].y }, { x: map.vertices[1].x, y: map.vertices[1].y }, { x: map.vertices[2].x, y: map.vertices[2].y }, point);
+                    const mapColor = [0, 1, 2].map(channel => map.color[0][channel] * weights[0] + map.color[1][channel] * weights[1] + map.color[2][channel] * weights[2]);
+                    const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
+                    const worldPoint = new THREE.Vector3(point.x, point.y, Math.max(figure[0].z, figure[1].z, figure[2].z) + 0.01);
+                    const localPoint = wrapper.worldToLocal(worldPoint);
+                    outputPositions.push(localPoint.x, localPoint.y, localPoint.z);
+                    outputColors.push(color[0], color[1], color[2]);
+                });
+            }
+            });
+        });
+
+        if (outputPositions.length > 0) {
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(outputPositions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(outputColors, 3));
+            const cutout = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: false, opacity: 1, depthWrite: true }));
+            cutout.name = 'mapCutout';
+            cutout.userData.isPseudoTransparency = true;
+            cutout.renderOrder = (wrapper.renderOrder || 999) + 0.2;
+            wrapper.add(cutout);
+            sourceMesh.visible = false;
+        }
+    });
+}
+
+window.rebuildVectorPseudoTransparency = function() {
+    vectorState.objects.forEach(rebuildPseudoTransparency);
+};
+
 function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer); let binary = '';
     for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
@@ -50,8 +188,10 @@ function base64ToArrayBuffer(value) {
 }
 
 window.getVectorCount = () => vectorState.objects.length;
+window.setPendingVectorSelect = id => { vectorState.pendingSelectId = id; };
 
 window.clearVectors = function() {
+    if (vectorState.cancelPencil) vectorState.cancelPencil();
     if (window.vectorTransformControl) window.vectorTransformControl.detach();
     vectorState.objects.forEach(obj => { scene.remove(obj); disposeObject3D(obj); });
     vectorState.objects = [];
@@ -104,14 +244,25 @@ document.addEventListener("DOMContentLoaded", () => {
     let initialScale = new THREE.Vector3();
     
     window.addEventListener('keydown', (e) => { 
-        if (e.key === 'Escape' && vectorState.placementMode) {
-            vectorState.placementMode = null;
-            document.body.style.cursor = 'default';
-            window.showToast("Размещение отменено", "error");
+        if (e.key === 'Escape' && (vectorState.pencilActive || vectorState.placementMode)) {
+            if (vectorState.pencilActive && vectorState.cancelPencil) {
+                vectorState.cancelPencil();
+                window.showToast("Рисование отменено", "error");
+            } else {
+                vectorState.placementMode = null;
+                document.body.style.cursor = 'default';
+                window.showToast("Размещение отменено", "error");
+            }
             return;
         }
 
         if (e.key === 'Shift') isShiftDown = true; 
+
+        if (vectorState.pencilActive && e.ctrlKey && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (vectorState.undoPencilPoint) vectorState.undoPencilPoint();
+            return;
+        }
         
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
         if (activeTag === 'input' || activeTag === 'textarea') return;
@@ -159,6 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let isPlacingDrag = false;
     let placingStartPoint = new THREE.Vector2();
     let placingObject = null;
+    let isPencilPanning = false;
 
     function getMapIntersection(e) {
         const rect = renderer.domElement.getBoundingClientRect();
@@ -194,6 +346,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
+
+        // КАРАНДАШ: фигура замыкается, линия завершается двойным кликом
+        if (vectorState.pencilActive) {
+            if (e.button === 2) {
+                isPencilPanning = true;
+                return;
+            }
+            if (e.button !== 0) return;
+
+            const pt = getMapIntersection(e);
+            const now = Date.now();
+
+            const isDoubleClick = vectorState.pencilLastClickTime && (now - vectorState.pencilLastClickTime) < 350;
+            vectorState.addPencilPoint(pt);
+            vectorState.pencilLastClickTime = now;
+
+            if (isDoubleClick) {
+                if (vectorState.pencilPoints.length >= (vectorState.pencilMode === 'line' ? 2 : 3)) {
+                    vectorState.finishPencilShape();
+                }
+                return;
+            }
+            return;
+        }
 
         // Обработка режима ручного размещения кликом
         if (vectorState.placementMode) {
@@ -244,6 +420,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.addEventListener('pointermove', (e) => {
+        if (vectorState.pencilActive && !isPencilPanning && !(e.buttons & 2)) {
+            const pt = getMapIntersection(e);
+            vectorState.updatePencilLivePreview(pt);
+            return;
+        }
+
         if (isPlacingDrag && placingObject) {
             const pt = getMapIntersection(e);
             const dist = placingStartPoint.distanceTo(new THREE.Vector2(pt.x, pt.y));
@@ -258,6 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.addEventListener('pointerup', () => {
+        isPencilPanning = false;
         if (isPlacingDrag) {
             isPlacingDrag = false;
             placingObject = null;
@@ -414,9 +597,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById('vecPropTextContainer').classList.add('hidden');
             }
 
+            const lineTools = document.getElementById('vecLineTools');
+            const linePatternTools = document.getElementById('vecLinePatternTools');
+            const isPencilLine = Boolean(obj.userData.isPencilLine);
+            if (lineTools) lineTools.classList.toggle('hidden', !isPencilLine);
+            if (linePatternTools) linePatternTools.classList.toggle('hidden', !isPencilLine);
+            if (isPencilLine && firstMesh) {
+                const lineWidth = firstMesh.geometry.userData.lineWidth || obj.userData.lineWidth || 2;
+                const linePattern = firstMesh.geometry.userData.linePattern || obj.userData.linePattern || 'solid';
+                document.getElementById('vecLineWidth').value = lineWidth;
+                document.getElementById('vecLineWidthNum').value = lineWidth;
+                document.getElementById('vecLinePattern').value = linePattern;
+            }
+
             if (firstMesh && firstMesh.material) {
                 document.getElementById('vecPropColor').value = "#" + firstMesh.material.color.getHexString();
-                document.getElementById('vecPropAlpha').value = firstMesh.material.opacity;
+                document.getElementById('vecPropAlpha').value = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
                 document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
                 document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
                 
@@ -442,6 +638,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             transformControl.detach();
             document.getElementById('vectorPropsPanel').classList.add('hidden');
+            document.getElementById('vecLineTools')?.classList.add('hidden');
+            document.getElementById('vecLinePatternTools')?.classList.add('hidden');
         }
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -462,6 +660,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (rotSlider && rotNum) { rotSlider.value = degZ; rotNum.value = degZ.toFixed(1); }
             }
         }
+    });
+    renderer.domElement.addEventListener('contextmenu', (e) => {
+        if (vectorState.pencilActive) e.preventDefault();
     });
 
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
@@ -533,6 +734,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecPropAlpha')?.addEventListener('input', () => applyPropsToActive(false, false, true));
     document.getElementById('vecPropStroke')?.addEventListener('change', () => applyPropsToActive());
     document.getElementById('vecPropStrokeColor')?.addEventListener('input', () => applyPropsToActive());
+    document.getElementById('vecLineWidth')?.addEventListener('input', (e) => { document.getElementById('vecLineWidthNum').value = e.target.value; applyPropsToActive(); });
+    document.getElementById('vecLineWidthNum')?.addEventListener('input', (e) => { document.getElementById('vecLineWidth').value = e.target.value; applyPropsToActive(); });
+    document.getElementById('vecLinePattern')?.addEventListener('change', () => applyPropsToActive());
 
     function applyPropsToActive(forceRebuildText = false, forceRebuildStroke = false, markStyleOverride = false) {
         if (!vectorState.activeObj) return;
@@ -546,6 +750,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const qualityVal = parseInt(document.getElementById('vecPropQualityNum').value) || 12;
         const textVal = document.getElementById('vecPropTextValue').value;
         const lineHeightVal = parseFloat(document.getElementById('vecLineHeight') ? document.getElementById('vecLineHeight').value : 1.2) || 1.2;
+        const lineWidthVal = parseFloat(document.getElementById('vecLineWidthNum')?.value) || 2;
+        const linePatternVal = document.getElementById('vecLinePattern')?.value || 'solid';
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
 
@@ -576,11 +782,26 @@ document.addEventListener("DOMContentLoaded", () => {
             forceRebuildStroke = true;
         }
 
+        if (obj.userData.isPencilLine && obj.userData.pencilPoints) {
+            const currentWidth = firstMesh.geometry.userData.lineWidth || obj.userData.lineWidth || 2;
+            const currentPattern = firstMesh.geometry.userData.linePattern || obj.userData.linePattern || 'solid';
+            if (currentWidth !== lineWidthVal || currentPattern !== linePatternVal) {
+                const newGeo = createPencilLineFromPoints(obj.userData.pencilPoints, lineWidthVal, linePatternVal);
+                if (newGeo) {
+                    firstMesh.geometry.dispose();
+                    firstMesh.geometry = newGeo;
+                }
+            }
+            obj.userData.lineWidth = lineWidthVal;
+            obj.userData.linePattern = linePatternVal;
+        }
+
         primaryMeshes.forEach(mesh => {
             if (!obj.userData.isSvg || obj.userData.styleOverridden) {
                 mesh.material.color.set(colorHex);
-                mesh.material.opacity = alpha;
-                mesh.material.transparent = alpha < 1;
+                mesh.userData.pseudoOpacity = alpha;
+                mesh.material.opacity = 1;
+                mesh.material.transparent = false;
             }
             mesh.renderOrder = 999;
             mesh.position.z = 0.005; // Фикс z-offset для геометрии
@@ -606,8 +827,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (strokeMesh) {
                     strokeMesh.material.color.set(strokeHex); 
-                    strokeMesh.material.opacity = alpha; 
-                    strokeMesh.material.transparent = alpha < 1;
+                    strokeMesh.userData.pseudoOpacity = alpha;
+                    strokeMesh.material.opacity = 1;
+                    strokeMesh.material.transparent = false;
                     strokeMesh.position.z = -0.005; // Фикс z-offset для обводки
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
@@ -617,6 +839,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 disposeObject3D(strokeMesh);
             }
         });
+        rebuildPseudoTransparency(obj);
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
@@ -786,6 +1009,228 @@ document.addEventListener("DOMContentLoaded", () => {
             return spawnVectorMesh(geometry, displayName, 'type', true, text, 2, x, y); 
         }, 'Текст');
     });
+
+    // --- КАРАНДАШ: рисование произвольной формы по точкам (двойной клик замыкает контур) ---
+    vectorState.pencilActive = false;
+    vectorState.pencilPoints = [];
+    vectorState.pencilLastClickTime = 0;
+    vectorState.pencilPreviewLine = null;
+    vectorState.pencilPreviewDots = [];
+    vectorState.pencilLiveLine = null;
+    vectorState.pencilLiveDot = null;
+
+    function pencilDrawZ() {
+        return window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+    }
+
+    function pencilCleanupPreview() {
+        const cleanupObj = (obj) => { if (obj) { scene.remove(obj); disposeObject3D(obj); } };
+        cleanupObj(vectorState.pencilPreviewLine); vectorState.pencilPreviewLine = null;
+        cleanupObj(vectorState.pencilLiveLine); vectorState.pencilLiveLine = null;
+        cleanupObj(vectorState.pencilLiveDot); vectorState.pencilLiveDot = null;
+        vectorState.pencilPreviewDots.forEach(d => { scene.remove(d); disposeObject3D(d); });
+        vectorState.pencilPreviewDots = [];
+        if (window.requestSceneRender) window.requestSceneRender();
+    }
+
+    function refreshPencilPreview() {
+        const z = pencilDrawZ();
+        if (vectorState.pencilPreviewLine) { scene.remove(vectorState.pencilPreviewLine); disposeObject3D(vectorState.pencilPreviewLine); }
+        const points = vectorState.pencilPoints.map(point => new THREE.Vector3(point.x, point.y, z));
+        if (vectorState.pencilMode !== 'line' && points.length >= 3) points.push(points[0].clone());
+        if (points.length > 0) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            vectorState.pencilPreviewLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x00ff88, depthTest: false }));
+            vectorState.pencilPreviewLine.renderOrder = 1000;
+            scene.add(vectorState.pencilPreviewLine);
+        } else {
+            vectorState.pencilPreviewLine = null;
+        }
+
+        if (window.requestSceneRender) window.requestSceneRender();
+    }
+
+    vectorState.addPencilPoint = function(pt) {
+        const z = pencilDrawZ();
+        vectorState.pencilPoints.push({ x: pt.x, y: pt.y, z: z });
+
+        const dot = new THREE.Mesh(
+            new THREE.CircleGeometry(5, 16),
+            new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide, depthTest: false })
+        );
+        dot.position.set(pt.x, pt.y, z);
+        dot.renderOrder = 1000;
+        scene.add(dot);
+        vectorState.pencilPreviewDots.push(dot);
+
+        refreshPencilPreview();
+    };
+
+    vectorState.undoPencilPoint = function() {
+        if (vectorState.pencilPoints.length === 0) return;
+        vectorState.pencilPoints.pop();
+        const dot = vectorState.pencilPreviewDots.pop();
+        if (dot) { scene.remove(dot); disposeObject3D(dot); }
+        refreshPencilPreview();
+    };
+
+    vectorState.updatePencilLivePreview = function(pt) {
+        const z = pencilDrawZ();
+        const cleanupObj = (obj) => { if (obj) { scene.remove(obj); disposeObject3D(obj); } };
+        cleanupObj(vectorState.pencilLiveLine); vectorState.pencilLiveLine = null;
+        cleanupObj(vectorState.pencilLiveDot); vectorState.pencilLiveDot = null;
+
+        if (vectorState.pencilPoints.length > 0) {
+            const last = vectorState.pencilPoints[vectorState.pencilPoints.length - 1];
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(last.x, last.y, z),
+                new THREE.Vector3(pt.x, pt.y, z)
+            ]);
+            vectorState.pencilLiveLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x00ff88, opacity: 0.5, transparent: true, depthTest: false }));
+            vectorState.pencilLiveLine.renderOrder = 1000;
+            scene.add(vectorState.pencilLiveLine);
+        }
+
+        const dot = new THREE.Mesh(
+            new THREE.CircleGeometry(5, 16),
+            new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false })
+        );
+        dot.position.set(pt.x, pt.y, z);
+        dot.renderOrder = 1000;
+        scene.add(dot);
+        vectorState.pencilLiveDot = dot;
+
+        if (window.requestSceneRender) window.requestSceneRender();
+    };
+
+    vectorState.cancelPencil = function() {
+        vectorState.pencilActive = false;
+        vectorState.pencilPoints = [];
+        vectorState.pencilLastClickTime = 0;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+        document.body.style.cursor = 'default';
+        pencilCleanupPreview();
+    };
+
+    function createPencilShapeFromPoints(localPts) {
+        if (!localPts || localPts.length < 3) return null;
+        const shape = new THREE.Shape();
+        shape.moveTo(localPts[0].x, localPts[0].y);
+        for (let i = 1; i < localPts.length; i++) shape.lineTo(localPts[i].x, localPts[i].y);
+        shape.closePath();
+        const geo = new THREE.ShapeGeometry(shape);
+        geo.userData.shapesData = [{ shapes: [shape], offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
+        return geo;
+    }
+
+    function createPencilLineFromPoints(localPts, width = 2, pattern = 'solid') {
+        if (!localPts || localPts.length < 2) return null;
+        const points = localPts.map(point => new THREE.Vector3(point.x, point.y, 0));
+        const geometries = [];
+        const addStroke = strokePoints => {
+            if (strokePoints.length < 2) return;
+            const geometry = THREE.SVGLoader.pointsToStroke(strokePoints, { strokeWidth: width, strokeLineJoin: 'round', strokeLineCap: 'round' });
+            if (geometry) geometries.push(geometry);
+        };
+
+        if (pattern === 'solid') {
+            addStroke(points);
+        } else if (pattern === 'dotted') {
+            const radius = width / 2;
+            for (let i = 0; i < points.length - 1; i++) {
+                const distance = points[i].distanceTo(points[i + 1]);
+                const steps = Math.max(1, Math.ceil(distance / Math.max(width * 3, 1)));
+                for (let step = 0; step < steps; step++) {
+                    const point = points[i].clone().lerp(points[i + 1], (step + 0.5) / steps);
+                    const geometry = new THREE.CircleGeometry(radius, 12);
+                    geometry.translate(point.x, point.y, 0);
+                    geometries.push(geometry);
+                }
+            }
+        } else {
+            const dashLength = Math.max(width * 5, 5);
+            const gapLength = Math.max(width * 3, 3);
+            let drawRemaining = dashLength;
+            let gapRemaining = 0;
+            for (let i = 0; i < points.length - 1; i++) {
+                const start = points[i], end = points[i + 1];
+                const direction = end.clone().sub(start);
+                const segmentLength = direction.length();
+                if (segmentLength === 0) continue;
+                direction.normalize();
+                let offset = 0;
+                while (offset < segmentLength) {
+                    const amount = Math.min(drawRemaining > 0 ? drawRemaining : gapRemaining, segmentLength - offset);
+                    if (drawRemaining > 0) addStroke([start.clone().addScaledVector(direction, offset), start.clone().addScaledVector(direction, offset + amount)]);
+                    offset += amount;
+                    if (drawRemaining > 0) { drawRemaining -= amount; if (drawRemaining <= 0) gapRemaining = gapLength; }
+                    else { gapRemaining -= amount; if (gapRemaining <= 0) drawRemaining = dashLength; }
+                }
+            }
+        }
+        if (geometries.length === 0) return null;
+        const geo = geometries.length === 1 ? geometries[0] : THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+        geometries.forEach(item => { if (item !== geo) item.dispose(); });
+        if (!geo) return null;
+        geo.userData.pencilLine = true;
+        geo.userData.lineWidth = width;
+        geo.userData.linePattern = pattern;
+        return geo;
+    }
+
+    function spawnPencilShape(worldPts) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        worldPts.forEach(p => {
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+        });
+        const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+        const localPts = worldPts.map(p => ({ x: p.x - centerX, y: p.y - centerY }));
+        const isLine = vectorState.pencilMode === 'line';
+        const geo = isLine ? createPencilLineFromPoints(localPts) : createPencilShapeFromPoints(localPts);
+        if (!geo) return null;
+        const group = spawnVectorMesh(geo, isLine ? 'Нарисованная линия' : 'Нарисованная фигура', isLine ? 'spline' : 'pen', false, '', 1, centerX, centerY);
+        group.userData.isPencil = true;
+        group.userData.isPencilLine = isLine;
+        group.userData.pencilPoints = localPts;
+        group.userData.lineWidth = isLine ? (geo.userData.lineWidth || 2) : undefined;
+        group.userData.linePattern = isLine ? (geo.userData.linePattern || 'solid') : undefined;
+        if (isLine) selectObject(group);
+        return group;
+    }
+
+    vectorState.finishPencilShape = function() {
+        const minPoints = vectorState.pencilMode === 'line' ? 2 : 3;
+        if (vectorState.pencilPoints.length < minPoints) {
+            window.showToast(vectorState.pencilMode === 'line' ? "Минимум 2 точки для линии" : "Минимум 3 точки для замкнутой фигуры", "error");
+            vectorState.cancelPencil();
+            return;
+        }
+        const worldPts = vectorState.pencilPoints.slice();
+        vectorState.cancelPencil();
+        spawnPencilShape(worldPts);
+        window.showToast(`${vectorState.pencilMode === 'line' ? 'Линия' : 'Фигура'} создана (${worldPts.length} точек)`, "success");
+    };
+
+    function activatePencil(mode) {
+        if (vectorState.pencilActive) {
+            vectorState.cancelPencil();
+            window.showToast("Рисование остановлено", "error");
+            return;
+        }
+        vectorState.placementMode = null;
+        vectorState.pencilMode = mode;
+        vectorState.pencilActive = true;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        vectorState.pencilPoints = [];
+        vectorState.pencilLastClickTime = 0;
+        document.body.style.cursor = 'crosshair';
+        window.showToast(mode === 'line' ? "Линия: клики ставят точки, двойной клик завершает. Esc — отмена" : "Фигура: клики ставят точки, двойной клик замыкает контур. Esc — отмена", "success");
+    }
+
+    document.getElementById('btnAddPencil')?.addEventListener('click', () => activatePencil('shape'));
+    document.getElementById('btnAddPencilLine')?.addEventListener('click', () => activatePencil('line'));
 
     document.getElementById('vectorSvgInput')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -1036,7 +1481,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             wrapper.updateMatrixWorld(true);
             wrapper.traverse((child) => {
-                if (child.isMesh && child.geometry) {
+                if (child.isMesh && child.geometry && child.visible) {
                     const geo = child.geometry.clone();
                     geo.applyMatrix4(child.matrixWorld);
 
@@ -1050,12 +1495,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     const g = Math.round(matColor.g * 255);
                     const b = Math.round(matColor.b * 255);
                     const a = Math.round(opacity * 255);
+                    const colorAttr = geo.attributes.color;
 
                     const posAttr = geo.attributes.position;
                     const indexAttr = geo.index;
                     if (!posAttr) return;
 
-                    const getVertex = (idx) => ({ x: posAttr.getX(idx), y: posAttr.getY(idx), z: posAttr.getZ(idx), r: r, g: g, b: b, a: a });
+                    const getVertex = (idx) => ({
+                        x: posAttr.getX(idx), y: posAttr.getY(idx), z: posAttr.getZ(idx),
+                        r: colorAttr ? Math.round(colorAttr.getX(idx) * 255) : r,
+                        g: colorAttr ? Math.round(colorAttr.getY(idx) * 255) : g,
+                        b: colorAttr ? Math.round(colorAttr.getZ(idx) * 255) : b,
+                        a: colorAttr ? 255 : a
+                    });
                     const faceCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
 
                     for (let i = 0; i < faceCount; i++) {
@@ -1160,7 +1612,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (firstMesh) {
                 if (firstMesh.material) {
                     data.color = "#" + firstMesh.material.color.getHexString();
-                    data.opacity = firstMesh.material.opacity;
+                    data.opacity = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
                 }
                 
                 if (firstMesh.userData.isText) {
@@ -1174,6 +1626,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (obj.userData.isSvg) {
                     data.isSvg = true;
                     data.svgString = obj.userData.svgString;
+                }
+
+                if (obj.userData.isPencil) {
+                    data.isPencil = true;
+                    data.isPencilLine = Boolean(obj.userData.isPencilLine);
+                    data.pencilPoints = obj.userData.pencilPoints;
+                    data.lineWidth = obj.userData.lineWidth || firstMesh.geometry.userData.lineWidth || 2;
+                    data.linePattern = obj.userData.linePattern || firstMesh.geometry.userData.linePattern || 'solid';
                 }
                 
                 const strokeMesh = getStrokeMeshes(obj)[0];
@@ -1254,6 +1714,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     if (attempts > 50) clearInterval(checkFont); 
                 }, 100);
+            } else if (data.isPencil && data.pencilPoints && data.pencilPoints.length >= (data.isPencilLine ? 2 : 3)) {
+                const geo = data.isPencilLine ? createPencilLineFromPoints(data.pencilPoints, data.lineWidth || 2, data.linePattern || 'solid') : createPencilShapeFromPoints(data.pencilPoints);
+                if (geo) {
+                    const wrapper = spawnLoadedVectorMesh(geo, data);
+                    if (wrapper) {
+                        wrapper.userData.isPencil = true;
+                        wrapper.userData.isPencilLine = Boolean(data.isPencilLine);
+                        wrapper.userData.pencilPoints = data.pencilPoints;
+                    }
+                }
             } else if (data.icon === 'square') {
                 const shape = new THREE.Shape(); shape.moveTo(-5, -5); shape.lineTo(5, -5); shape.lineTo(5, 5); shape.lineTo(-5, 5); shape.lineTo(-5, -5);
                 const geo = new THREE.ShapeGeometry(shape); 
@@ -1291,9 +1761,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     
     function spawnLoadedVectorMesh(geometry, data) {
-        const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
+        const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: false, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.frustumCulled = false;
+        mesh.userData.pseudoOpacity = data.opacity ?? 1;
         
         if (data.isText) {
             mesh.userData.isText = true;
@@ -1308,10 +1779,18 @@ document.addEventListener("DOMContentLoaded", () => {
         group.add(mesh);
         group.name = data.name;
         group.userData.icon = data.icon;
+        if (data.isPencil) {
+            group.userData.isPencil = true;
+            group.userData.isPencilLine = Boolean(data.isPencilLine);
+            group.userData.pencilPoints = data.pencilPoints;
+            group.userData.lineWidth = data.lineWidth || 2;
+            group.userData.linePattern = data.linePattern || 'solid';
+        }
         
         if (data.isText) group.userData.textAlign = data.textAlign || 'center';
         
         applyTransformAndProperties(group, data);
+        return group;
     }
     
     function applyTransformAndProperties(wrapper, data) {
@@ -1324,8 +1803,9 @@ document.addEventListener("DOMContentLoaded", () => {
             getMeshes(wrapper, false).forEach(mesh => {
                 if (data.color && mesh.material && mesh.material.color) mesh.material.color.set(data.color);
                 if (data.opacity !== undefined && mesh.material) {
-                    mesh.material.opacity = data.opacity;
-                    mesh.material.transparent = data.opacity < 1;
+                    mesh.userData.pseudoOpacity = data.opacity;
+                    mesh.material.opacity = 1;
+                    mesh.material.transparent = false;
                 }
             });
         }
@@ -1337,10 +1817,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
                 if (strokeGeo) {
                     const restoredOpacity = data.opacity ?? 1;
-                    const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: restoredOpacity, transparent: restoredOpacity < 1, depthWrite: true, alphaTest: 0.01 }));
+                    const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: 1, transparent: false, depthWrite: true, alphaTest: 0.01 }));
                     strokeMesh.userData.isStroke = true;
                     strokeMesh.frustumCulled = false;
                     strokeMesh.userData.strokeWidth = data.strokeWidth;
+                    strokeMesh.userData.pseudoOpacity = restoredOpacity;
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
@@ -1358,6 +1839,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         scene.add(wrapper);
         vectorState.objects.unshift(wrapper); 
+        rebuildPseudoTransparency(wrapper);
         
         if (vectorState.pendingSelectId === wrapper.uuid) {
             selectObject(wrapper);

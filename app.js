@@ -205,7 +205,16 @@ const scene = new THREE.Scene();
 scene.background = null; 
 
 const container = mapCanvas.parentElement;
-const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 10, 100000);
+const initialViewHeight = 10000;
+const initialAspect = container.clientWidth / Math.max(container.clientHeight, 1);
+const camera = new THREE.OrthographicCamera(
+    -(initialViewHeight * initialAspect) / 2,
+    (initialViewHeight * initialAspect) / 2,
+    initialViewHeight / 2,
+    -initialViewHeight / 2,
+    0.1,
+    100000
+);
 
 const renderer = new THREE.WebGLRenderer({ canvas: mapCanvas, antialias: true, logarithmicDepthBuffer: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setClearColor( 0x000000, 0 ); 
@@ -236,8 +245,22 @@ function resizeCanvas() {
     const height = mapCanvas.parentElement.clientHeight;
     renderer.setSize(width, height);
     camera.aspect = width / height;
+    const viewHeight = camera.top - camera.bottom;
+    camera.top = viewHeight / 2;
+    camera.bottom = -viewHeight / 2;
+    camera.left = -(viewHeight * camera.aspect) / 2;
+    camera.right = (viewHeight * camera.aspect) / 2;
     camera.updateProjectionMatrix();
     requestSceneRender();
+}
+
+function setOrthographicViewHeight(viewHeight) {
+    const aspect = mapCanvas.parentElement.clientWidth / Math.max(mapCanvas.parentElement.clientHeight, 1);
+    camera.top = viewHeight / 2;
+    camera.bottom = -viewHeight / 2;
+    camera.left = -(viewHeight * aspect) / 2;
+    camera.right = (viewHeight * aspect) / 2;
+    camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resizeCanvas);
 
@@ -580,7 +603,7 @@ window.fastUpdateColor = function(key, newHex, newAlpha) {
     const pointers = fastColorPointers.get(key); if (pointers) { const rNorm = item.currentR / 255, gNorm = item.currentG / 255, bNorm = item.currentB / 255, aNorm = item.currentA / 255; for (let p = 0; p < pointers.length; p++) { const ptr = pointers[p]; const array = ptr.attribute.array; const indices = ptr.indices; for (let i = 0; i < indices.length; i++) { const idx = indices[i]; array[idx] = rNorm; array[idx + 1] = gNorm; array[idx + 2] = bNorm; array[idx + 3] = aNorm; } ptr.attribute.needsUpdate = true; } }
     const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_'); const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const hexInput = document.getElementById(`hex-input-${safeKey}`), colorPicker = document.getElementById(`color-picker-${safeKey}`); const alphaNum = document.getElementById(`alpha-num-${safeKey}`), alphaPreview = document.getElementById(`alpha-preview-${safeKey}`); const alphaRange = document.getElementById(`alpha-range-${safeKey}`); const resetBtn = document.getElementById(`reset-btn-${safeKey}`), modBadge = document.getElementById(`mod-badge-${safeKey}`); const colorCard = document.getElementById(`color-card-${safeKey}`);
     if (hexInput && document.activeElement !== hexInput) hexInput.value = item.currentHex.toUpperCase(); if (colorPicker) colorPicker.value = item.currentHex; if (alphaNum) alphaNum.value = item.currentA; if (alphaRange) alphaRange.value = item.currentA; if (alphaPreview) alphaPreview.style.backgroundColor = `rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255})`;
-    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); requestSceneRender();
+    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency(); requestSceneRender();
 };
 
 window.invertSingleColor = function(key) { const item = state.colorsMap.get(key); if (!item) return; window.fastUpdateColor(key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA); };
@@ -630,16 +653,17 @@ function build3DScene(resetCamera = true) {
                 else layerRenderOrder = 40;
             }
 
-            const opaqueMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a < 0.99) discard; gl_FragColor = vec4(vColor.rgb, 1.0); }`, side: THREE.DoubleSide, transparent: false, depthWrite: true, depthTest: true });
-            const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: true });
+            const isSeaLayer = nLower.includes('sea');
+            const opaqueMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a < 0.99) discard; gl_FragColor = vec4(vColor.rgb, 1.0); }`, side: THREE.DoubleSide, transparent: false, depthWrite: !isSeaLayer, depthTest: !isSeaLayer });
+            const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: !isSeaLayer });
             
             const opaqueMesh = new THREE.Mesh(geometry, opaqueMaterial); 
-            opaqueMesh.userData = { isMapMesh: true }; 
+            opaqueMesh.userData = { isMapMesh: true, isSeaLayer }; 
             opaqueMesh.renderOrder = layerRenderOrder; 
             scene.add(opaqueMesh); 
             
             const transparentMesh = new THREE.Mesh(geometry, transparentMaterial); 
-            transparentMesh.userData = { isMapMesh: true }; 
+            transparentMesh.userData = { isMapMesh: true, isSeaLayer }; 
             transparentMesh.renderOrder = layerRenderOrder + 0.1;
             scene.add(transparentMesh);
         });
@@ -648,13 +672,19 @@ function build3DScene(resetCamera = true) {
     if (minX !== Infinity) {
         const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2; const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 100); 
         window.mapBounds = { centerX, centerY, centerZ, maxZ, maxDim };
-        if (resetCamera) { camera.position.set(centerX, centerY, maxZ + maxDim * 1.5); controls.target.set(centerX, centerY, centerZ); controls.update(); }
+        if (resetCamera) {
+            setOrthographicViewHeight(maxDim * 1.15);
+            camera.position.set(centerX, centerY, maxZ + maxDim * 1.5);
+            controls.target.set(centerX, centerY, centerZ);
+            controls.update();
+        }
     } else window.mapBounds = null;
+    if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
     if(vertexStats) vertexStats.textContent = `${window.t('Вершин:', 'Vertices:', 'Вершин:')} ${totalVertices.toLocaleString('ru-RU')}`;
     requestSceneRender();
 }
 
-if(resetViewBtn) { resetViewBtn.addEventListener('click', () => { if (window.mapBounds) { camera.position.set(window.mapBounds.centerX, window.mapBounds.centerY, window.mapBounds.maxZ + window.mapBounds.maxDim * 1.5); controls.target.set(window.mapBounds.centerX, window.mapBounds.centerY, window.mapBounds.centerZ); controls.update(); } }); }
+if(resetViewBtn) { resetViewBtn.addEventListener('click', () => { if (window.mapBounds) { setOrthographicViewHeight(window.mapBounds.maxDim * 1.15); camera.position.set(window.mapBounds.centerX, window.mapBounds.centerY, window.mapBounds.maxZ + window.mapBounds.maxDim * 1.5); controls.target.set(window.mapBounds.centerX, window.mapBounds.centerY, window.mapBounds.centerZ); controls.update(); } }); }
 
 function saveProjectJson() {
     const vectorsData = window.getVectorsForJSON ? window.getVectorsForJSON() : [];
@@ -666,8 +696,10 @@ function saveProjectJson() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
     
     const projectData = {
-        COLORS_LIST: hexList, version: "8.0", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "8.1", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
+        language: window.currentLang,
+        gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
         separateByZ: state.separateByZ,
         files: state.files.map(f => ({ name: f.name.replace(' (/map/)', ''), text: f.text })),
         colors: Array.from(state.colorsMap.values()),
@@ -699,6 +731,14 @@ async function loadProjectJson(file) {
                 }
             }
         }
+
+        if (data.language && typeof setLanguage === 'function') {
+            setLanguage(data.language);
+            const languageSelect = document.getElementById('langSwitcher');
+            if (languageSelect) languageSelect.value = data.language;
+        }
+
+        if (data.gridVisible && typeof toggleMapGrid === 'function' && !isGridVisible) toggleMapGrid();
         
         state.separateByZ = Boolean(data.separateByZ); const separateToggle = document.getElementById('separateZToggle'); if (separateToggle) separateToggle.checked = state.separateByZ;
         
@@ -709,7 +749,10 @@ async function loadProjectJson(file) {
         if (data.colors && Array.isArray(data.colors)) { data.colors.forEach(savedColor => { if (state.colorsMap.has(savedColor.key)) { const current = state.colorsMap.get(savedColor.key); current.currentHex = savedColor.currentHex; current.currentR = savedColor.currentR; current.currentG = savedColor.currentG; current.currentB = savedColor.currentB; current.currentA = savedColor.currentA; current.customName = savedColor.customName || ""; } }); }
         
         if (data.vectorFont && window.loadVectorFontFromJSON) await window.loadVectorFontFromJSON(data.vectorFont);
-        if (data.vectors && window.loadVectorsFromJSON) { window.loadVectorsFromJSON(data.vectors); }
+        if (data.vectors && window.loadVectorsFromJSON) {
+            if (window.setPendingVectorSelect) window.setPendingVectorSelect(data.vectors.length ? data.vectors[data.vectors.length - 1].uuid : null);
+            window.loadVectorsFromJSON(data.vectors);
+        }
         
         renderFileList(); renderPalette(); build3DScene(false); window.updateExportState(); window.showToast(window.t("Проект JSON загружен!", "JSON project loaded!", "Проект JSON завантажено!"));
     } catch (err) { console.error(err); window.showToast(window.t("Ошибка с JSON файлом", "Error with JSON file", "Помилка з JSON файлом"), "error"); } finally { window.hideLoading(); }
@@ -980,6 +1023,10 @@ async function exportModifiedZip() {
                 }
             }
             
+            if (window.GeometryUtils && window.GeometryUtils.splitOversizedGeometries) {
+                window.GeometryUtils.splitOversizedGeometries(doc, 60000);
+            }
+
             const match = file.name.match(/minimap_(\d+)_(\d+)/i);
             if (match) {
                 window.recalculateAllBounds(doc);

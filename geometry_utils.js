@@ -217,11 +217,109 @@
         return mergeResult;
     }
 
+    function splitOversizedGeometries(xmlDoc, maxLimit = 60000) {
+        const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
+
+        const geomItems = Array.from(xmlDoc.querySelectorAll('Geometries > Item'));
+        let splitCount = 0;
+
+        geomItems.forEach(geomItem => {
+            const vb = getDirectChild(geomItem, 'VertexBuffer');
+            const ib = getDirectChild(geomItem, 'IndexBuffer');
+            if (!vb || !ib) return;
+
+            const vData = getDirectChild(vb, 'Data2') || getDirectChild(vb, 'Data');
+            const iData = getDirectChild(ib, 'Data2') || getDirectChild(ib, 'Data');
+            if (!vData || !iData) return;
+
+            const vLines = vData.textContent.split('\n').filter(line => line.trim().split(/\s+/).filter(Boolean).length >= 7);
+            const iTokens = iData.textContent.trim().split(/\s+/).filter(t => t !== '');
+            const indices = iTokens.map(Number);
+
+            if (indices.length < 3 || (vLines.length <= maxLimit && indices.length <= maxLimit)) return;
+
+            if (indices.some(index => !Number.isInteger(index) || index < 0 || index >= vLines.length)) {
+                throw new Error('Cannot split YDD geometry: index is out of range');
+            }
+
+            const triangles = [];
+            for (let i = 0; i + 2 < indices.length; i += 3) {
+                triangles.push([indices[i], indices[i + 1], indices[i + 2]]);
+            }
+
+            const chunks = [];
+            let current = { usedVerts: new Set(), tris: [] };
+
+            for (const tri of triangles) {
+                const newVertCount = tri.filter(idx => !current.usedVerts.has(idx)).length;
+                if ((current.usedVerts.size + newVertCount > maxLimit) || ((current.tris.length + 1) * 3 > maxLimit)) {
+                    if (current.tris.length > 0) chunks.push(current);
+                    current = { usedVerts: new Set(), tris: [] };
+                }
+                tri.forEach(idx => current.usedVerts.add(idx));
+                current.tris.push(tri);
+            }
+            if (current.tris.length > 0) chunks.push(current);
+
+            const parentGeometries = geomItem.parentElement;
+            const insertRef = geomItem.nextSibling;
+
+            chunks.forEach(chunk => {
+                const usedArr = Array.from(chunk.usedVerts).sort((a, b) => a - b);
+                const remap = new Map();
+                const newVertLines = [];
+
+                usedArr.forEach((oldIdx, newIdx) => {
+                    remap.set(oldIdx, newIdx);
+                    newVertLines.push(vLines[oldIdx]);
+                });
+
+                const newIndices = [];
+                for (const tri of chunk.tris) {
+                    newIndices.push(remap.get(tri[0]), remap.get(tri[1]), remap.get(tri[2]));
+                }
+
+                const clone = geomItem.cloneNode(true);
+
+                const newVb = getDirectChild(clone, 'VertexBuffer');
+                const newVData = getDirectChild(newVb, 'Data2') || getDirectChild(newVb, 'Data');
+                newVData.textContent = "\n" + newVertLines.join('\n') + "\n              ";
+
+                const newIb = getDirectChild(clone, 'IndexBuffer');
+                const newIData = getDirectChild(newIb, 'Data2') || getDirectChild(newIb, 'Data');
+                let iStr = "\n";
+                for (let i = 0; i < newIndices.length; i += 24) {
+                    iStr += "                " + newIndices.slice(i, i + 24).join(" ") + "\n";
+                }
+                newIData.textContent = iStr + "              ";
+
+                clone.querySelectorAll('Vertices, VertexCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', String(newVertLines.length)); });
+                clone.querySelectorAll('Indices, IndicesCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', String(newIndices.length)); });
+                clone.querySelectorAll('PrimitiveCount').forEach(n => { if (n.hasAttribute('value')) n.setAttribute('value', String(newIndices.length / 3)); });
+
+                const parsedVerts = newVertLines.map(line => {
+                    const p = line.trim().split(/\s+/).filter(Boolean);
+                    return { x: parseFloat(p[0]), y: parseFloat(p[1]), z: parseFloat(p[2]) };
+                });
+                const bounds = calculateBoundsFromVertices(parsedVerts);
+                setDirectBounds(clone, bounds);
+
+                parentGeometries.insertBefore(clone, insertRef);
+            });
+
+            parentGeometries.removeChild(geomItem);
+            splitCount++;
+        });
+
+        return splitCount > 0;
+    }
+
     return {
         clipTriangleToCell,
         mergeYddGeometry,
         calculateBoundsFromVertices,
         setDirectBounds,
-        applyYddGeometryMerge
+        applyYddGeometryMerge,
+        splitOversizedGeometries
     };
 });
