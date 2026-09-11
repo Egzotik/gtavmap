@@ -514,6 +514,13 @@ function processSingleXmlText(xmlText, fileName, isDefault = false) {
 function parseGtaMapTo3D(xmlText, fileName = 'XML') {
     const doc = parseXmlOrThrow(xmlText, fileName); const vertexBuffers = doc.querySelectorAll('VertexBuffer'); let meshesData = []; let globalVertices = [];
     vertexBuffers.forEach(vb => {
+        let layerName = '';
+        let owner = vb.parentElement;
+        while (owner) {
+            const nameNode = Array.from(owner.children || []).find(child => child.nodeName === 'Name');
+            if (nameNode && nameNode.textContent.trim()) { layerName = nameNode.textContent.trim(); break; }
+            owner = owner.parentElement;
+        }
         const container = vb.parentElement; const ib = container ? Array.from(container.children).find(child => child.nodeName === 'IndexBuffer') : null; const vData = vb.querySelector('Data2') || vb.querySelector('Data'); const iData = ib ? (ib.querySelector('Data2') || ib.querySelector('Data')) : null; if (!vData) return;
         const vLines = vData.textContent.trim().split('\n'); const positions = []; const colors = []; const originalColorsList = [];
         vLines.forEach(line => {
@@ -521,7 +528,7 @@ function parseGtaMapTo3D(xmlText, fileName = 'XML') {
             if (p.length >= 7) { const x = parseFloat(p[0]), y = parseFloat(p[1]), z = parseFloat(p[2]), r = parseInt(p[3]), g = parseInt(p[4]), b = parseInt(p[5]), a = parseInt(p[6]); if (!isNaN(x) && !isNaN(y) && !isNaN(r)) { positions.push(x, y, z); colors.push(r / 255, g / 255, b / 255, a / 255); globalVertices.push({ x, y, z, r, g, b, a }); originalColorsList.push({ r, g, b, a, z }); } }
         });
         const indices = []; if (iData) { const iTokens = iData.textContent.trim().split(/\s+/).filter(Boolean); iTokens.forEach(t => { const index = Number(t); if (!Number.isInteger(index) || index < 0 || index >= positions.length / 3) throw new Error(`${fileName}: ${window.t('некорректный индекс вершины', 'invalid vertex index', 'некоректний індекс вершини')}`); indices.push(index); }); if (indices.length % 3 !== 0) throw new Error(`${fileName}: ${window.t('число индексов не кратно трём', 'indices not multiple of 3', 'кількість індексів не кратна трьом')}`); } else { for(let i = 0; i < positions.length / 3; i++) indices.push(i); }
-        if (positions.length > 0) meshesData.push({ positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices), originalColorsList: originalColorsList });
+        if (positions.length > 0) meshesData.push({ positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices), originalColorsList: originalColorsList, layerName: layerName });
     });
     return { meshesData, globalVertices };
 }
@@ -596,6 +603,15 @@ function renderPalette(filterText = '') {
     if (uniqueColorCount) uniqueColorCount.textContent = `${state.colorsMap.size} ${window.t('цветов', 'colors', 'кольорів')}`; if (window.lucide) window.lucide.createIcons();
 }
 
+let pseudoTransparencyFrame = null;
+function schedulePseudoTransparencyRebuild() {
+    if (pseudoTransparencyFrame !== null || !window.rebuildVectorPseudoTransparency) return;
+    pseudoTransparencyFrame = requestAnimationFrame(() => {
+        pseudoTransparencyFrame = null;
+        window.rebuildVectorPseudoTransparency();
+    });
+}
+
 window.fastUpdateColor = function(key, newHex, newAlpha) {
     const item = state.colorsMap.get(key); if (!item) return;
     if (newHex !== null) { let formattedHex = newHex.trim(); if (!formattedHex.startsWith('#')) formattedHex = '#' + formattedHex; if (/^#[0-9A-F]{6}$/i.test(formattedHex)) { const { r, g, b } = hexToRgb(formattedHex); item.currentHex = formattedHex.toLowerCase(); item.currentR = r; item.currentG = g; item.currentB = b; } else { const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_'); const hexInput = document.getElementById(`hex-input-${safeKey}`); if (hexInput) hexInput.value = item.currentHex.toUpperCase(); return; } }
@@ -603,7 +619,7 @@ window.fastUpdateColor = function(key, newHex, newAlpha) {
     const pointers = fastColorPointers.get(key); if (pointers) { const rNorm = item.currentR / 255, gNorm = item.currentG / 255, bNorm = item.currentB / 255, aNorm = item.currentA / 255; for (let p = 0; p < pointers.length; p++) { const ptr = pointers[p]; const array = ptr.attribute.array; const indices = ptr.indices; for (let i = 0; i < indices.length; i++) { const idx = indices[i]; array[idx] = rNorm; array[idx + 1] = gNorm; array[idx + 2] = bNorm; array[idx + 3] = aNorm; } ptr.attribute.needsUpdate = true; } }
     const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_'); const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const hexInput = document.getElementById(`hex-input-${safeKey}`), colorPicker = document.getElementById(`color-picker-${safeKey}`); const alphaNum = document.getElementById(`alpha-num-${safeKey}`), alphaPreview = document.getElementById(`alpha-preview-${safeKey}`); const alphaRange = document.getElementById(`alpha-range-${safeKey}`); const resetBtn = document.getElementById(`reset-btn-${safeKey}`), modBadge = document.getElementById(`mod-badge-${safeKey}`); const colorCard = document.getElementById(`color-card-${safeKey}`);
     if (hexInput && document.activeElement !== hexInput) hexInput.value = item.currentHex.toUpperCase(); if (colorPicker) colorPicker.value = item.currentHex; if (alphaNum) alphaNum.value = item.currentA; if (alphaRange) alphaRange.value = item.currentA; if (alphaPreview) alphaPreview.style.backgroundColor = `rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255})`;
-    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency(); requestSceneRender();
+    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); schedulePseudoTransparencyRebuild(); requestSceneRender();
 };
 
 window.invertSingleColor = function(key) { const item = state.colorsMap.get(key); if (!item) return; window.fastUpdateColor(key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA); };
@@ -621,6 +637,20 @@ window.updateExportState = function() {
     if(saveProjectBtn) saveProjectBtn.disabled = !canExport;
 };
 
+function getMapLayerZ(fileName) {
+    const name = fileName.toLowerCase();
+    if (name.includes('sea')) return 0;
+    if (name.includes('back')) return 1;
+    const tileMatch = name.match(/(?:minimap|tile|fore)[_-](\d+)[_-](\d+)/);
+    if (tileMatch) {
+        const x = parseInt(tileMatch[1], 10);
+        const y = parseInt(tileMatch[2], 10);
+        return 2 + (y * 8) + x;
+    }
+    if (name.includes('mcl') || name.includes('vector')) return 1000;
+    return 500;
+}
+
 function build3DScene(resetCamera = true) {
     fastColorPointers.clear();
     const objectsToRemove = scene.children.filter(child => child.isMesh && child.userData.isMapMesh);
@@ -631,6 +661,8 @@ function build3DScene(resetCamera = true) {
     state.files.forEach(file => {
         totalVertices += file.vertices.length;
         file.meshesData.forEach(data => {
+            const nLower = `${file.name} ${data.layerName || ''}`.toLowerCase();
+            const layerRenderOrder = getMapLayerZ(nLower);
             const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3)); const updatedColors = new Float32Array(data.positions.length / 3 * 4); const colorAttr = new THREE.BufferAttribute(updatedColors, 4); const localIndicesMap = new Map();
             for(let i=0; i < data.originalColorsList.length; i++) {
                 const orig = data.originalColorsList[i]; const zSuffix = state.separateByZ ? `_${Math.round(orig.z)}` : ''; const key = makeRgbaKey(orig.r, orig.g, orig.b, orig.a) + zSuffix; const colorItem = state.colorsMap.get(key);
@@ -641,29 +673,17 @@ function build3DScene(resetCamera = true) {
             localIndicesMap.forEach((indices, key) => { if (!fastColorPointers.has(key)) fastColorPointers.set(key, []); fastColorPointers.get(key).push({ attribute: colorAttr, indices: indices }); });
             geometry.setAttribute('customColor', colorAttr); if (data.indices.length > 0) geometry.setIndex(new THREE.BufferAttribute(data.indices, 1)); geometry.computeBoundingSphere(); geometry.computeBoundingBox();
             
-            let layerRenderOrder = 50; 
-            const nLower = file.name.toLowerCase();
-            if (nLower.includes('sea')) layerRenderOrder = 10;
-            else if (nLower.includes('back')) layerRenderOrder = 20;
-            else if (nLower.includes('mcl') || nLower.includes('vector')) layerRenderOrder = 60;
-            else if (nLower.includes('fore')) layerRenderOrder = 70;
-            else {
-                const match = nLower.match(/tile_(\d)_(\d)/);
-                if (match) layerRenderOrder = 30 + (parseInt(match[2], 10) * 3) + parseInt(match[1], 10);
-                else layerRenderOrder = 40;
-            }
-
             const isSeaLayer = nLower.includes('sea');
             const opaqueMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a < 0.99) discard; gl_FragColor = vec4(vColor.rgb, 1.0); }`, side: THREE.DoubleSide, transparent: false, depthWrite: !isSeaLayer, depthTest: !isSeaLayer });
             const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: !isSeaLayer });
             
             const opaqueMesh = new THREE.Mesh(geometry, opaqueMaterial); 
-            opaqueMesh.userData = { isMapMesh: true, isSeaLayer }; 
+            opaqueMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder }; 
             opaqueMesh.renderOrder = layerRenderOrder; 
             scene.add(opaqueMesh); 
             
             const transparentMesh = new THREE.Mesh(geometry, transparentMaterial); 
-            transparentMesh.userData = { isMapMesh: true, isSeaLayer }; 
+            transparentMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder }; 
             transparentMesh.renderOrder = layerRenderOrder + 0.1;
             scene.add(transparentMesh);
         });
@@ -1094,6 +1114,12 @@ window.build3DScene = build3DScene;
 const toggleRightPanelBtn = document.getElementById('toggleRightPanelBtn');
 const sidebarPanel = document.getElementById('sidebarPanel');
 const rightPanelIcon = document.getElementById('rightPanelIcon');
+const leftToolsPanelMobile = document.getElementById('leftToolsPanel');
+
+if (sidebarPanel && window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+    sidebarPanel.classList.add('hidden-panel');
+    if (leftToolsPanelMobile) leftToolsPanelMobile.classList.add('hidden-panel');
+}
 
 if (toggleRightPanelBtn && sidebarPanel) {
     toggleRightPanelBtn.addEventListener('click', () => {
