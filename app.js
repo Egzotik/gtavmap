@@ -310,6 +310,9 @@ window.showLoading = function(text, subtext) {
 };
 
 window.hideLoading = function() { if(loadingOverlay) loadingOverlay.classList.add('opacity-0', 'pointer-events-none'); };
+window.yieldToBrowser = function() {
+    return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+};
 
 window.showToast = function(message, type = 'success') {
     const toast = document.getElementById('toast'); const toastMessage = document.getElementById('toastMessage'); const toastIcon = document.getElementById('toastIcon');
@@ -734,6 +737,7 @@ function saveProjectJson() {
 async function loadProjectJson(file) {
     window.showLoading(window.t("Загрузка JSON...", "Loading JSON...", "Завантаження JSON..."));
     try {
+        await window.yieldToBrowser();
         if (file.size > IMPORT_LIMITS.maxTotalBytes) throw new Error('JSON проекта слишком большой');
         const text = await file.text(); const data = JSON.parse(text); if (!data.files && !data.vectors) throw new Error("Неверный формат");
         state.files = []; state.colorsMap.clear(); 
@@ -764,16 +768,28 @@ async function loadProjectJson(file) {
         
         if (window.clearVectors) window.clearVectors(); 
         
-        if(data.files) { for (const f of data.files) processSingleXmlText(f.text, f.name, false); }
+        if (data.files) {
+            for (let i = 0; i < data.files.length; i++) {
+                const f = data.files[i];
+                window.showLoading(window.t("Загрузка проекта...", "Loading project...", "Завантаження проєкту..."), `${window.t("Файл", "File", "Файл")} ${i + 1}/${data.files.length}`);
+                processSingleXmlText(f.text, f.name, false);
+                await window.yieldToBrowser();
+            }
+        }
+        window.showLoading(window.t("Подготовка палитры...", "Preparing palette...", "Підготовка палітри..."));
+        await window.yieldToBrowser();
         extractUniqueColors();
         if (data.colors && Array.isArray(data.colors)) { data.colors.forEach(savedColor => { if (state.colorsMap.has(savedColor.key)) { const current = state.colorsMap.get(savedColor.key); current.currentHex = savedColor.currentHex; current.currentR = savedColor.currentR; current.currentG = savedColor.currentG; current.currentB = savedColor.currentB; current.currentA = savedColor.currentA; current.customName = savedColor.customName || ""; } }); }
         
         if (data.vectorFont && window.loadVectorFontFromJSON) await window.loadVectorFontFromJSON(data.vectorFont);
         if (data.vectors && window.loadVectorsFromJSON) {
+            window.showLoading(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${data.vectors.length} ${window.t("слоёв", "layers", "шарів")}`);
             if (window.setPendingVectorSelect) window.setPendingVectorSelect(data.vectors.length ? data.vectors[data.vectors.length - 1].uuid : null);
-            window.loadVectorsFromJSON(data.vectors);
+            await window.loadVectorsFromJSON(data.vectors);
         }
         
+        window.showLoading(window.t("Построение карты...", "Building map...", "Побудова карти..."));
+        await window.yieldToBrowser();
         renderFileList(); renderPalette(); build3DScene(false); window.updateExportState(); window.showToast(window.t("Проект JSON загружен!", "JSON project loaded!", "Проект JSON завантажено!"));
     } catch (err) { console.error(err); window.showToast(window.t("Ошибка с JSON файлом", "Error with JSON file", "Помилка з JSON файлом"), "error"); } finally { window.hideLoading(); }
 }
