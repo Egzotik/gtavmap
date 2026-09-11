@@ -9,7 +9,32 @@ const vectorState = {
     loadedFontName: 'Roboto Black',
     loadedFontData: null,
     pendingSelectId: null,
-    placementMode: null // Флаг режима размещения
+    placementMode: null, // Флаг режима размещения
+    undoStack: [],
+    skipNextHistory: false,
+    restoringHistory: false
+};
+
+function recordVectorUndoState() {
+    if (vectorState.restoringHistory || vectorState.skipNextHistory || !window.getVectorsForJSON) return;
+    const snapshot = JSON.stringify(window.getVectorsForJSON());
+    if (vectorState.undoStack[vectorState.undoStack.length - 1] !== snapshot) {
+        vectorState.undoStack.push(snapshot);
+        if (vectorState.undoStack.length > 30) vectorState.undoStack.shift();
+    }
+}
+
+window.undoLastVectorAction = async function() {
+    if (vectorState.pencilActive && vectorState.undoPencilPoint) {
+        vectorState.undoPencilPoint();
+        return;
+    }
+    const snapshot = vectorState.undoStack.pop();
+    if (!snapshot || !window.clearVectors || !window.loadVectorsFromJSON) return;
+    vectorState.restoringHistory = true;
+    window.clearVectors();
+    await window.loadVectorsFromJSON(JSON.parse(snapshot));
+    vectorState.restoringHistory = false;
 };
 
 function activatePlacementMode(actionCallback, toolName) {
@@ -267,9 +292,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (e.key === 'Shift') isShiftDown = true; 
 
-        if (vectorState.pencilActive && e.ctrlKey && e.key.toLowerCase() === 'z') {
+        if (e.ctrlKey && e.key.toLowerCase() === 'z') {
             e.preventDefault();
-            if (vectorState.undoPencilPoint) vectorState.undoPencilPoint();
+            if (vectorState.pencilActive && vectorState.undoPencilPoint) vectorState.undoPencilPoint();
+            else if (window.undoLastVectorAction) window.undoLastVectorAction();
             return;
         }
         
@@ -680,6 +706,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecPropTextValue')?.addEventListener('input', (e) => {
         if (!vectorState.activeObj) return;
         const newText = e.target.value;
+        recordVectorUndoState();
+        vectorState.skipNextHistory = true;
         const obj = vectorState.activeObj;
         const meshes = getMeshes(obj, false);
         
@@ -698,10 +726,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 let displayName = newText.split('\n')[0];
                 obj.name = displayName || 'Текст';
                 
-                getStrokeMeshes(obj).filter(stroke => stroke.userData.parentMeshId === mesh.uuid).forEach(stroke => { stroke.userData.strokeWidth = -1; });
             }
         });
-        applyPropsToActive();
+        applyPropsToActive(false, true);
         renderLayersList();
     });
 
@@ -752,6 +779,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function applyPropsToActive(forceRebuildText = false, forceRebuildStroke = false, markStyleOverride = false) {
         if (!vectorState.activeObj) return;
+        recordVectorUndoState();
+        vectorState.skipNextHistory = false;
         const colorHex = document.getElementById('vecPropColor').value;
         const alpha = Math.max(0, Math.min(1, parseFloat(document.getElementById('vecPropAlphaNum')?.value ?? document.getElementById('vecPropAlpha').value) || 0));
         const useStroke = document.getElementById('vecPropStroke').checked;
@@ -819,6 +848,11 @@ document.addEventListener("DOMContentLoaded", () => {
             mesh.position.z = 0.005; // Фикс z-offset для геометрии
 
             let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
+            if (forceRebuildStroke && strokeMesh) {
+                if (strokeMesh.parent) strokeMesh.parent.remove(strokeMesh);
+                disposeObject3D(strokeMesh);
+                strokeMesh = null;
+            }
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
                 if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || forceRebuildStroke) {
                     const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal);
@@ -856,6 +890,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function duplicateObject(obj) {
+        recordVectorUndoState();
         const data = window.getVectorsForJSON().find(d => d.uuid === obj.uuid);
         if (data) {
             const cloneData = JSON.parse(JSON.stringify(data)); 
@@ -899,6 +934,7 @@ document.addEventListener("DOMContentLoaded", () => {
             div.querySelector('.layer-name').textContent = obj.name || 'Слой ' + (idx + 1);
             div.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-btn')) {
+                    recordVectorUndoState();
                     if (window.vectorTransformControl && window.vectorTransformControl.object === obj) window.vectorTransformControl.detach();
                     scene.remove(obj);
                     disposeObject3D(obj);
@@ -923,6 +959,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
+        recordVectorUndoState();
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
         mesh.frustumCulled = false; 
@@ -1659,10 +1696,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
     
-    window.loadVectorsFromJSON = function(vectorsData) {
+    window.loadVectorsFromJSON = async function(vectorsData) {
         if (!vectorsData || !Array.isArray(vectorsData)) return;
-        
-        vectorsData.forEach(data => {
+
+        for (let vectorIndex = 0; vectorIndex < vectorsData.length; vectorIndex++) {
+            const data = vectorsData[vectorIndex];
+            if (window.yieldToBrowser) {
+                window.showLoading?.(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${vectorIndex + 1}/${vectorsData.length}`);
+                await window.yieldToBrowser();
+            }
             if (data.isSvg && data.svgString) {
                 const svgLoader = new THREE.SVGLoader();
                 const svgData = svgLoader.parse(data.svgString);
@@ -1768,7 +1810,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 geo.userData.tX = 0; geo.userData.tY = 0;
                 spawnLoadedVectorMesh(geo, data);
             }
-        });
+        }
         updateVectorsOrder();
     };
     
