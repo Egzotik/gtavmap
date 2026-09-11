@@ -551,8 +551,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateVectorsOrder() {
         const baseZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         const len = vectorState.objects.length;
+        let maxMapLayer = 0;
+        scene.children.forEach(child => {
+            if (child.isMesh && child.userData.isMapMesh) maxMapLayer = Math.max(maxMapLayer, child.userData.zLayer || 0);
+        });
+        const formBandOffset = -0.5;
+        const textBandOffset = maxMapLayer * 0.05 + 0.5;
         vectorState.objects.forEach((o, i) => {
-            o.position.z = baseZ + (len - i) * 0.01;
+            const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
+            const orderOffset = (len - i) * 0.001;
+            o.position.z = baseZ + formBandOffset + orderOffset + (isText ? textBandOffset : 0);
         });
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -712,7 +720,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (firstMesh && firstMesh.material) {
                 document.getElementById('vecPropColor').value = "#" + firstMesh.material.color.getHexString();
-                const selectedOpacity = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
+                const selectedOpacity = firstMesh.userData.isText
+                    ? (firstMesh.userData.textOpacity ?? firstMesh.material.opacity)
+                    : (firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity);
                 document.getElementById('vecPropAlpha').value = selectedOpacity;
                 document.getElementById('vecPropAlphaNum').value = selectedOpacity;
                 document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
@@ -904,9 +914,16 @@ document.addEventListener("DOMContentLoaded", () => {
         primaryMeshes.forEach(mesh => {
             if (!obj.userData.isSvg || obj.userData.styleOverridden) {
                 mesh.material.color.set(colorHex);
-                mesh.userData.pseudoOpacity = alpha;
-                mesh.material.opacity = 1;
-                mesh.material.transparent = false;
+                if (mesh.userData.isText) {
+                    mesh.userData.textOpacity = alpha;
+                    mesh.userData.pseudoOpacity = 1;
+                    mesh.material.opacity = alpha;
+                    mesh.material.transparent = alpha < 1;
+                } else {
+                    mesh.userData.pseudoOpacity = alpha;
+                    mesh.material.opacity = 1;
+                    mesh.material.transparent = false;
+                }
             }
             mesh.renderOrder = 999;
             mesh.position.z = 0.005; // Фикс z-offset для геометрии
@@ -1727,7 +1744,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (firstMesh) {
                 if (firstMesh.material) {
                     data.color = "#" + firstMesh.material.color.getHexString();
-                    data.opacity = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
+                    data.opacity = firstMesh.userData.isText
+                        ? (firstMesh.userData.textOpacity ?? firstMesh.material.opacity)
+                        : (firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity);
                 }
                 
                 if (firstMesh.userData.isText) {
@@ -1925,9 +1944,16 @@ document.addEventListener("DOMContentLoaded", () => {
             getMeshes(wrapper, false).forEach(mesh => {
                 if (data.color && mesh.material && mesh.material.color) mesh.material.color.set(data.color);
                 if (data.opacity !== undefined && mesh.material) {
-                    mesh.userData.pseudoOpacity = data.opacity;
-                    mesh.material.opacity = 1;
-                    mesh.material.transparent = false;
+                    if (mesh.userData.isText) {
+                        mesh.userData.textOpacity = data.opacity;
+                        mesh.userData.pseudoOpacity = 1;
+                        mesh.material.opacity = data.opacity;
+                        mesh.material.transparent = data.opacity < 1;
+                    } else {
+                        mesh.userData.pseudoOpacity = data.opacity;
+                        mesh.material.opacity = 1;
+                        mesh.material.transparent = false;
+                    }
                 }
             });
         }
