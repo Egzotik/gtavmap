@@ -306,12 +306,14 @@
                     <p><b class="text-emerald-400 font-bold">Esc</b> — <span data-i18n="hint_esc">Отмена создания фигуры</span></p>
                 </div>
                 
-                <div id="loadingOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-40 transition-opacity duration-300">
-                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl mb-2">
-                        <i data-lucide="loader" class="w-6 h-6 text-emerald-400 animate-spin"></i>
+                <div id="loadingOverlay" class="absolute inset-0 bg-transparent flex flex-col items-center justify-center z-40 pointer-events-none transition-opacity duration-300">
+                    <div class="flex min-w-[190px] max-w-[calc(100vw-2rem)] flex-col items-center rounded-2xl border border-slate-700/80 bg-slate-900/95 px-5 py-4 shadow-2xl">
+                        <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl mb-2">
+                            <i data-lucide="loader" class="w-6 h-6 text-emerald-400 animate-spin"></i>
+                        </div>
+                        <p id="loadingText" class="text-xs font-semibold text-slate-200 text-center" data-i18n="loading">Загрузка...</p>
+                        <p id="loadingSubtext" class="text-[10px] text-slate-400 mt-0.5 text-center" data-i18n="please_wait">Пожалуйста, подождите</p>
                     </div>
-                    <p id="loadingText" class="text-xs font-semibold text-slate-200" data-i18n="loading">Загрузка...</p>
-                    <p id="loadingSubtext" class="text-[10px] text-slate-400 mt-0.5" data-i18n="please_wait">Пожалуйста, подождите</p>
                 </div>
                 
                 <div id="localFolderPrompt" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-amber-950/80 border border-amber-500/40 text-amber-200 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3 text-xs">
