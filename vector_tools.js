@@ -90,7 +90,7 @@ function rebuildPseudoTransparency(wrapper) {
     const mapTriangles = [];
     const seenGeometries = new Set();
     scene.children.forEach(mapMesh => {
-        if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.name === 'mapCutout' || mapMesh.userData.isSeaLayer || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
+        if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.name === 'mapCutout' || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
         const geometry = mapMesh.geometry;
         const positions = geometry.attributes.position;
         const colors = geometry.attributes.customColor || geometry.attributes.color;
@@ -106,6 +106,7 @@ function rebuildPseudoTransparency(wrapper) {
             mapTriangles.push({
                 vertices,
                 color,
+                zLayer: mapMesh.userData.zLayer || 0,
                 minX: Math.min(vertices[0].x, vertices[1].x, vertices[2].x),
                 maxX: Math.max(vertices[0].x, vertices[1].x, vertices[2].x),
                 minY: Math.min(vertices[0].y, vertices[1].y, vertices[2].y),
@@ -115,7 +116,11 @@ function rebuildPseudoTransparency(wrapper) {
     });
     if (mapTriangles.length === 0) return;
 
-    getMeshes(wrapper, true).forEach(sourceMesh => {
+    const pseudoSources = [];
+    wrapper.traverse(child => {
+        if (child.isMesh && !child.userData.isPseudoTransparency) pseudoSources.push(child);
+    });
+    pseudoSources.forEach(sourceMesh => {
         const opacity = sourceMesh.userData.pseudoOpacity ?? sourceMesh.material?.opacity ?? 1;
         if (!sourceMesh.visible || !sourceMesh.geometry || !sourceMesh.material || opacity >= 0.999) return;
         const positions = sourceMesh.geometry.attributes.position;
@@ -131,6 +136,9 @@ function rebuildPseudoTransparency(wrapper) {
 
         const outputPositions = [], outputColors = [];
         const figureColor = sourceMesh.material.color || new THREE.Color(1, 1, 1);
+        let sourceBaseZ = -Infinity;
+        sourceTriangles.forEach(triangle => triangle.forEach(vertex => { if (vertex.z > sourceBaseZ) sourceBaseZ = vertex.z; }));
+        sourceBaseZ += 0.1;
         sourceTriangles.forEach(figure => {
             const minX = Math.min(figure[0].x, figure[1].x, figure[2].x);
             const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
@@ -148,7 +156,8 @@ function rebuildPseudoTransparency(wrapper) {
                     const weights = barycentric2d({ x: map.vertices[0].x, y: map.vertices[0].y }, { x: map.vertices[1].x, y: map.vertices[1].y }, { x: map.vertices[2].x, y: map.vertices[2].y }, point);
                     const mapColor = [0, 1, 2].map(channel => map.color[0][channel] * weights[0] + map.color[1][channel] * weights[1] + map.color[2][channel] * weights[2]);
                     const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
-                    const worldPoint = new THREE.Vector3(point.x, point.y, Math.max(figure[0].z, figure[1].z, figure[2].z) + 0.01);
+                    const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
+                    const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + map.zLayer * 0.05 + sourceLayerOffset);
                     const localPoint = wrapper.worldToLocal(worldPoint);
                     outputPositions.push(localPoint.x, localPoint.y, localPoint.z);
                     outputColors.push(color[0], color[1], color[2]);
@@ -610,9 +619,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById('vecLinePattern').value = linePattern;
             }
 
+
             if (firstMesh && firstMesh.material) {
                 document.getElementById('vecPropColor').value = "#" + firstMesh.material.color.getHexString();
-                document.getElementById('vecPropAlpha').value = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
+                const selectedOpacity = firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity;
+                document.getElementById('vecPropAlpha').value = selectedOpacity;
+                document.getElementById('vecPropAlphaNum').value = selectedOpacity;
                 document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
                 document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
                 
@@ -731,7 +743,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecPropStrokeWidthNum')?.addEventListener('input', (e) => { document.getElementById('vecPropStrokeWidth').value = e.target.value; applyPropsToActive(false, true); });
 
     document.getElementById('vecPropColor')?.addEventListener('input', () => applyPropsToActive(false, false, true));
-    document.getElementById('vecPropAlpha')?.addEventListener('input', () => applyPropsToActive(false, false, true));
+    document.getElementById('vecPropAlpha')?.addEventListener('input', (e) => { document.getElementById('vecPropAlphaNum').value = e.target.value; applyPropsToActive(false, false, true); });
+    document.getElementById('vecPropAlphaNum')?.addEventListener('input', (e) => { document.getElementById('vecPropAlpha').value = e.target.value; applyPropsToActive(false, false, true); });
     document.getElementById('vecPropStroke')?.addEventListener('change', () => applyPropsToActive());
     document.getElementById('vecPropStrokeColor')?.addEventListener('input', () => applyPropsToActive());
     document.getElementById('vecLineWidth')?.addEventListener('input', (e) => { document.getElementById('vecLineWidthNum').value = e.target.value; applyPropsToActive(); });
@@ -741,7 +754,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function applyPropsToActive(forceRebuildText = false, forceRebuildStroke = false, markStyleOverride = false) {
         if (!vectorState.activeObj) return;
         const colorHex = document.getElementById('vecPropColor').value;
-        const alpha = parseFloat(document.getElementById('vecPropAlpha').value);
+        const alpha = Math.max(0, Math.min(1, parseFloat(document.getElementById('vecPropAlphaNum')?.value ?? document.getElementById('vecPropAlpha').value) || 0));
         const useStroke = document.getElementById('vecPropStroke').checked;
         const strokeHex = document.getElementById('vecPropStrokeColor').value;
         const strokeWidth = parseFloat(document.getElementById('vecPropStrokeWidthNum').value) || 10;
