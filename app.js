@@ -585,6 +585,7 @@ window.removeFile = function(fileId) { state.files = state.files.filter(f => f.i
 window.updateColorName = function(key, newName) { const item = state.colorsMap.get(key); if (item) item.customName = newName.trim(); };
 
 function renderPalette(filterText = '') {
+    if (window.refreshMapPresets) window.refreshMapPresets();
     const paletteContainer = document.getElementById('paletteContainer'); const uniqueColorCount = document.getElementById('uniqueColorCount'); if (!paletteContainer) return; paletteContainer.innerHTML = '';
     if (state.colorsMap.size === 0) { paletteContainer.innerHTML = `<div class="py-12 text-center text-slate-500"><i data-lucide="palette" class="w-8 h-8 mx-auto mb-1 stroke-1"></i><p class="text-xs">${window.t('Файлы не загружены', 'No files loaded', 'Файли не завантажені')}</p></div>`; if (uniqueColorCount) uniqueColorCount.textContent = `0 ${window.t('цветов', 'colors', 'кольорів')}`; if (window.lucide) window.lucide.createIcons(); return; }
     const search = filterText.toLowerCase().trim(); const sortedColors = Array.from(state.colorsMap.values()).sort((a, b) => { const aIsTransparent = a.origA < 255, bIsTransparent = b.origA < 255; if (aIsTransparent && !bIsTransparent) return 1; if (!aIsTransparent && bIsTransparent) return -1; return b.count - a.count; });
@@ -720,7 +721,7 @@ function saveProjectJson() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
     
     const projectData = {
-        COLORS_LIST: hexList, version: "8.1", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "8.2", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
         language: window.currentLang,
         gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
@@ -786,7 +787,7 @@ async function loadProjectJson(file) {
         if (data.vectors && window.loadVectorsFromJSON) {
             window.showLoading(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${data.vectors.length} ${window.t("слоёв", "layers", "шарів")}`);
             if (window.setPendingVectorSelect) window.setPendingVectorSelect(data.vectors.length ? data.vectors[data.vectors.length - 1].uuid : null);
-            await window.loadVectorsFromJSON(data.vectors);
+            await window.loadVectorsFromJSON(data.vectors, true);
         }
         
         window.showLoading(window.t("Построение карты...", "Building map...", "Побудова карти..."));

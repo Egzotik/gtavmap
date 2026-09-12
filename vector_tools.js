@@ -165,6 +165,58 @@ function createSvgShapesSafely(path) {
     }
 }
 
+function loadImageFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('PNG не удалось прочитать'));
+        image.src = dataUrl;
+    });
+}
+
+async function createPixelImageGeometry(dataUrl, maxDimension = 128) {
+    const image = await loadImageFromDataUrl(dataUrl);
+    const ratio = Math.min(1, maxDimension / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+    const width = Math.max(1, Math.round((image.naturalWidth || image.width) * ratio));
+    const height = Math.max(1, Math.round((image.naturalHeight || image.height) * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const pixelSize = 10 / Math.max(width, height);
+    const startX = -(width * pixelSize) / 2;
+    const startY = (height * pixelSize) / 2;
+    const positions = [], colors = [], indices = [];
+    let vertexIndex = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const offset = (y * width + x) * 4;
+            const alpha = pixels[offset + 3];
+            if (alpha < 8) continue;
+            const x0 = startX + x * pixelSize;
+            const x1 = x0 + pixelSize;
+            const y1 = startY - y * pixelSize;
+            const y0 = y1 - pixelSize;
+            positions.push(x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0);
+            for (let i = 0; i < 4; i++) colors.push(pixels[offset] / 255, pixels[offset + 1] / 255, pixels[offset + 2] / 255);
+            indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
+            vertexIndex += 4;
+        }
+    }
+    if (positions.length === 0) throw new Error('PNG не содержит видимых пикселей');
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    geometry.userData.pixelImage = true;
+    geometry.userData.pixelWidth = width;
+    geometry.userData.pixelHeight = height;
+    return geometry;
+}
+
 function rebuildPseudoTransparency(wrapper) {
     if (!wrapper) return;
     removePseudoTransparency(wrapper);
@@ -1444,6 +1496,35 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsText(file);
     });
 
+    document.getElementById('vectorPngInput')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const dataUrl = event.target.result;
+                const geometry = await createPixelImageGeometry(dataUrl);
+                activatePlacementMode((posX, posY) => {
+                    const group = spawnVectorMesh(geometry, file.name.replace(/\.png$/i, ''), 'image', false, '', 1, posX, posY);
+                    const mesh = getPrimaryMesh(group);
+                    mesh.material.vertexColors = true;
+                    mesh.material.needsUpdate = true;
+                    group.userData.isPixelImage = true;
+                    group.userData.pixelImageData = dataUrl;
+                    group.userData.pixelImageName = file.name;
+                    selectObject(group);
+                    return group;
+                }, 'PNG');
+            } catch (error) {
+                console.error(error);
+                window.showToast(error.message || 'Ошибка PNG', 'error');
+            } finally {
+                e.target.value = '';
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
     function setTransformMode(mode, btnId) {
         transformControl.setMode(mode);
         ['vecModeTranslate', 'vecModeRotate', 'vecModeScale'].forEach(id => {
@@ -1739,6 +1820,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 isSvg: false,
                 styleOverridden: Boolean(obj.userData.styleOverridden)
             };
+            if (obj.userData.isPixelImage) {
+                data.isPixelImage = true;
+                data.pixelImageData = obj.userData.pixelImageData;
+                data.pixelImageName = obj.userData.pixelImageName || obj.name;
+            }
             
             const firstMesh = getPrimaryMesh(obj);
             if (firstMesh) {
@@ -1781,16 +1867,29 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
     
-    window.loadVectorsFromJSON = async function(vectorsData) {
+    window.loadVectorsFromJSON = async function(vectorsData, showProgress = false) {
         if (!vectorsData || !Array.isArray(vectorsData)) return;
 
         for (let vectorIndex = 0; vectorIndex < vectorsData.length; vectorIndex++) {
             const data = vectorsData[vectorIndex];
-            if (window.yieldToBrowser) {
+            if (showProgress && window.yieldToBrowser) {
                 window.showLoading?.(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${vectorIndex + 1}/${vectorsData.length}`);
                 await window.yieldToBrowser();
             }
-            if (data.isSvg && data.svgString) {
+            if (data.isPixelImage && data.pixelImageData) {
+                try {
+                    const geometry = await createPixelImageGeometry(data.pixelImageData);
+                    const wrapper = spawnLoadedVectorMesh(geometry, data);
+                    const mesh = getPrimaryMesh(wrapper);
+                    mesh.material.vertexColors = true;
+                    mesh.material.needsUpdate = true;
+                    wrapper.userData.isPixelImage = true;
+                    wrapper.userData.pixelImageData = data.pixelImageData;
+                    wrapper.userData.pixelImageName = data.pixelImageName || data.name;
+                } catch (error) {
+                    console.warn('PNG layer skipped:', error);
+                }
+            } else if (data.isSvg && data.svgString) {
                 const svgLoader = new THREE.SVGLoader();
                 const svgData = svgLoader.parse(data.svgString);
                 
