@@ -722,6 +722,7 @@ function build3DScene(resetCamera = true) {
             scene.add(transparentMesh);
         });
     });
+    window.__mapBuildId = (window.__mapBuildId || 0) + 1;
 
     if (minX !== Infinity) {
         const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2; const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 100); 

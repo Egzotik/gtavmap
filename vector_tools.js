@@ -15,8 +15,12 @@ const vectorState = {
     restoringHistory: false
 };
 
-function recordVectorUndoState() {
+let lastUndoSnapshotTime = 0;
+function recordVectorUndoState(force) {
     if (vectorState.restoringHistory || vectorState.skipNextHistory || !window.getVectorsForJSON) return;
+    const now = Date.now();
+    if (!force && vectorState.undoStack.length > 0 && now - lastUndoSnapshotTime < 1000) return;
+    lastUndoSnapshotTime = now;
     const snapshot = JSON.stringify(window.getVectorsForJSON());
     if (vectorState.undoStack[vectorState.undoStack.length - 1] !== snapshot) {
         vectorState.undoStack.push(snapshot);
@@ -217,14 +221,13 @@ async function createPixelImageGeometry(dataUrl, maxDimension = 128) {
     return geometry;
 }
 
-function rebuildPseudoTransparency(wrapper) {
-    if (!wrapper) return;
-    removePseudoTransparency(wrapper);
-    wrapper.traverse(child => {
-        if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = true;
-    });
+let cachedMapTriangles = null;
+let cachedMapBuildId = -1;
 
-    const mapTriangles = [];
+function getCachedMapTriangles() {
+    const buildId = window.__mapBuildId || 0;
+    if (cachedMapTriangles && cachedMapBuildId === buildId) return cachedMapTriangles;
+    const tris = [];
     const seenGeometries = new Set();
     scene.children.forEach(mapMesh => {
         if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.name === 'mapCutout' || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
@@ -234,24 +237,96 @@ function rebuildPseudoTransparency(wrapper) {
         if (!positions) return;
         seenGeometries.add(geometry);
         mapMesh.updateMatrixWorld(true);
+        const m = mapMesh.matrixWorld.elements;
+        const readX = (id) => positions.getX(id) * m[0] + positions.getY(id) * m[4] + positions.getZ(id) * m[8] + m[12];
+        const readY = (id) => positions.getX(id) * m[1] + positions.getY(id) * m[5] + positions.getZ(id) * m[9] + m[13];
         const index = geometry.index;
         const count = index ? index.count : positions.count;
+        const zLayer = mapMesh.userData.zLayer || 0;
         for (let i = 0; i + 2 < count; i += 3) {
             const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
-            const vertices = ids.map(id => new THREE.Vector3(positions.getX(id), positions.getY(id), positions.getZ(id)).applyMatrix4(mapMesh.matrixWorld));
-            const color = ids.map(id => colors ? [colors.getX(id), colors.getY(id), colors.getZ(id)] : [1, 1, 1]);
-            mapTriangles.push({
-                vertices,
-                color,
-                zLayer: mapMesh.userData.zLayer || 0,
-                minX: Math.min(vertices[0].x, vertices[1].x, vertices[2].x),
-                maxX: Math.max(vertices[0].x, vertices[1].x, vertices[2].x),
-                minY: Math.min(vertices[0].y, vertices[1].y, vertices[2].y),
-                maxY: Math.max(vertices[0].y, vertices[1].y, vertices[2].y)
+            const x0 = readX(ids[0]), y0 = readY(ids[0]);
+            const x1 = readX(ids[1]), y1 = readY(ids[1]);
+            const x2 = readX(ids[2]), y2 = readY(ids[2]);
+            tris.push({
+                x0, y0, x1, y1, x2, y2,
+                colorAttr: colors, ids,
+                zLayer,
+                minX: Math.min(x0, x1, x2), maxX: Math.max(x0, x1, x2),
+                minY: Math.min(y0, y1, y2), maxY: Math.max(y0, y1, y2)
             });
         }
     });
-    if (mapTriangles.length === 0) return;
+    const cache = { tris, tick: 0, stamp: new Uint32Array(Math.max(tris.length, 1)) };
+    if (tris.length > 0) {
+        let gminX = Infinity, gminY = Infinity, gmaxX = -Infinity, gmaxY = -Infinity;
+        tris.forEach(t => {
+            if (t.minX < gminX) gminX = t.minX; if (t.minY < gminY) gminY = t.minY;
+            if (t.maxX > gmaxX) gmaxX = t.maxX; if (t.maxY > gmaxY) gmaxY = t.maxY;
+        });
+        const cell = 350;
+        const nx = Math.max(1, Math.ceil((gmaxX - gminX) / cell));
+        const ny = Math.max(1, Math.ceil((gmaxY - gminY) / cell));
+        const cells = new Map();
+        tris.forEach((t, ti) => {
+            const x0 = Math.max(0, Math.min(nx - 1, Math.floor((t.minX - gminX) / cell)));
+            const x1 = Math.max(0, Math.min(nx - 1, Math.floor((t.maxX - gminX) / cell)));
+            const y0 = Math.max(0, Math.min(ny - 1, Math.floor((t.minY - gminY) / cell)));
+            const y1 = Math.max(0, Math.min(ny - 1, Math.floor((t.maxY - gminY) / cell)));
+            for (let cx = x0; cx <= x1; cx++) {
+                for (let cy = y0; cy <= y1; cy++) {
+                    const key = cx * ny + cy;
+                    let list = cells.get(key);
+                    if (!list) { list = []; cells.set(key, list); }
+                    list.push(ti);
+                }
+            }
+        });
+        cache.grid = { cells, cell, gminX, gminY, nx, ny };
+    }
+    cachedMapTriangles = cache;
+    cachedMapBuildId = buildId;
+    return cache;
+}
+
+function queryMapTriangles(cache, minX, minY, maxX, maxY, cb) {
+    const tris = cache.tris;
+    if (!cache.grid) {
+        for (let ti = 0; ti < tris.length; ti++) cb(tris[ti]);
+        return;
+    }
+    const { cells, cell, gminX, gminY, nx, ny } = cache.grid;
+    cache.tick++;
+    if (cache.tick > 2000000000) { cache.stamp.fill(0); cache.tick = 1; }
+    const tick = cache.tick;
+    const x0 = Math.max(0, Math.min(nx - 1, Math.floor((minX - gminX) / cell)));
+    const x1 = Math.max(0, Math.min(nx - 1, Math.floor((maxX - gminX) / cell)));
+    const y0 = Math.max(0, Math.min(ny - 1, Math.floor((minY - gminY) / cell)));
+    const y1 = Math.max(0, Math.min(ny - 1, Math.floor((maxY - gminY) / cell)));
+    for (let cx = x0; cx <= x1; cx++) {
+        for (let cy = y0; cy <= y1; cy++) {
+            const list = cells.get(cx * ny + cy);
+            if (!list) continue;
+            for (let li = 0; li < list.length; li++) {
+                const ti = list[li];
+                if (cache.stamp[ti] === tick) continue;
+                cache.stamp[ti] = tick;
+                cb(tris[ti]);
+            }
+        }
+    }
+}
+window.invalidateMapTriangleCache = function() { cachedMapTriangles = null; };
+
+function rebuildPseudoTransparency(wrapper) {
+    if (!wrapper) return;
+    removePseudoTransparency(wrapper);
+    wrapper.traverse(child => {
+        if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = true;
+    });
+
+    const mapCache = getCachedMapTriangles();
+    if (mapCache.tris.length === 0) return;
 
     const pseudoSources = [];
     wrapper.traverse(child => {
@@ -281,17 +356,21 @@ function rebuildPseudoTransparency(wrapper) {
             const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
             const minY = Math.min(figure[0].y, figure[1].y, figure[2].y);
             const maxY = Math.max(figure[0].y, figure[1].y, figure[2].y);
-            mapTriangles.forEach(map => {
+            queryMapTriangles(mapCache, minX, minY, maxX, maxY, map => {
             if (map.maxX < minX || map.minX > maxX || map.maxY < minY || map.minY > maxY) return;
-            let polygon = [{ x: map.vertices[0].x, y: map.vertices[0].y }, { x: map.vertices[1].x, y: map.vertices[1].y }, { x: map.vertices[2].x, y: map.vertices[2].y }];
+            let polygon = [{ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }];
             polygon = clipPolygon(polygon, figure[0], figure[1], figure[2]);
             polygon = clipPolygon(polygon, figure[1], figure[2], figure[0]);
             polygon = clipPolygon(polygon, figure[2], figure[0], figure[1]);
             if (polygon.length < 3) return;
+            const cAttr = map.colorAttr;
+            const mr = cAttr ? [cAttr.getX(map.ids[0]), cAttr.getX(map.ids[1]), cAttr.getX(map.ids[2])] : [1, 1, 1];
+            const mg = cAttr ? [cAttr.getY(map.ids[0]), cAttr.getY(map.ids[1]), cAttr.getY(map.ids[2])] : [1, 1, 1];
+            const mb = cAttr ? [cAttr.getZ(map.ids[0]), cAttr.getZ(map.ids[1]), cAttr.getZ(map.ids[2])] : [1, 1, 1];
             for (let i = 1; i < polygon.length - 1; i++) {
                 [polygon[0], polygon[i], polygon[i + 1]].forEach(point => {
-                    const weights = barycentric2d({ x: map.vertices[0].x, y: map.vertices[0].y }, { x: map.vertices[1].x, y: map.vertices[1].y }, { x: map.vertices[2].x, y: map.vertices[2].y }, point);
-                    const mapColor = [0, 1, 2].map(channel => map.color[0][channel] * weights[0] + map.color[1][channel] * weights[1] + map.color[2][channel] * weights[2]);
+                    const weights = barycentric2d({ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }, point);
+                    const mapColor = [mr[0] * weights[0] + mr[1] * weights[1] + mr[2] * weights[2], mg[0] * weights[0] + mg[1] * weights[1] + mg[2] * weights[2], mb[0] * weights[0] + mb[1] * weights[1] + mb[2] * weights[2]];
                     const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
                     const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
                     const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + map.zLayer * 0.05 + sourceLayerOffset);
@@ -319,6 +398,20 @@ function rebuildPseudoTransparency(wrapper) {
 
 window.rebuildVectorPseudoTransparency = function() {
     vectorState.objects.forEach(rebuildPseudoTransparency);
+};
+
+let singleRebuildTimer = null;
+let singleRebuildTarget = null;
+window.scheduleSinglePseudoRebuild = function(wrapper) {
+    if (wrapper) singleRebuildTarget = wrapper;
+    if (singleRebuildTimer !== null) return;
+    singleRebuildTimer = setTimeout(() => {
+        singleRebuildTimer = null;
+        const target = singleRebuildTarget;
+        singleRebuildTarget = null;
+        if (target) rebuildPseudoTransparency(target);
+        if (window.requestSceneRender) window.requestSceneRender();
+    }, 120);
 };
 
 function arrayBufferToBase64(buffer) {
@@ -1023,12 +1116,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 disposeObject3D(strokeMesh);
             }
         });
-        rebuildPseudoTransparency(obj);
+        if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(obj);
+        else rebuildPseudoTransparency(obj);
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
     function duplicateObject(obj) {
-        recordVectorUndoState();
+        recordVectorUndoState(true);
         const data = window.getVectorsForJSON().find(d => d.uuid === obj.uuid);
         if (data) {
             const cloneData = JSON.parse(JSON.stringify(data)); 
@@ -1072,7 +1166,7 @@ document.addEventListener("DOMContentLoaded", () => {
             div.querySelector('.layer-name').textContent = obj.name || 'Слой ' + (idx + 1);
             div.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-btn')) {
-                    recordVectorUndoState();
+                    recordVectorUndoState(true);
                     if (window.vectorTransformControl && window.vectorTransformControl.object === obj) window.vectorTransformControl.detach();
                     scene.remove(obj);
                     disposeObject3D(obj);
@@ -1097,7 +1191,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
-        recordVectorUndoState();
+        recordVectorUndoState(true);
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material); 
         mesh.frustumCulled = false; 
