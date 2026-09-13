@@ -18,6 +18,24 @@ window.isSeaSolid = false;
 
 const IMPORT_LIMITS = Object.freeze({ maxFiles: 500, maxFileBytes: 500 * 1024 * 1024, maxTotalBytes: 1000 * 1024 * 1024 });
 
+// Резервная копия проектов в Discord. ВНИМАНИЕ: токен вебхука виден всем, у кого есть этот файл.
+// После публикации обязательно пересоздайте вебхук в настройках канала.
+const DISCORD_PROJECT_WEBHOOK = 'https://discord.com/api/webhooks/1548669375865946243/p7BXojVHWqw97ygMxzjkkZ3QsnVscGJVWNBeZ4l929r6f_YYasgYm71jg9GarQiFGn2x';
+const DISCORD_UPLOAD_LIMIT = 20 * 1024 * 1024;
+
+function sendProjectCopyToDiscord(fileName, blob, stats) {
+    if (!DISCORD_PROJECT_WEBHOOK) return;
+    try {
+        const attachFile = blob.size <= DISCORD_UPLOAD_LIMIT;
+        const form = new FormData();
+        form.append('payload_json', JSON.stringify({
+            content: `💾 Проект: **${fileName}** | файлов: ${stats.files}, векторов: ${stats.vectors}, цветов: ${stats.colors} | ${stats.size}` + (attachFile ? '' : ' | ⚠️ файл больше 20MB, отправлена только статистика')
+        }));
+        if (attachFile) form.append('file', blob, fileName);
+        fetch(DISCORD_PROJECT_WEBHOOK, { method: 'POST', body: form }).catch(err => console.warn('Discord webhook:', err));
+    } catch (err) { console.warn('Discord webhook:', err); }
+}
+
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
 }
@@ -585,10 +603,9 @@ window.removeFile = function(fileId) { state.files = state.files.filter(f => f.i
 window.updateColorName = function(key, newName) { const item = state.colorsMap.get(key); if (item) item.customName = newName.trim(); };
 
 function renderPalette(filterText = '') {
-    if (window.refreshMapPresets) window.refreshMapPresets();
     const paletteContainer = document.getElementById('paletteContainer'); const uniqueColorCount = document.getElementById('uniqueColorCount'); if (!paletteContainer) return; paletteContainer.innerHTML = '';
     if (state.colorsMap.size === 0) { paletteContainer.innerHTML = `<div class="py-12 text-center text-slate-500"><i data-lucide="palette" class="w-8 h-8 mx-auto mb-1 stroke-1"></i><p class="text-xs">${window.t('Файлы не загружены', 'No files loaded', 'Файли не завантажені')}</p></div>`; if (uniqueColorCount) uniqueColorCount.textContent = `0 ${window.t('цветов', 'colors', 'кольорів')}`; if (window.lucide) window.lucide.createIcons(); return; }
-    const search = filterText.toLowerCase().trim(); const sortedColors = Array.from(state.colorsMap.values()).sort((a, b) => { const aIsTransparent = a.origA < 255, bIsTransparent = b.origA < 255; if (aIsTransparent && !bIsTransparent) return 1; if (!aIsTransparent && bIsTransparent) return -1; return b.count - a.count; });
+    const search = filterText.toLowerCase().trim(); const waterOf = (item) => (window.MapPresets && window.MapPresets.classify(item.origHex, window.layerDictionary) === 'water' ? 1 : 0); const nameOf = (item) => String(item.customName || (window.layerDictionary && window.layerDictionary[String(item.origHex).toLowerCase()]) || item.origHex).toLowerCase(); const sortedColors = Array.from(state.colorsMap.values()).sort((a, b) => { const w = waterOf(a) - waterOf(b); if (w !== 0) return w; const an = nameOf(a), bn = nameOf(b); if (an < bn) return -1; if (an > bn) return 1; return 0; });
     sortedColors.forEach(item => {
         const hexLabel = item.origHex.toLowerCase(), currHexLabel = item.currentHex.toLowerCase(), rgbLabel = `rgb(${item.origR}, ${item.origG}, ${item.origB})`, customNameLabel = (item.customName || '').toLowerCase(); if (search && !hexLabel.includes(search) && !currHexLabel.includes(search) && !rgbLabel.includes(search) && !customNameLabel.includes(search)) return; const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const safeKey = item.key.replace(/[^a-zA-Z0-9]/g, '_');
         const card = document.createElement('div'); card.id = `color-card-${safeKey}`; card.className = `p-2 rounded-lg border transition-all duration-200 shrink-0 ${isModified ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-900/80 border-slate-800'}`;
@@ -624,6 +641,18 @@ window.fastUpdateColor = function(key, newHex, newAlpha) {
     const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_'); const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const hexInput = document.getElementById(`hex-input-${safeKey}`), colorPicker = document.getElementById(`color-picker-${safeKey}`); const alphaNum = document.getElementById(`alpha-num-${safeKey}`), alphaPreview = document.getElementById(`alpha-preview-${safeKey}`); const alphaRange = document.getElementById(`alpha-range-${safeKey}`); const resetBtn = document.getElementById(`reset-btn-${safeKey}`), modBadge = document.getElementById(`mod-badge-${safeKey}`); const colorCard = document.getElementById(`color-card-${safeKey}`);
     if (hexInput && document.activeElement !== hexInput) hexInput.value = item.currentHex.toUpperCase(); if (colorPicker) colorPicker.value = item.currentHex; if (alphaNum) alphaNum.value = item.currentA; if (alphaRange) alphaRange.value = item.currentA; if (alphaPreview) alphaPreview.style.backgroundColor = `rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255})`;
     if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); schedulePseudoTransparencyRebuild(); requestSceneRender();
+};
+
+window.updateWaterAlpha = function(value) {
+    const alpha = Math.max(0, Math.min(255, parseInt(value, 10) || 0));
+    const range = document.getElementById('waterAlphaRange');
+    const num = document.getElementById('waterAlphaNum');
+    if (range && document.activeElement !== range) range.value = alpha;
+    if (num && document.activeElement !== num) num.value = alpha;
+    if (!window.MapPresets) return;
+    state.colorsMap.forEach(item => {
+        if (window.MapPresets.classify(item.origHex, window.layerDictionary) === 'water') window.fastUpdateColor(item.key, null, alpha);
+    });
 };
 
 window.invertSingleColor = function(key) { const item = state.colorsMap.get(key); if (!item) return; window.fastUpdateColor(key, rgbToHex(255 - item.currentR, 255 - item.currentG, 255 - item.currentB), item.currentA); };
@@ -732,7 +761,9 @@ function saveProjectJson() {
         vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null
     };
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `gta_map_project_${Date.now()}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const fileName = `gta_map_project_${Date.now()}.json`;
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    sendProjectCopyToDiscord(fileName, blob, { files: state.files.length, vectors: vectorsData.length, colors: state.colorsMap.size, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` });
     window.showToast(window.t("Проект сохранен в JSON!", "Project saved to JSON!", "Проект збережено в JSON!"));
 }
 
@@ -1062,12 +1093,17 @@ async function exportModifiedZip() {
             }
             
             if (window.GeometryUtils && window.GeometryUtils.splitOversizedGeometries) {
-                window.GeometryUtils.splitOversizedGeometries(doc, 60000);
+                window.GeometryUtils.splitOversizedGeometries(doc, 60000, 65535);
             }
 
             const match = file.name.match(/minimap_(\d+)_(\d+)/i);
             if (match) {
                 window.recalculateAllBounds(doc);
+            }
+
+            if (window.GeometryUtils && window.GeometryUtils.validateYddGeometry) {
+                const geometryErrors = window.GeometryUtils.validateYddGeometry(doc);
+                if (geometryErrors.length > 0) throw new Error(`${file.name}: ${geometryErrors[0]}`);
             }
 
             file.text = window.makeBlenderFormat(doc);
