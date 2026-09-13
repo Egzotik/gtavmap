@@ -708,16 +708,17 @@ function build3DScene(resetCamera = true) {
             geometry.setAttribute('customColor', colorAttr); if (data.indices.length > 0) geometry.setIndex(new THREE.BufferAttribute(data.indices, 1)); geometry.computeBoundingSphere(); geometry.computeBoundingBox();
             
             const isSeaLayer = nLower.includes('sea');
+            const isMclLayer = nLower.includes('mcl');
             const opaqueMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a < 0.99) discard; gl_FragColor = vec4(vColor.rgb, 1.0); }`, side: THREE.DoubleSide, transparent: false, depthWrite: !isSeaLayer, depthTest: !isSeaLayer });
             const transparentMaterial = new THREE.ShaderMaterial({ vertexShader: `attribute vec4 customColor; varying vec4 vColor; void main() { vColor = customColor; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec4 vColor; void main() { if (vColor.a >= 0.99) discard; gl_FragColor = vColor; }`, side: THREE.DoubleSide, transparent: true, depthWrite: false, depthTest: true });
             
             const opaqueMesh = new THREE.Mesh(geometry, opaqueMaterial); 
-            opaqueMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder, transparencySource }; 
+            opaqueMesh.userData = { isMapMesh: true, isSeaLayer, isMclLayer, zLayer: layerRenderOrder, transparencySource }; 
             opaqueMesh.renderOrder = layerRenderOrder; 
             scene.add(opaqueMesh); 
             
             const transparentMesh = new THREE.Mesh(geometry, transparentMaterial); 
-            transparentMesh.userData = { isMapMesh: true, isSeaLayer, zLayer: layerRenderOrder, transparencySource }; 
+            transparentMesh.userData = { isMapMesh: true, isSeaLayer, isMclLayer, zLayer: layerRenderOrder, transparencySource }; 
             transparentMesh.renderOrder = layerRenderOrder + 0.1;
             scene.add(transparentMesh);
         });
@@ -751,12 +752,12 @@ function saveProjectJson() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
     
     const projectData = {
-        COLORS_LIST: hexList, version: "8.2", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "8.3", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
         language: window.currentLang,
         gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
         separateByZ: state.separateByZ,
-        files: state.files.map(f => ({ name: f.name.replace(' (/map/)', ''), text: f.text })),
+        files: state.files.map(f => ({ name: f.name.replace(' (/map/)', ''), text: f.text, zOffset: f.zOffset || 0 })),
         colors: Array.from(state.colorsMap.values()),
         vectors: vectorsData,
         vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null
@@ -807,6 +808,11 @@ async function loadProjectJson(file) {
                 const f = data.files[i];
                 window.showLoading(window.t("Загрузка проекта...", "Loading project...", "Завантаження проєкту..."), `${window.t("Файл", "File", "Файл")} ${i + 1}/${data.files.length}`);
                 processSingleXmlText(f.text, f.name, false);
+                const loadedFile = state.files.find(x => x.name === f.name);
+                if (loadedFile) {
+                    loadedFile.zOffset = (f.zOffset !== undefined) ? f.zOffset : (/mcl/i.test(f.name || '') ? 20 : 0);
+                    if (/mcl/i.test(f.name || '') && loadedFile.zOffset < 30 && window.applyFileZOffset) window.applyFileZOffset(loadedFile.id, 30);
+                }
                 await window.yieldToBrowser();
             }
         }
@@ -820,6 +826,8 @@ async function loadProjectJson(file) {
             window.showLoading(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${data.vectors.length} ${window.t("слоёв", "layers", "шарів")}`);
             if (window.setPendingVectorSelect) window.setPendingVectorSelect(data.vectors.length ? data.vectors[data.vectors.length - 1].uuid : null);
             await window.loadVectorsFromJSON(data.vectors, true);
+            if (window.updateVectorsOrder) window.updateVectorsOrder();
+            if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
         }
         
         window.showLoading(window.t("Построение карты...", "Building map...", "Побудова карти..."));
