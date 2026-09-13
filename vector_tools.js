@@ -43,6 +43,7 @@ window.undoLastVectorAction = async function() {
 
 function activatePlacementMode(actionCallback, toolName) {
     if (vectorState.cancelPencil) vectorState.cancelPencil();
+    if (window.cancelEraser) window.cancelEraser();
     vectorState.placementMode = actionCallback;
     document.body.style.cursor = 'crosshair';
     window.showToast(`Кликните ЛКМ для размещения, потяните для размера: ${toolName}`, 'success');
@@ -107,6 +108,49 @@ function barycentric2d(a, b, c, point) {
     const wa = ((b.y - c.y) * (point.x - c.x) + (c.x - b.x) * (point.y - c.y)) / denominator;
     const wb = ((c.y - a.y) * (point.x - c.x) + (a.x - c.x) * (point.y - c.y)) / denominator;
     return [wa, wb, 1 - wa - wb];
+}
+
+function triArea2(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+}
+
+function applyStrokeHoles(geometry, holes) {
+    if (!geometry || !holes || holes.length === 0) return geometry;
+    const posAttr = geometry.attributes.position;
+    if (!posAttr) return geometry;
+    const indexAttr = geometry.index;
+    const triCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
+    const kept = [];
+    for (let i = 0; i < triCount; i++) {
+        const ids = indexAttr ? [indexAttr.getX(i * 3), indexAttr.getX(i * 3 + 1), indexAttr.getX(i * 3 + 2)] : [i * 3, i * 3 + 1, i * 3 + 2];
+        const cx = (posAttr.getX(ids[0]) + posAttr.getX(ids[1]) + posAttr.getX(ids[2])) / 3;
+        const cy = (posAttr.getY(ids[0]) + posAttr.getY(ids[1]) + posAttr.getY(ids[2])) / 3;
+        let hit = false;
+        for (let h = 0; h < holes.length; h++) {
+            const dx = cx - holes[h].x, dy = cy - holes[h].y;
+            if (dx * dx + dy * dy <= holes[h].r * holes[h].r) { hit = true; break; }
+        }
+        if (!hit) kept.push(ids);
+    }
+    if (kept.length === triCount) return geometry;
+    if (kept.length === 0) { geometry.dispose(); return null; }
+    const names = Object.keys(geometry.attributes);
+    const arrays = {};
+    names.forEach(n => { arrays[n] = []; });
+    const newIndex = [];
+    kept.forEach(tri => tri.forEach(id => {
+        newIndex.push(newIndex.length);
+        names.forEach(n => {
+            const attr = geometry.attributes[n];
+            for (let k = 0; k < attr.itemSize; k++) arrays[n].push(attr.array[id * attr.itemSize + k]);
+        });
+    }));
+    const newGeo = new THREE.BufferGeometry();
+    names.forEach(n => newGeo.setAttribute(n, new THREE.Float32BufferAttribute(arrays[n], geometry.attributes[n].itemSize)));
+    newGeo.setIndex(newIndex);
+    newGeo.computeBoundingSphere();
+    geometry.dispose();
+    return newGeo;
 }
 
 function svgPointInPolygon(point, polygon) {
@@ -230,7 +274,7 @@ function getCachedMapTriangles() {
     const tris = [];
     const seenGeometries = new Set();
     scene.children.forEach(mapMesh => {
-        if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.name === 'mapCutout' || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
+        if (!mapMesh.isMesh || !mapMesh.userData.isMapMesh || mapMesh.userData.isMclLayer || mapMesh.name === 'mapCutout' || !mapMesh.geometry || seenGeometries.has(mapMesh.geometry)) return;
         const geometry = mapMesh.geometry;
         const positions = geometry.attributes.position;
         const colors = geometry.attributes.customColor || geometry.attributes.color;
@@ -322,7 +366,7 @@ function rebuildPseudoTransparency(wrapper) {
     if (!wrapper) return;
     removePseudoTransparency(wrapper);
     wrapper.traverse(child => {
-        if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = true;
+        if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = !child.userData.fillHidden;
     });
 
     const mapCache = getCachedMapTriangles();
@@ -330,7 +374,7 @@ function rebuildPseudoTransparency(wrapper) {
 
     const pseudoSources = [];
     wrapper.traverse(child => {
-        if (child.isMesh && !child.userData.isPseudoTransparency) pseudoSources.push(child);
+        if (child.isMesh && !child.userData.isPseudoTransparency && !child.userData.isText) pseudoSources.push(child);
     });
     pseudoSources.forEach(sourceMesh => {
         const opacity = sourceMesh.userData.pseudoOpacity ?? sourceMesh.material?.opacity ?? 1;
@@ -346,7 +390,12 @@ function rebuildPseudoTransparency(wrapper) {
             sourceTriangles.push(ids.map(id => new THREE.Vector3(positions.getX(id), positions.getY(id), positions.getZ(id)).applyMatrix4(sourceMesh.matrixWorld)));
         }
 
-        const outputPositions = [], outputColors = [];
+        const layerOutputs = new Map();
+        const outputForLayer = (zLayer) => {
+            let bucket = layerOutputs.get(zLayer);
+            if (!bucket) { bucket = { positions: [], colors: [] }; layerOutputs.set(zLayer, bucket); }
+            return bucket;
+        };
         const figureColor = sourceMesh.material.color || new THREE.Color(1, 1, 1);
         let sourceBaseZ = -Infinity;
         sourceTriangles.forEach(triangle => triangle.forEach(vertex => { if (vertex.z > sourceBaseZ) sourceBaseZ = vertex.z; }));
@@ -356,6 +405,7 @@ function rebuildPseudoTransparency(wrapper) {
             const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
             const minY = Math.min(figure[0].y, figure[1].y, figure[2].y);
             const maxY = Math.max(figure[0].y, figure[1].y, figure[2].y);
+            if (Math.abs(triArea2(figure[0], figure[1], figure[2])) < 1e-9) return;
             queryMapTriangles(mapCache, minX, minY, maxX, maxY, map => {
             if (map.maxX < minX || map.minX > maxX || map.maxY < minY || map.minY > maxY) return;
             let polygon = [{ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }];
@@ -368,29 +418,41 @@ function rebuildPseudoTransparency(wrapper) {
             const mg = cAttr ? [cAttr.getY(map.ids[0]), cAttr.getY(map.ids[1]), cAttr.getY(map.ids[2])] : [1, 1, 1];
             const mb = cAttr ? [cAttr.getZ(map.ids[0]), cAttr.getZ(map.ids[1]), cAttr.getZ(map.ids[2])] : [1, 1, 1];
             for (let i = 1; i < polygon.length - 1; i++) {
-                [polygon[0], polygon[i], polygon[i + 1]].forEach(point => {
+                const triPts = [polygon[0], polygon[i], polygon[i + 1]];
+                const ccx = (triPts[0].x + triPts[1].x + triPts[2].x) / 3;
+                const ccy = (triPts[0].y + triPts[1].y + triPts[2].y) / 3;
+                const cw = barycentric2d(figure[0], figure[1], figure[2], { x: ccx, y: ccy });
+                if (cw[0] < -1e-6 || cw[1] < -1e-6 || cw[2] < -1e-6) continue;
+                triPts.forEach(point => {
                     const weights = barycentric2d({ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }, point);
                     const mapColor = [mr[0] * weights[0] + mr[1] * weights[1] + mr[2] * weights[2], mg[0] * weights[0] + mg[1] * weights[1] + mg[2] * weights[2], mb[0] * weights[0] + mb[1] * weights[1] + mb[2] * weights[2]];
                     const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
                     const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
                     const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + map.zLayer * 0.05 + sourceLayerOffset);
                     const localPoint = wrapper.worldToLocal(worldPoint);
-                    outputPositions.push(localPoint.x, localPoint.y, localPoint.z);
-                    outputColors.push(color[0], color[1], color[2]);
+                    const bucket = outputForLayer(map.zLayer);
+                    bucket.positions.push(localPoint.x, localPoint.y, localPoint.z);
+                    bucket.colors.push(color[0], color[1], color[2]);
                 });
             }
             });
         });
 
-        if (outputPositions.length > 0) {
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(outputPositions, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(outputColors, 3));
-            const cutout = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: false, opacity: 1, depthWrite: true }));
-            cutout.name = 'mapCutout';
-            cutout.userData.isPseudoTransparency = true;
-            cutout.renderOrder = (wrapper.renderOrder || 999) + 0.2;
-            wrapper.add(cutout);
+        const sortedLayers = Array.from(layerOutputs.keys()).sort((a, b) => a - b);
+        if (sortedLayers.length > 0) {
+            sortedLayers.forEach(zLayer => {
+                const bucket = layerOutputs.get(zLayer);
+                if (!bucket || bucket.positions.length === 0) return;
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(bucket.positions, 3));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(bucket.colors, 3));
+                const cutout = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: false, opacity: 1, depthWrite: true }));
+                cutout.name = 'mapCutout';
+                cutout.userData.isPseudoTransparency = true;
+                cutout.userData.cutoutLayer = zLayer;
+                cutout.renderOrder = 990 + Math.min(zLayer, 90) * 0.01;
+                wrapper.add(cutout);
+            });
             sourceMesh.visible = false;
         }
     });
@@ -401,15 +463,18 @@ window.rebuildVectorPseudoTransparency = function() {
 };
 
 let singleRebuildTimer = null;
-let singleRebuildTarget = null;
+const singleRebuildTargets = new Set();
 window.scheduleSinglePseudoRebuild = function(wrapper) {
-    if (wrapper) singleRebuildTarget = wrapper;
+    if (wrapper) {
+        if (Array.isArray(wrapper)) wrapper.forEach(w => singleRebuildTargets.add(w));
+        else singleRebuildTargets.add(wrapper);
+    }
     if (singleRebuildTimer !== null) return;
     singleRebuildTimer = setTimeout(() => {
         singleRebuildTimer = null;
-        const target = singleRebuildTarget;
-        singleRebuildTarget = null;
-        if (target) rebuildPseudoTransparency(target);
+        const targets = Array.from(singleRebuildTargets);
+        singleRebuildTargets.clear();
+        targets.forEach(target => rebuildPseudoTransparency(target));
         if (window.requestSceneRender) window.requestSceneRender();
     }, 120);
 };
@@ -483,10 +548,13 @@ document.addEventListener("DOMContentLoaded", () => {
     let initialScale = new THREE.Vector3();
     
     window.addEventListener('keydown', (e) => { 
-        if (e.key === 'Escape' && (vectorState.pencilActive || vectorState.placementMode)) {
+        if (e.key === 'Escape' && (vectorState.pencilActive || vectorState.placementMode || eraserActive)) {
             if (vectorState.pencilActive && vectorState.cancelPencil) {
                 vectorState.cancelPencil();
                 window.showToast("Рисование отменено", "error");
+            } else if (eraserActive) {
+                cancelEraser();
+                window.showToast("Ластик отключён", "success");
             } else {
                 vectorState.placementMode = null;
                 document.body.style.cursor = 'default';
@@ -517,6 +585,14 @@ document.addEventListener("DOMContentLoaded", () => {
         controls.enabled = !event.value;
         if (event.value && vectorState.activeObj) {
             initialScale.copy(vectorState.activeObj.scale);
+            removePseudoTransparency(vectorState.activeObj);
+            vectorState.activeObj.traverse(child => {
+                if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = !child.userData.fillHidden;
+            });
+            if (window.requestSceneRender) window.requestSceneRender();
+        } else if (!event.value && vectorState.activeObj) {
+            rebuildPseudoTransparency(vectorState.activeObj);
+            if (window.requestSceneRender) window.requestSceneRender();
         }
     });
 
@@ -537,6 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const currentScale = Math.abs(vectorState.activeObj.scale.x);
             const scaleSlider = document.getElementById('vecPropScale');
             const scaleNum = document.getElementById('vecPropScaleNum');
+            updateWorldRadiusUI(vectorState.activeObj);
             if (scaleSlider && scaleNum) {
                 scaleSlider.value = currentScale;
                 scaleNum.value = currentScale.toFixed(2);
@@ -585,8 +662,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function getObjectWorldRadius(obj) {
+        if (!obj) return 0;
+        const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+        return Math.max(size.x, size.y) / 2;
+    }
+
+    function updateWorldRadiusUI(obj) {
+        const input = document.getElementById('vecPropSizeMeters');
+        if (!input || !obj) return;
+        input.value = getObjectWorldRadius(obj).toFixed(2);
+    }
+
     renderer.domElement.addEventListener('pointerdown', (e) => {
         if (window.isEyedropperActive) return;
+
+        if (eraserActive) {
+            if (e.button === 2) { isPencilPanning = true; return; }
+            if (e.button !== 0) return;
+            e.preventDefault();
+            recordVectorUndoState(true);
+            controls.enabled = false;
+            erasingStroke = true;
+            lastEraseTime = 0;
+            const pt = getMapIntersection(e);
+            if (eraseStrokeAt(pt)) {
+                if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(Array.from(erasedWrappers));
+                else if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
+                erasedWrappers.clear();
+                if (window.requestSceneRender) window.requestSceneRender();
+            }
+            updateEraserPreview(pt);
+            return;
+        }
 
         // КАРАНДАШ: фигура замыкается, линия завершается двойным кликом
         if (vectorState.pencilActive) {
@@ -669,6 +777,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.addEventListener('pointermove', (e) => {
+        if (eraserActive && !isPencilPanning && !(e.buttons & 2)) {
+            const pt = getMapIntersection(e);
+            updateEraserPreview(pt);
+            if ((e.buttons & 1) && erasingStroke) {
+                const now = Date.now();
+                if (now - lastEraseTime > 60) {
+                    lastEraseTime = now;
+                    if (eraseStrokeAt(pt)) {
+                        if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(Array.from(erasedWrappers));
+                        erasedWrappers.clear();
+                        if (window.requestSceneRender) window.requestSceneRender();
+                    }
+                }
+            }
+            return;
+        }
         if (vectorState.pencilActive && !isPencilPanning && !(e.buttons & 2)) {
             const pt = getMapIntersection(e);
             vectorState.updatePencilLivePreview(pt);
@@ -683,13 +807,24 @@ document.addEventListener("DOMContentLoaded", () => {
             const signY = placingObject.userData.isSvg ? -1 : 1;
             placingObject.scale.set(newScale, newScale * signY, 1);
             updateScaleUIForDrag(newScale);
-            
+            updateWorldRadiusUI(placingObject);
+
             if (window.requestSceneRender) window.requestSceneRender();
         }
     });
 
     window.addEventListener('pointerup', () => {
         isPencilPanning = false;
+        if (erasingStroke) {
+            erasingStroke = false;
+            controls.enabled = true;
+            if (erasedWrappers.size > 0) {
+                if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(Array.from(erasedWrappers));
+                else if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
+                erasedWrappers.clear();
+                if (window.requestSceneRender) window.requestSceneRender();
+            }
+        }
         if (isPlacingDrag) {
             isPlacingDrag = false;
             placingObject = null;
@@ -699,51 +834,107 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     function updateVectorsOrder() {
-        const baseZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
         const len = vectorState.objects.length;
-        let maxMapLayer = 0;
-        scene.children.forEach(child => {
-            if (child.isMesh && child.userData.isMapMesh) maxMapLayer = Math.max(maxMapLayer, child.userData.zLayer || 0);
-        });
-        const formBandOffset = -0.5;
-        const textBandOffset = maxMapLayer * 0.05 + 0.5;
         vectorState.objects.forEach((o, i) => {
             const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
             const orderOffset = (len - i) * 0.001;
-            o.position.z = baseZ + formBandOffset + orderOffset + (isText ? textBandOffset : 0);
+            o.position.z = (isText ? 30 : 20) + orderOffset;
         });
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
     }
+    window.updateVectorsOrder = updateVectorsOrder;
 
-    function generateStrokeGeometry(shapesData, strokeWidth, quality) {
+    function generateStrokeGeometry(shapesData, strokeWidth, quality, pattern, dashLen, gapLen, dotSize, lineCap) {
         if (!shapesData || shapesData.length === 0) return null;
         let strokeGeometries = [];
-        
+        const strokePattern = pattern || 'solid';
+        const dashLength = Math.max(dashLen || strokeWidth * 5, 0.01);
+        const gapLength = Math.max(gapLen || strokeWidth * 3, 0);
+        const dotDiameter = Math.max(dotSize || strokeWidth, 0.01);
+
         shapesData.forEach(data => {
             const { shapes, offsetX, offsetY } = data;
             shapes.forEach(shape => {
                 const ptsData = shape.extractPoints(quality);
-                
-                const processPath = (pts) => {
-                    if (pts.length < 2) return;
-                    
-                    // Удаляем дублирующиеся последние точки для фикса артефактов
-                    while (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 0.1) {
-                        pts.pop();
-                    }
-                    pts.push(pts[0].clone()); // Замыкаем контур чисто
-                
-                    const geo = THREE.SVGLoader.pointsToStroke(pts, { 
-                        strokeWidth: strokeWidth, 
-                        strokeLineJoin: 'round', // Закругленные края
-                        strokeLineCap: 'round'
+
+                const capStyle = lineCap || 'round';
+                const addStroke = (strokePoints) => {
+                    if (strokePoints.length < 2) return;
+                    const geo = THREE.SVGLoader.pointsToStroke(strokePoints, {
+                        strokeWidth: strokeWidth,
+                        strokeLineJoin: 'round', // �-����?�?�?�>��?�?�<�� ��?���?
+                        strokeLineCap: capStyle
                     });
-                    
                     if (geo) {
                         geo.translate(offsetX, offsetY, 0);
                         strokeGeometries.push(geo);
                     }
+                };
+
+                const processPath = (pts) => {
+                    if (pts.length < 2) return;
+
+                    // �?�?���>�?��? �?�?�+�>��?�?�?�%���?�? ���?�?�>��?�?��� �'�?�ؐ�� �?�>�? �"���?�� ���?�'��"����'�?�
+                    while (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 0.1) {
+                        pts.pop();
+                    }
+                    pts.push(pts[0].clone()); // �-���?�<�����? ��?�?�'�?�? �ؐ�?�'
+
+                    // Длина замкнутого контура для равномерного распределения
+                    let totalLen = 0;
+                    const segLens = [];
+                    for (let i = 0; i < pts.length - 1; i++) {
+                        const l = pts[i].distanceTo(pts[i + 1]);
+                        segLens.push(l);
+                        totalLen += l;
+                    }
+                    if (totalLen < 1e-9) return;
+
+                    // Точка на расстоянии d вдоль контура (с заворотом)
+                    const pointAt = (d) => {
+                        let dd = ((d % totalLen) + totalLen) % totalLen;
+                        for (let i = 0; i < segLens.length; i++) {
+                            if (dd <= segLens[i] || i === segLens.length - 1) {
+                                const t = segLens[i] < 1e-12 ? 0 : Math.max(0, Math.min(1, dd / segLens[i]));
+                                return pts[i].clone().lerp(pts[i + 1], t);
+                            }
+                            dd -= segLens[i];
+                        }
+                        return pts[0].clone();
+                    };
+
+                    if (strokePattern === 'dotted') {
+                        const stepLen = dotDiameter + gapLength;
+                        const n = Math.max(1, Math.round(totalLen / stepLen));
+                        const step = totalLen / n;
+                        for (let k = 0; k < n; k++) {
+                            const p = pointAt((k + 0.5) * step);
+                            const dot = new THREE.CircleGeometry(dotDiameter / 2, 12);
+                            dot.translate(p.x + offsetX, p.y + offsetY, 0);
+                            strokeGeometries.push(dot);
+                        }
+                        return;
+                    }
+
+                    if (strokePattern === 'dashed') {
+                        const period = dashLength + gapLength;
+                        const n = Math.max(1, Math.round(totalLen / period));
+                        const scaledPeriod = totalLen / n;
+                        const scaledDash = scaledPeriod * (dashLength / period);
+                        for (let k = 0; k < n; k++) {
+                            const d0 = k * scaledPeriod;
+                            const d1 = d0 + scaledDash;
+                            const span = d1 - d0;
+                            const samples = Math.max(2, Math.ceil(span / (scaledDash / 8)));
+                            const chain = [];
+                            for (let s = 0; s <= samples; s++) chain.push(pointAt(d0 + (span * s) / samples));
+                            addStroke(chain);
+                        }
+                        return;
+                    }
+
+                    addStroke(pts);
                 };
 
                 processPath(ptsData.shape);
@@ -875,8 +1066,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     : (firstMesh.userData.pseudoOpacity ?? firstMesh.material.opacity);
                 document.getElementById('vecPropAlpha').value = selectedOpacity;
                 document.getElementById('vecPropAlphaNum').value = selectedOpacity;
+                document.getElementById('vecPropFill').checked = !firstMesh.userData.fillHidden;
                 document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
                 document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
+                updateWorldRadiusUI(obj);
                 
                 const degZ = THREE.MathUtils.radToDeg(obj.rotation.z);
                 document.getElementById('vecPropRot').value = degZ;
@@ -895,13 +1088,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     document.getElementById('vecPropStrokeColor').value = "#" + strokeMesh.material.color.getHexString();
                     document.getElementById('vecPropStrokeWidth').value = strokeMesh.userData.strokeWidth || 10;
                     document.getElementById('vecPropStrokeWidthNum').value = strokeMesh.userData.strokeWidth || 10;
+                    document.getElementById('vecPropStrokePattern').value = strokeMesh.userData.strokePattern || obj.userData.strokePattern || 'solid';
+
+                    document.getElementById('vecStrokeDash').value = strokeMesh.userData.strokeDash ?? obj.userData.strokeDash ?? 10;
+                    document.getElementById('vecStrokeGap').value = strokeMesh.userData.strokeGap ?? obj.userData.strokeGap ?? 6;
+                    document.getElementById('vecStrokeDotSize').value = strokeMesh.userData.strokeDot ?? obj.userData.strokeDot ?? 8;
+                    document.getElementById('vecPropStrokeAlpha').checked = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? true;
                 }
+                syncStrokePatternUI();
             }
         } else {
             transformControl.detach();
             document.getElementById('vectorPropsPanel').classList.add('hidden');
             document.getElementById('vecLineTools')?.classList.add('hidden');
             document.getElementById('vecLinePatternTools')?.classList.add('hidden');
+            document.getElementById('vecStrokePatternTools')?.classList.add('hidden');
         }
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -985,6 +1186,24 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById('vecPropScale')?.addEventListener('input', (e) => { document.getElementById('vecPropScaleNum').value = e.target.value; applyPropsToActive(); });
     document.getElementById('vecPropScaleNum')?.addEventListener('input', (e) => { document.getElementById('vecPropScale').value = e.target.value; applyPropsToActive(); });
+    document.getElementById('vecPropSizeMeters')?.addEventListener('change', () => {
+        const obj = vectorState.activeObj;
+        if (!obj) return;
+        const target = parseFloat(document.getElementById('vecPropSizeMeters').value);
+        if (!(target > 0)) return;
+        const current = getObjectWorldRadius(obj);
+        if (current < 1e-9) return;
+        recordVectorUndoState(true);
+        const k = target / current;
+        obj.scale.x *= k;
+        obj.scale.y *= k;
+        document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
+        document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
+        updateVectorsOrder();
+        if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(obj);
+        else rebuildPseudoTransparency(obj);
+        if (window.requestSceneRender) window.requestSceneRender();
+    });
 
     document.getElementById('vecPropRot')?.addEventListener('input', (e) => { document.getElementById('vecPropRotNum').value = e.target.value; applyPropsToActive(); });
     document.getElementById('vecPropRotNum')?.addEventListener('input', (e) => { document.getElementById('vecPropRot').value = e.target.value; applyPropsToActive(); });
@@ -997,6 +1216,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecPropAlphaNum')?.addEventListener('input', (e) => { document.getElementById('vecPropAlpha').value = e.target.value; applyPropsToActive(false, false, true); });
     document.getElementById('vecPropStroke')?.addEventListener('change', () => applyPropsToActive());
     document.getElementById('vecPropStrokeColor')?.addEventListener('input', () => applyPropsToActive());
+    document.getElementById('vecPropStrokePattern')?.addEventListener('change', () => applyPropsToActive(false, true));
+
+    document.getElementById('vecStrokeDash')?.addEventListener('input', () => applyPropsToActive(false, true));
+    document.getElementById('vecStrokeGap')?.addEventListener('input', () => applyPropsToActive(false, true));
+    document.getElementById('vecStrokeDotSize')?.addEventListener('input', () => applyPropsToActive(false, true));
+    document.getElementById('vecPropStrokeAlpha')?.addEventListener('change', () => applyPropsToActive());
+    document.getElementById('vecPropFill')?.addEventListener('change', () => applyPropsToActive());
+
+    function syncStrokePatternUI() {
+        const pattern = document.getElementById('vecPropStrokePattern')?.value || 'solid';
+        const hasStroke = document.getElementById('vecPropStroke')?.checked;
+        document.getElementById('vecStrokePatternTools')?.classList.toggle('hidden', !hasStroke);
+        document.getElementById('vecStrokeDashRow')?.classList.toggle('hidden', pattern !== 'dashed');
+        document.getElementById('vecStrokeGapRow')?.classList.toggle('hidden', pattern === 'solid');
+        document.getElementById('vecStrokeDotRow')?.classList.toggle('hidden', pattern !== 'dotted');
+    }
     document.getElementById('vecLineWidth')?.addEventListener('input', (e) => { document.getElementById('vecLineWidthNum').value = e.target.value; applyPropsToActive(); });
     document.getElementById('vecLineWidthNum')?.addEventListener('input', (e) => { document.getElementById('vecLineWidth').value = e.target.value; applyPropsToActive(); });
     document.getElementById('vecLinePattern')?.addEventListener('change', () => applyPropsToActive());
@@ -1010,6 +1245,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const useStroke = document.getElementById('vecPropStroke').checked;
         const strokeHex = document.getElementById('vecPropStrokeColor').value;
         const strokeWidth = parseFloat(document.getElementById('vecPropStrokeWidthNum').value) || 10;
+        const strokePattern = document.getElementById('vecPropStrokePattern')?.value || 'solid';
+        const strokeCap = document.getElementById('vecPropStrokeCap')?.value || 'round';
+        const strokeDash = parseFloat(document.getElementById('vecStrokeDash')?.value) || 10;
+        const strokeGap = parseFloat(document.getElementById('vecStrokeGap')?.value) || 6;
+        const strokeDot = parseFloat(document.getElementById('vecStrokeDotSize')?.value) || 8;
+        const strokeUseAlpha = document.getElementById('vecPropStrokeAlpha')?.checked !== false;
+        const fillEnabled = document.getElementById('vecPropFill')?.checked !== false;
         const scaleVal = parseFloat(document.getElementById('vecPropScaleNum').value) || 1;
         const rotVal = parseFloat(document.getElementById('vecPropRotNum').value) || 0;
         const qualityVal = parseInt(document.getElementById('vecPropQualityNum').value) || 12;
@@ -1019,10 +1261,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const linePatternVal = document.getElementById('vecLinePattern')?.value || 'solid';
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
+        syncStrokePatternUI();
 
         const obj = vectorState.activeObj;
         if (obj.userData.isSvg && markStyleOverride) obj.userData.styleOverridden = true;
-        
+        obj.userData.strokePattern = strokePattern;
+        obj.userData.strokeCap = strokeCap;
+        obj.userData.strokeDash = strokeDash;
+        obj.userData.strokeGap = strokeGap;
+        obj.userData.strokeDot = strokeDot;
+        obj.userData.strokeUseAlpha = strokeUseAlpha;
+        obj.userData.fillEnabled = fillEnabled;
+
         const signY = obj.userData.isSvg ? -1 : 1;
         obj.scale.set(scaleVal, scaleVal * signY, 1);
         obj.rotation.z = THREE.MathUtils.degToRad(rotVal);
@@ -1043,8 +1293,22 @@ document.addEventListener("DOMContentLoaded", () => {
             
             let displayName = textVal.split('\n')[0];
             obj.name = displayName || 'Текст';
-            
+
             forceRebuildStroke = true;
+        }
+
+        if (!firstMesh.userData.isText && obj.userData.icon === 'circle' && (firstMesh.userData.quality || 12) !== qualityVal) {
+            const circleShape = firstMesh.geometry.userData.shapesData && firstMesh.geometry.userData.shapesData[0] && firstMesh.geometry.userData.shapesData[0].shapes && firstMesh.geometry.userData.shapesData[0].shapes[0];
+            if (circleShape) {
+                const circleGeo = new THREE.ShapeGeometry(circleShape, Math.max(3, qualityVal));
+                circleGeo.userData.shapesData = firstMesh.geometry.userData.shapesData;
+                circleGeo.userData.tX = firstMesh.geometry.userData.tX || 0;
+                circleGeo.userData.tY = firstMesh.geometry.userData.tY || 0;
+                firstMesh.geometry.dispose();
+                firstMesh.geometry = circleGeo;
+                firstMesh.userData.quality = qualityVal;
+                forceRebuildStroke = true;
+            }
         }
 
         if (obj.userData.isPencilLine && obj.userData.pencilPoints) {
@@ -1062,6 +1326,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         primaryMeshes.forEach(mesh => {
+            mesh.userData.fillHidden = !fillEnabled;
+            mesh.visible = fillEnabled;
             if (!obj.userData.isSvg || obj.userData.styleOverridden) {
                 mesh.material.color.set(colorHex);
                 if (mesh.userData.isText) {
@@ -1075,7 +1341,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     mesh.material.transparent = false;
                 }
             }
-            mesh.renderOrder = 999;
+            mesh.renderOrder = mesh.userData.isText ? 1001 : 999;
             mesh.position.z = 0.005; // Фикс z-offset для геометрии
 
             let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
@@ -1085,8 +1351,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 strokeMesh = null;
             }
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
-                if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || forceRebuildStroke) {
-                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal);
+                if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || strokeMesh.userData.strokePattern !== strokePattern || strokeMesh.userData.strokeDash !== strokeDash || strokeMesh.userData.strokeGap !== strokeGap || strokeMesh.userData.strokeDot !== strokeDot || strokeMesh.userData.strokeCap !== strokeCap || forceRebuildStroke) {
+                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal, strokePattern, strokeDash * 0.1, strokeGap * 0.1, strokeDot * 0.1, strokeCap);
                     if (strokeGeo) {
                         if (!strokeMesh) {
                             strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: strokeHex, depthWrite: true, alphaTest: 0.01 }));
@@ -1096,15 +1362,32 @@ document.addEventListener("DOMContentLoaded", () => {
                             mesh.parent.add(strokeMesh);
                         } else { strokeMesh.geometry.dispose(); strokeMesh.geometry = strokeGeo; }
                         strokeMesh.userData.strokeWidth = strokeWidth;
-                        
+                        strokeMesh.userData.strokePattern = strokePattern;
+                        strokeMesh.userData.strokeCap = strokeCap;
+                        strokeMesh.userData.strokeDash = strokeDash;
+                        strokeMesh.userData.strokeGap = strokeGap;
+                        strokeMesh.userData.strokeDot = strokeDot;
+                        strokeMesh.userData.quality = qualityVal;
+
                         const tX = mesh.geometry.userData.tX || 0;
                         const tY = mesh.geometry.userData.tY || 0;
                         strokeMesh.geometry.translate(tX, tY, 0);
+                        const holeKey = String(Math.max(0, primaryMeshes.indexOf(mesh)));
+                        const holeList = (obj.userData.strokeHoles && obj.userData.strokeHoles[holeKey]) || [];
+                        const holedGeo = applyStrokeHoles(strokeMesh.geometry, holeList);
+                        if (!holedGeo) {
+                            if (strokeMesh.parent) strokeMesh.parent.remove(strokeMesh);
+                            disposeObject3D(strokeMesh);
+                            strokeMesh = null;
+                        } else if (holedGeo !== strokeMesh.geometry) {
+                            strokeMesh.geometry = holedGeo;
+                        }
                     }
                 }
                 if (strokeMesh) {
-                    strokeMesh.material.color.set(strokeHex); 
-                    strokeMesh.userData.pseudoOpacity = alpha;
+                    strokeMesh.material.color.set(strokeHex);
+                    strokeMesh.userData.strokeUseAlpha = strokeUseAlpha;
+                    strokeMesh.userData.pseudoOpacity = strokeUseAlpha ? alpha : 1;
                     strokeMesh.material.opacity = 1;
                     strokeMesh.material.transparent = false;
                     strokeMesh.position.z = -0.005; // Фикс z-offset для обводки
@@ -1193,16 +1476,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
         recordVectorUndoState(true);
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
-        const mesh = new THREE.Mesh(geometry, material); 
-        mesh.frustumCulled = false; 
-        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = isText ? 1001 : 999;
+
         const group = new THREE.Group();
         group.uuid = THREE.MathUtils.generateUUID(); 
         group.add(mesh);
         
         group.scale.set(defaultScale, defaultScale, 1);
-        
-        let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+
+        let spawnZ = isText ? 30 : 20;
         let sX = posX !== null ? posX : (window.mapBounds ? window.mapBounds.centerX : 0);
         let sY = posY !== null ? posY : (window.mapBounds ? window.mapBounds.centerY : 0);
 
@@ -1301,7 +1585,7 @@ document.addEventListener("DOMContentLoaded", () => {
     vectorState.pencilLiveDot = null;
 
     function pencilDrawZ() {
-        return window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+        return 20;
     }
 
     function pencilCleanupPreview() {
@@ -1392,6 +1676,116 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.style.cursor = 'default';
         pencilCleanupPreview();
     };
+
+    const ERASER_RADIUS = 30;
+    let eraserActive = false;
+    let erasingStroke = false;
+    let eraserPreview = null;
+    let lastEraseTime = 0;
+    const erasedWrappers = new Set();
+
+    function updateEraserPreview(pt) {
+        clearEraserPreview();
+        const z = pencilDrawZ();
+        const pts = [];
+        for (let i = 0; i <= 48; i++) {
+            const a = (i / 48) * Math.PI * 2;
+            pts.push(new THREE.Vector3(pt.x + Math.cos(a) * ERASER_RADIUS, pt.y + Math.sin(a) * ERASER_RADIUS, z));
+        }
+        eraserPreview = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff3344, depthTest: false }));
+        eraserPreview.renderOrder = 1001;
+        scene.add(eraserPreview);
+        if (window.requestSceneRender) window.requestSceneRender();
+    }
+
+    function clearEraserPreview() {
+        if (eraserPreview) { scene.remove(eraserPreview); disposeObject3D(eraserPreview); eraserPreview = null; }
+    }
+
+    function strokeHolesFor(obj, parentMesh) {
+        const primaries = getMeshes(obj, false);
+        const key = String(Math.max(0, primaries.indexOf(parentMesh)));
+        if (!obj.userData.strokeHoles) obj.userData.strokeHoles = {};
+        if (!obj.userData.strokeHoles[key]) obj.userData.strokeHoles[key] = [];
+        return obj.userData.strokeHoles[key];
+    }
+
+    function rebuildStrokeWithHoles(obj, strokeMesh) {
+        const primaries = getMeshes(obj, false);
+        const parent = primaries.find(m => m.uuid === strokeMesh.userData.parentMeshId) || primaries[0];
+        if (!parent || !parent.geometry.userData.shapesData) return false;
+        const u = strokeMesh.userData;
+        const pi = Math.max(0, primaries.indexOf(parent));
+        const holes = (obj.userData.strokeHoles && obj.userData.strokeHoles[String(pi)]) || [];
+        let g = generateStrokeGeometry(parent.geometry.userData.shapesData, (u.strokeWidth || 10) * 0.1, u.quality || parent.userData.quality || 12, u.strokePattern || 'solid', (u.strokeDash ?? 10) * 0.1, (u.strokeGap ?? 6) * 0.1, (u.strokeDot ?? 8) * 0.1, u.strokeCap || 'round');
+        if (g) {
+            g.translate(parent.geometry.userData.tX || 0, parent.geometry.userData.tY || 0, 0);
+            g = applyStrokeHoles(g, holes);
+        }
+        if (!g) {
+            if (strokeMesh.parent) strokeMesh.parent.remove(strokeMesh);
+            disposeObject3D(strokeMesh);
+            return true;
+        }
+        strokeMesh.geometry.dispose();
+        strokeMesh.geometry = g;
+        return true;
+    }
+
+    function eraseStrokeAt(worldPt) {
+        let changed = false;
+        vectorState.objects.forEach(obj => {
+            obj.updateMatrixWorld(true);
+            getStrokeMeshes(obj).forEach(stroke => {
+                stroke.updateMatrixWorld(true);
+                const wz = new THREE.Vector3().setFromMatrixPosition(stroke.matrixWorld).z;
+                const local = stroke.worldToLocal(new THREE.Vector3(worldPt.x, worldPt.y, wz));
+                const e = stroke.matrixWorld.elements;
+                const s = Math.max(Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6])) || 1;
+                const r = ERASER_RADIUS / s;
+                const posAttr = stroke.geometry.attributes.position;
+                if (!posAttr) return;
+                const indexAttr = stroke.geometry.index;
+                const triCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
+                let hit = false;
+                for (let i = 0; i < triCount && !hit; i++) {
+                    const ids = indexAttr ? [indexAttr.getX(i * 3), indexAttr.getX(i * 3 + 1), indexAttr.getX(i * 3 + 2)] : [i * 3, i * 3 + 1, i * 3 + 2];
+                    const cx = (posAttr.getX(ids[0]) + posAttr.getX(ids[1]) + posAttr.getX(ids[2])) / 3;
+                    const cy = (posAttr.getY(ids[0]) + posAttr.getY(ids[1]) + posAttr.getY(ids[2])) / 3;
+                    const dx = cx - local.x, dy = cy - local.y;
+                    if (dx * dx + dy * dy <= r * r) hit = true;
+                }
+                if (!hit) return;
+                const primaries = getMeshes(obj, false);
+                const parent = primaries.find(m => m.uuid === stroke.userData.parentMeshId) || primaries[0];
+                const holes = strokeHolesFor(obj, parent);
+                holes.push({ x: local.x, y: local.y, r });
+                if (rebuildStrokeWithHoles(obj, stroke)) { changed = true; erasedWrappers.add(obj); }
+            });
+        });
+        return changed;
+    }
+
+    function activateEraser() {
+        if (vectorState.cancelPencil) vectorState.cancelPencil();
+        vectorState.placementMode = null;
+        eraserActive = true;
+        erasingStroke = false;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        document.body.style.cursor = 'crosshair';
+        if (window.vectorTransformControl) window.vectorTransformControl.enabled = false;
+        window.showToast('Ластик: стирайте часть обводки ЛКМ. ПКМ — перемещение. Esc — отмена', 'success');
+    }
+
+    function cancelEraser() {
+        eraserActive = false;
+        erasingStroke = false;
+        controls.enabled = true;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+        document.body.style.cursor = 'default';
+        clearEraserPreview();
+        if (window.vectorTransformControl) window.vectorTransformControl.enabled = true;
+    }
 
     function createPencilShapeFromPoints(localPts) {
         if (!localPts || localPts.length < 3) return null;
@@ -1495,6 +1889,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     function activatePencil(mode) {
+        if (eraserActive) cancelEraser();
         if (vectorState.pencilActive) {
             vectorState.cancelPencil();
             window.showToast("Рисование остановлено", "error");
@@ -1512,6 +1907,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('btnAddPencil')?.addEventListener('click', () => activatePencil('shape'));
     document.getElementById('btnAddPencilLine')?.addEventListener('click', () => activatePencil('line'));
+    document.getElementById('btnAddEraser')?.addEventListener('click', () => {
+        if (eraserActive) cancelEraser();
+        else activateEraser();
+    });
+    window.cancelEraser = cancelEraser;
 
     document.getElementById('vectorSvgInput')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -1545,6 +1945,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         geo.userData.tX = 0; geo.userData.tY = 0;
                         const mesh = new THREE.Mesh(geo, material);
                         mesh.frustumCulled = false;
+                        mesh.renderOrder = 999;
                         group.add(mesh);
                     });
                 }
@@ -1572,7 +1973,7 @@ document.addEventListener("DOMContentLoaded", () => {
             wrapper.uuid = group.uuid;
 
             activatePlacementMode((posX, posY) => {
-                let spawnZ = window.mapBounds ? window.mapBounds.maxZ + 0.5 : 10;
+        let spawnZ = 20;
                 wrapper.position.set(posX, posY, spawnZ);
                 wrapper.renderOrder = 999;
                 
@@ -1917,7 +2318,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z },
                 isText: false,
                 isSvg: false,
-                styleOverridden: Boolean(obj.userData.styleOverridden)
+                styleOverridden: Boolean(obj.userData.styleOverridden),
+                fillEnabled: obj.userData.fillEnabled !== false
             };
             if (obj.userData.isPixelImage) {
                 data.isPixelImage = true;
@@ -1960,6 +2362,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.hasStroke = true;
                     data.strokeColor = "#" + strokeMesh.material.color.getHexString();
                     data.strokeWidth = strokeMesh.userData.strokeWidth || 10;
+                    data.strokePattern = strokeMesh.userData.strokePattern || obj.userData.strokePattern || 'solid';
+                    data.strokeCap = strokeMesh.userData.strokeCap || obj.userData.strokeCap || 'round';
+                    data.strokeDash = strokeMesh.userData.strokeDash ?? obj.userData.strokeDash ?? 10;
+                    data.strokeGap = strokeMesh.userData.strokeGap ?? obj.userData.strokeGap ?? 6;
+                    data.strokeDot = strokeMesh.userData.strokeDot ?? obj.userData.strokeDot ?? 8;
+                    data.strokeUseAlpha = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? true;
+                    if (obj.userData.strokeHoles) data.strokeHoles = JSON.parse(JSON.stringify(obj.userData.strokeHoles));
                 }
             }
             return data;
@@ -2013,6 +2422,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             geo.userData.tX = 0; geo.userData.tY = 0;
                             const mesh = new THREE.Mesh(geo, material);
                             mesh.frustumCulled = false;
+                            mesh.renderOrder = 999;
                             group.add(mesh);
                         });
                     }
@@ -2103,6 +2513,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: false, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.frustumCulled = false;
+        mesh.renderOrder = data.isText ? 1001 : 999;
         mesh.userData.pseudoOpacity = data.opacity ?? 1;
         
         if (data.isText) {
@@ -2137,6 +2548,14 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
         wrapper.scale.set(data.scale.x, data.scale.y, 1);
         wrapper.renderOrder = 999;
+        wrapper.userData.strokePattern = data.strokePattern || 'solid';
+        wrapper.userData.strokeCap = data.strokeCap || 'round';
+        wrapper.userData.strokeDash = data.strokeDash ?? 10;
+        wrapper.userData.strokeGap = data.strokeGap ?? 6;
+        wrapper.userData.strokeDot = data.strokeDot ?? 8;
+        wrapper.userData.strokeUseAlpha = data.strokeUseAlpha ?? true;
+        if (data.strokeHoles) wrapper.userData.strokeHoles = JSON.parse(JSON.stringify(data.strokeHoles));
+        wrapper.position.z = data.isText ? 30 : 20;
 
         if (!data.isSvg || data.styleOverridden) {
             getMeshes(wrapper, false).forEach(mesh => {
@@ -2156,17 +2575,30 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
         
+        wrapper.userData.fillEnabled = data.fillEnabled !== false;
+        getMeshes(wrapper, false).forEach(mesh => {
+            mesh.userData.fillHidden = data.fillEnabled === false;
+            mesh.visible = data.fillEnabled !== false;
+        });
+
         if (data.hasStroke) {
             getMeshes(wrapper, false).forEach(firstMesh => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
-                firstMesh.renderOrder = 999; firstMesh.position.z = 0.005;
-                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12);
+                firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
+                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12, data.strokePattern || 'solid', (data.strokeDash ?? 10) * 0.1, (data.strokeGap ?? 6) * 0.1, (data.strokeDot ?? 8) * 0.1, data.strokeCap || 'round');
                 if (strokeGeo) {
-                    const restoredOpacity = data.opacity ?? 1;
+                    const strokeUseAlpha = data.strokeUseAlpha ?? true;
+                    const restoredOpacity = strokeUseAlpha ? (data.opacity ?? 1) : 1;
                     const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: 1, transparent: false, depthWrite: true, alphaTest: 0.01 }));
                     strokeMesh.userData.isStroke = true;
                     strokeMesh.frustumCulled = false;
                     strokeMesh.userData.strokeWidth = data.strokeWidth;
+                    strokeMesh.userData.strokePattern = data.strokePattern || 'solid';
+                    strokeMesh.userData.strokeCap = data.strokeCap || 'round';
+                    strokeMesh.userData.strokeDash = data.strokeDash ?? 10;
+                    strokeMesh.userData.strokeGap = data.strokeGap ?? 6;
+                    strokeMesh.userData.strokeDot = data.strokeDot ?? 8;
+                    strokeMesh.userData.strokeUseAlpha = strokeUseAlpha;
                     strokeMesh.userData.pseudoOpacity = restoredOpacity;
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
@@ -2177,7 +2609,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     const tX = firstMesh.geometry.userData.tX || 0;
                     const tY = firstMesh.geometry.userData.tY || 0;
                     strokeMesh.geometry.translate(tX, tY, 0);
-                    firstMesh.parent.add(strokeMesh);
+                    const restoreHoleKey = String(Math.max(0, getMeshes(wrapper, false).indexOf(firstMesh)));
+                    const restoreHoleList = (wrapper.userData.strokeHoles && wrapper.userData.strokeHoles[restoreHoleKey]) || [];
+                    const restoreHoledGeo = applyStrokeHoles(strokeMesh.geometry, restoreHoleList);
+                    if (!restoreHoledGeo) {
+                        disposeObject3D(strokeMesh);
+                    } else {
+                        if (restoreHoledGeo !== strokeMesh.geometry) strokeMesh.geometry = restoreHoledGeo;
+                        firstMesh.parent.add(strokeMesh);
+                    }
                 }
               }
             });
