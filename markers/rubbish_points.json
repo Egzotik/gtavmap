@@ -1,0 +1,2282 @@
+[
+ {
+  "_id": "rubbish-25",
+  "name": "Мусорный контейнер #25",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4624.87939453125,
+   1947.764892578125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-24",
+  "name": "Мусорный контейнер #24",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4633.0224609375,
+   2947.17724609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-23",
+  "name": "Мусорный контейнер #23",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4782.09619140625,
+   2150.775390625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-18",
+  "name": "Мусорный контейнер #18",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   5048.708984375,
+   2412.162353515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-21",
+  "name": "Мусорный контейнер #21",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4892.97802734375,
+   2323.116943359375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-19",
+  "name": "Мусорный контейнер #19",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4983.24072265625,
+   2020.560546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-37",
+  "name": "Мусорный контейнер #37",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3708.575439453125,
+   1748.1240234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-33",
+  "name": "Мусорный контейнер #33",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3831.623291015625,
+   1947.2890625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-32",
+  "name": "Мусорный контейнер #32",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4054.977783203125,
+   2454.70703125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-31",
+  "name": "Мусорный контейнер #31",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4215.16259765625,
+   2499.208740234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-29",
+  "name": "Мусорный контейнер #29",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4307.78955078125,
+   2707.46484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-27",
+  "name": "Мусорный контейнер #27",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4421.603515625,
+   2870.329345703125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-26",
+  "name": "Мусорный контейнер #26",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4604.05859375,
+   1776.1490478515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-48",
+  "name": "Мусорный контейнер #48",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3199.094482421875,
+   2041.658203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-59",
+  "name": "Мусорный контейнер #59",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2642.640380859375,
+   2530.23583984375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-78",
+  "name": "Мусорный контейнер #78",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   485.8294982910156,
+   2571.477783203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-76",
+  "name": "Мусорный контейнер #76",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   576.850830078125,
+   1908.922119140625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-47",
+  "name": "Мусорный контейнер #47",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3290.986328125,
+   1699.1524658203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-88",
+  "name": "Мусорный контейнер #88",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   283.72247314453125,
+   2558.53173828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-46",
+  "name": "Мусорный контейнер #46",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3293.382080078125,
+   2674.512939453125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-42",
+  "name": "Мусорный контейнер #42",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3572.03662109375,
+   1681.22509765625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-40",
+  "name": "Мусорный контейнер #40",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3632.284912109375,
+   1401.126953125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-28",
+  "name": "Мусорный контейнер #28",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4326.47119140625,
+   1329.181396484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-34",
+  "name": "Мусорный контейнер #34",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3805.041259765625,
+   1557.8016357421875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-20",
+  "name": "Мусорный контейнер #20",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4973.17041015625,
+   1685.6285400390625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-9",
+  "name": "Мусорный контейнер #9",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6338.10546875,
+   1499.8116455078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-3",
+  "name": "Мусорный контейнер #3",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6539.02392578125,
+   1462.52099609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-134",
+  "name": "Мусорный контейнер #134",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -914.9633178710938,
+   955.80712890625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-116",
+  "name": "Мусорный контейнер #116",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -448.2617492675781,
+   1235.2646484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-129",
+  "name": "Мусорный контейнер #129",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -776.45294945312,
+   1099.28271484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-109",
+  "name": "Мусорный контейнер #109",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -305.13311767578125,
+   1182.33203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-58",
+  "name": "Мусорный контейнер #58",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2649.1171875,
+   1020.88525390625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-55",
+  "name": "Мусорный контейнер #55",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2730.584716796875,
+   1176.46435546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-69",
+  "name": "Мусорный контейнер #69",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   852.6995849609375,
+   1575.181396484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-191",
+  "name": "Мусорный контейнер #191",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2265.760009765625,
+   1167.1942138671875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-181",
+  "name": "Мусорный контейнер #181",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1907.613525390625,
+   1263.5487060546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-195",
+  "name": "Мусорный контейнер #195",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2388.030517578125,
+   1061.6995849609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-147",
+  "name": "Мусорный контейнер #147",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1202.3922119140625,
+   1215.7066650390625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-220",
+  "name": "Мусорный контейнер #220",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3257.222412109375,
+   1196.490478515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-186",
+  "name": "Мусорный контейнер #186",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2041.367919921875,
+   1384.593994140625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-136",
+  "name": "Мусорный контейнер #136",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -977.357971114062,
+   1128.7174072265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-131",
+  "name": "Мусорный контейнер #131",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -870.93212890625,
+   714.1685791015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-97",
+  "name": "Мусорный контейнер #97",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -83.88526153564453,
+   788.095764160562
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-60",
+  "name": "Мусорный контейнер #60",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2593.721923828125,
+   735.917724609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-39",
+  "name": "Мусорный контейнер #39",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3652.627685546875,
+   921.4437255859375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-126",
+  "name": "Мусорный контейнер #126",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -718.010550820312,
+   726.6475830078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-121",
+  "name": "Мусорный контейнер #121",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -566.2118530273438,
+   731.0902099609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-112",
+  "name": "Мусорный контейнер #112",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -390.540283203125,
+   775.896484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-172",
+  "name": "Мусорный контейнер #172",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1716.2227783203125,
+   951.833740234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-142",
+  "name": "Мусорный контейнер #142",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1075.1439208984375,
+   659.518798828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-155",
+  "name": "Мусорный контейнер #155",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1329.5096435546875,
+   815.2156982421875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-165",
+  "name": "Мусорный контейнер #165",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1595.249755859375,
+   817.862060546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-143",
+  "name": "Мусорный контейнер #143",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1075.5233154296875,
+   950.00927734375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-148",
+  "name": "Мусорный контейнер #148",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1231.4564208984375,
+   685.6846923828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-139",
+  "name": "Мусорный контейнер #139",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1011.9161987304688,
+   812.7802734375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-219",
+  "name": "Мусорный контейнер #219",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3186.611083984375,
+   785.539306640625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-204",
+  "name": "Мусорный контейнер #204",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2638.603515625,
+   664.7667846679688
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-211",
+  "name": "Мусорный контейнер #211",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2949.94482421875,
+   800.229736328125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-192",
+  "name": "Мусорный контейнер #192",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2331.41064453125,
+   894.0528564453125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-188",
+  "name": "Мусорный контейнер #188",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2185.211181640625,
+   830.990539557812
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-178",
+  "name": "Мусорный контейнер #178",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1866.1884765625,
+   752.1488037109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-185",
+  "name": "Мусорный контейнер #185",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2021.0645751953125,
+   714.4029541015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-71",
+  "name": "Мусорный контейнер #71",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   801.2037963867188,
+   387.7810363769531
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-57",
+  "name": "Мусорный контейнер #57",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2650.890380859375,
+   550.612548828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-61",
+  "name": "Мусорный контейнер #61",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2588.65869140625,
+   252.0597686767578
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-53",
+  "name": "Мусорный контейнер #53",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2802.403076171875,
+   565.1856689453125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-7",
+  "name": "Мусорный контейнер #7",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6444.84814453125,
+   179.59002685546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-41",
+  "name": "Мусорный контейнер #41",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3572.52880859375,
+   377.1106262207031
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-4",
+  "name": "Мусорный контейнер #4",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6498.5205078125,
+   404.3314208984375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-1",
+  "name": "Мусорный контейнер #1",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6651.4267578125,
+   171.08038330078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-115",
+  "name": "Мусорный контейнер #115",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -402.5956115722656,
+   588.32666015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-110",
+  "name": "Мусорный контейнер #110",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -330.4080505371094,
+   395.90081787109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-104",
+  "name": "Мусорный контейнер #104",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -187.0331115226562,
+   326.7071228027344
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-102",
+  "name": "Мусорный контейнер #102",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -186.1129150390625,
+   552.9552001953125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-87",
+  "name": "Мусорный контейнер #87",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   289.725830078125,
+   398.65625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-86",
+  "name": "Мусорный контейнер #86",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   330.8799133300781,
+   115.50238037109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-83",
+  "name": "Мусорный контейнер #83",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   377.24285888671875,
+   260.1405029296875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-79",
+  "name": "Мусорный контейнер #79",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   482.7662353515625,
+   133.42112731933594
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-14",
+  "name": "Мусорный контейнер #14",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6098.82861328125,
+   -474.7493896484375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-13",
+  "name": "Мусорный контейнер #13",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6213.91357421875,
+   -74.66705322265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-12",
+  "name": "Мусорный контейнер #12",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6229.4814453125,
+   -339.08026123046875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-11",
+  "name": "Мусорный контейнер #11",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6317.99658203125,
+   68.4388427734375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-10",
+  "name": "Мусорный контейнер #10",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6320.94970703125,
+   -187.11224365234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-8",
+  "name": "Мусорный контейнер #8",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6374.42822265625,
+   -408.12298583984375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-5",
+  "name": "Мусорный контейнер #5",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6482.5966796875,
+   -104.33541870117188
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-2",
+  "name": "Мусорный контейнер #2",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   6545.568359375,
+   33.08282470703125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-82",
+  "name": "Мусорный контейнер #82",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   402.67828369140625,
+   -100.53727722167969
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-72",
+  "name": "Мусорный контейнер #72",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   763.8741455078125,
+   -479.1860046386719
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-66",
+  "name": "Мусорный контейнер #66",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   1229.2750244140625,
+   -421.3037109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-64",
+  "name": "Мусорный контейнер #64",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   1941.0716552734375,
+   -57.5556640625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-17",
+  "name": "Мусорный контейнер #17",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   5246.146484375,
+   -567.70391845703
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-54",
+  "name": "Мусорный контейнер #54",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2796.50244140625,
+   57.4663200378418
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-35",
+  "name": "Мусорный контейнер #35",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   3747.731201171875,
+   50.936031341552734
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-15",
+  "name": "Мусорный контейнер #15",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   5788.96826171875,
+   -683.1180419921875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-93",
+  "name": "Мусорный контейнер #93",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   75.39806365966797,
+   -261.2776184082031
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-98",
+  "name": "Мусорный контейнер #98",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -89.45677947998047,
+   -24.86216926574707
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-96",
+  "name": "Мусорный контейнер #96",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -56.68229675292969,
+   -356.5082092285156
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-91",
+  "name": "Мусорный контейнер #91",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   192.42926025390625,
+   -579.33447265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-92",
+  "name": "Мусорный контейнер #92",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   190.6380924101562,
+   -367.7070617675781
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-94",
+  "name": "Мусорный контейнер #94",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   67.38838195800781,
+   -457.4053955078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-90",
+  "name": "Мусорный контейнер #90",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   218.22007751464844,
+   -121.27543640136719
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-85",
+  "name": "Мусорный контейнер #85",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   342.7781677246094,
+   -590.5897827148438
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-73",
+  "name": "Мусорный контейнер #73",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   731.6446533203125,
+   -3031.32080078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-70",
+  "name": "Мусорный контейнер #70",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   840.0831909179688,
+   -799.9974365234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-68",
+  "name": "Мусорный контейнер #68",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   1095.94677734375,
+   -3176.30908203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-30",
+  "name": "Мусорный контейнер #30",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   4258.82080078125,
+   -2176.5419921875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-63",
+  "name": "Мусорный контейнер #63",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2030.5667724609375,
+   -1925.4376220703125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-16",
+  "name": "Мусорный контейнер #16",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   5405.33203125,
+   -843.465576171875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-62",
+  "name": "Мусорный контейнер #62",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2301.1669921875,
+   -2523.233642578125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-56",
+  "name": "Мусорный контейнер #56",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   2722.328369140625,
+   -1090.3934326171875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-101",
+  "name": "Мусорный контейнер #101",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -182.89833068847656,
+   -963.6295166015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-89",
+  "name": "Мусорный контейнер #89",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   225.2147216796875,
+   -3088.838134765625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-84",
+  "name": "Мусорный контейнер #84",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   366.1766357421875,
+   -762.1358642578125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-81",
+  "name": "Мусорный контейнер #81",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   446.6944580078125,
+   -2954.38134765625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-77",
+  "name": "Мусорный контейнер #77",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   506.5344543457031,
+   -1016.065185546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-80",
+  "name": "Мусорный контейнер #80",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   459.4478759765625,
+   -1245.76513671875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-75",
+  "name": "Мусорный контейнер #75",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   580.550048828125,
+   -3044.814208984375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-74",
+  "name": "Мусорный контейнер #74",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   656.03564453125,
+   -1255.52197265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-113",
+  "name": "Мусорный контейнер #113",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -390.5823059082031,
+   -2133.13427734375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-114",
+  "name": "Мусорный контейнер #114",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -396.6654052734375,
+   -1801.7568359375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-118",
+  "name": "Мусорный контейнер #118",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -469.14056396484375,
+   -1583.175537109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-119",
+  "name": "Мусорный контейнер #119",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -486.64697265625,
+   -1986.284423828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-111",
+  "name": "Мусорный контейнер #111",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -336.11199951171875,
+   -1484.49609375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-107",
+  "name": "Мусорный контейнер #107",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -270.93450927734375,
+   -1708.9620361328125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-106",
+  "name": "Мусорный контейнер #106",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -253.9959259033203,
+   -2036.27197265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-103",
+  "name": "Мусорный контейнер #103",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -186.1556396484375,
+   -1500.0733642578125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-176",
+  "name": "Мусорный контейнер #176",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1810.70654296875,
+   354.56689453125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-174",
+  "name": "Мусорный контейнер #174",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1759.042236328125,
+   197.654296875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-173",
+  "name": "Мусорный контейнер #173",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1747.71240234375,
+   511.4439697265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-160",
+  "name": "Мусорный контейнер #160",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1501.1455078125,
+   269.5561828613281
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-158",
+  "name": "Мусорный контейнер #158",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1449.5439453125,
+   481.240478515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-120",
+  "name": "Мусорный контейнер #120",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -550.4100341796875,
+   459.3663635253906
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-151",
+  "name": "Мусорный контейнер #151",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1264.6064453125,
+   377.5763244628906
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-133",
+  "name": "Мусорный контейнер #133",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -899.9442138671875,
+   379.8926696777344
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-221",
+  "name": "Мусорный контейнер #221",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3258.946044921875,
+   305.646728515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-216",
+  "name": "Мусорный контейнер #216",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3058.144775390625,
+   284.2618408203125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-212",
+  "name": "Мусорный контейнер #212",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2993.790283203125,
+   629.77294921875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-207",
+  "name": "Мусорный контейнер #207",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2790.458740234375,
+   596.031068945312
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-184",
+  "name": "Мусорный контейнер #184",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2013.1298828125,
+   314.86846923828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-183",
+  "name": "Мусорный контейнер #183",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1950.70458984375,
+   451.45867919921875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-182",
+  "name": "Мусорный контейнер #182",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1916.4334716796875,
+   189.7194366455078
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-180",
+  "name": "Мусорный контейнер #180",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1882.254150390625,
+   595.816467851562
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-152",
+  "name": "Мусорный контейнер #152",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1309.437255859375,
+   -10.680870056152344
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-150",
+  "name": "Мусорный контейнер #150",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1255.0435791015625,
+   -151.62083435058594
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-128",
+  "name": "Мусорный контейнер #128",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -774.036865234375,
+   160.29872131347656
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-138",
+  "name": "Мусорный контейнер #138",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1009.7628173828125,
+   32.91082763671875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-125",
+  "name": "Мусорный контейнер #125",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -708.708802695312,
+   8.509515762329102
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-124",
+  "name": "Мусорный контейнер #124",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -701.0299682617188,
+   -562.695556640625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-130",
+  "name": "Мусорный контейнер #130",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -858.537658691062,
+   -569.085336914062
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-149",
+  "name": "Мусорный контейнер #149",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1249.830810546875,
+   182.13877868652344
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-175",
+  "name": "Мусорный контейнер #175",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1763.4381103515625,
+   -590.6437377929688
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-161",
+  "name": "Мусорный контейнер #161",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1532.2281982421875,
+   -21.91998062133789
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-170",
+  "name": "Мусорный контейнер #170",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1679.373779296875,
+   -5.961182117462158
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-162",
+  "name": "Мусорный контейнер #162",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1535.85888671875,
+   -310.1662902832031
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-156",
+  "name": "Мусорный контейнер #156",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1438.39990234375,
+   95.6935119628902
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-169",
+  "name": "Мусорный контейнер #169",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1661.669189453125,
+   -168.09320068359375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-164",
+  "name": "Мусорный контейнер #164",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1590.1611328125,
+   139.13168334960938
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-153",
+  "name": "Мусорный контейнер #153",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1317.668701171875,
+   -326.11651611328125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-222",
+  "name": "Мусорный контейнер #222",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3313.438232421875,
+   156.3293762207312
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-217",
+  "name": "Мусорный контейнер #217",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3147.5,
+   159.763916015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-198",
+  "name": "Мусорный контейнер #198",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2475.12451171875,
+   150.97003173828125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-208",
+  "name": "Мусорный контейнер #208",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2851.57568359375,
+   182.5023193359375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-177",
+  "name": "Мусорный контейнер #177",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1860.5626220703125,
+   -360.7795104980469
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-189",
+  "name": "Мусорный контейнер #189",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2201.3369140625,
+   162.8318328857422
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-214",
+  "name": "Мусорный контейнер #214",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3001.14794921875,
+   119.54451751708984
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-179",
+  "name": "Мусорный контейнер #179",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1878.55419921875,
+   42.2703857421875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-141",
+  "name": "Мусорный контейнер #141",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1065.3792724609375,
+   -833.9873046875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-140",
+  "name": "Мусорный контейнер #140",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1041.2017822265625,
+   -608.3687744140625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-137",
+  "name": "Мусорный контейнер #137",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -985.5009765625,
+   -1647.306640625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-132",
+  "name": "Мусорный контейнер #132",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -880.7855834960938,
+   -718.248291015625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-123",
+  "name": "Мусорный контейнер #123",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -627.8489990234375,
+   -1460.1435546875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-122",
+  "name": "Мусорный контейнер #122",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -619.1982421875,
+   -1301.86767578125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-127",
+  "name": "Мусорный контейнер #127",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -749.4686279296875,
+   -1179.33447265625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-135",
+  "name": "Мусорный контейнер #135",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -943.726806640625,
+   -1496.9912109375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-190",
+  "name": "Мусорный контейнер #190",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2256.511474609375,
+   -1097.2576904296875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-187",
+  "name": "Мусорный контейнер #187",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2093.029296875,
+   -820.016357421875
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-154",
+  "name": "Мусорный контейнер #154",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1322.4100341796875,
+   -680.18359375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-166",
+  "name": "Мусорный контейнер #166",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1610.8596142578126,
+   -626.92869140625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-157",
+  "name": "Мусорный контейнер #157",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1445.1048583984375,
+   -1146.68115234375
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-146",
+  "name": "Мусорный контейнер #146",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1175.516845703125,
+   -1838.31640625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-144",
+  "name": "Мусорный контейнер #144",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1137.037841796875,
+   -1650.7047119140625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-145",
+  "name": "Мусорный контейнер #145",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -1170.6514892578125,
+   -716.363830564062
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-218",
+  "name": "Мусорный контейнер #218",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3177.2705078125,
+   -1683.2491455078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-209",
+  "name": "Мусорный контейнер #209",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2867.4150390625,
+   -803.3734741210938
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-199",
+  "name": "Мусорный контейнер #199",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2519.101806640625,
+   -705.346496820312
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-215",
+  "name": "Мусорный контейнер #215",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -3033.47802734375,
+   -915.8380126953125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-205",
+  "name": "Мусорный контейнер #205",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2747.786,
+   -886.206
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-201",
+  "name": "Мусорный контейнер #201",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2544.959228515625,
+   -942.5830078125
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-194",
+  "name": "Мусорный контейнер #194",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2342.02783203125,
+   -638.87353515625
+  ],
+  "isReadonly": true
+ },
+ {
+  "_id": "rubbish-193",
+  "name": "Мусорный контейнер #193",
+  "layer": "rubbish",
+  "view": "icon",
+  "icon": "/map/icons/rubbish.png",
+  "point": [
+   -2340.567626953125,
+   -837.2604370117188
+  ],
+  "isReadonly": true
+ }
+]
