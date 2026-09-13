@@ -1,11 +1,11 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <DrawableDictionary>
-  <Item>
+<Item>
     <Name>supertile_fore_2_8_tile_0_0</Name>
-    <BoundingSphereCenter x="-1406.0554" y="-3317.7185" z="9.0" />
-    <BoundingSphereRadius value="481.13757" />
-    <BoundingBoxMin x="-1837.111" y="-3531.437" z="6.0" />
-    <BoundingBoxMax x="-975.0" y="-3104.0" z="12.0" />
+    <BoundingSphereCenter x="-1406.055481" y="-3317.718506" z="9.000000" />
+    <BoundingSphereRadius value="481.137639" />
+    <BoundingBoxMin x="-1837.110962" y="-3531.437012" z="6.000000" />
+    <BoundingBoxMax x="-975.000000" y="-3104.000000" z="12.000000" />
     <LodDistHigh value="9998" />
     <LodDistMed value="9998" />
     <LodDistLow value="9998" />
@@ -14,19 +14,19 @@
     <FlagsMed value="0" />
     <FlagsLow value="0" />
     <FlagsVlow value="0" />
+    
     <ShaderGroup>
-      <Shaders>
-        <Item>
-          <Name>minimap</Name>
-          <FileName>minimap.sps</FileName>
-          <RenderBucket value="0" />
-          <Parameters>
-            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
-          </Parameters>
-        </Item>
-      </Shaders>
-    </ShaderGroup>
-    <DrawableModelsHigh>
+   <Shaders>
+    <Item>
+     <Name>minimap</Name>
+     <FileName>minimap.sps</FileName>
+     <RenderBucket value="0" />
+     <Parameters>
+      <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+     </Parameters>
+    </Item>
+   </Shaders>
+  </ShaderGroup><DrawableModelsHigh>
       <Item>
         <RenderMask value="255" />
         <Flags value="0" />
@@ -36,8 +36,8 @@
         <Geometries>
           <Item>
             <ShaderIndex value="0" />
-            <BoundingBoxMin x="-1837.111" y="-3531.437" z="6.0" />
-            <BoundingBoxMax x="-975.0" y="-3104.0" z="12.0" />
+            <BoundingBoxMin x="-1837.110962" y="-3531.437012" z="6.000000" />
+            <BoundingBoxMax x="-975.000000" y="-3104.000000" z="12.000000" />
             <VertexBuffer>
               <Flags value="0" />
               <Layout type="GTAV1">
@@ -293,10 +293,10 @@
   </Item>
   <Item>
     <Name>supertile_back_2_8</Name>
-    <BoundingSphereCenter x="-1475.742" y="-3351.998" z="0.0" />
-    <BoundingSphereRadius value="558.78937" />
-    <BoundingBoxMin x="-1976.484" y="-3599.996" z="0.0" />
-    <BoundingBoxMax x="-975.0" y="-3104.0" z="0.0" />
+    <BoundingSphereCenter x="-1475.742004" y="-3351.998047" z="0.000000" />
+    <BoundingSphereRadius value="558.789393" />
+    <BoundingBoxMin x="-1976.484009" y="-3599.996094" z="0.000000" />
+    <BoundingBoxMax x="-975.000000" y="-3104.000000" z="0.000000" />
     <LodDistHigh value="9998" />
     <LodDistMed value="9998" />
     <LodDistLow value="9998" />
@@ -305,19 +305,19 @@
     <FlagsMed value="0" />
     <FlagsLow value="0" />
     <FlagsVlow value="0" />
+    
     <ShaderGroup>
-      <Shaders>
-        <Item>
-          <Name>minimap</Name>
-          <FileName>minimap.sps</FileName>
-          <RenderBucket value="0" />
-          <Parameters>
-            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
-          </Parameters>
-        </Item>
-      </Shaders>
-    </ShaderGroup>
-    <DrawableModelsHigh>
+   <Shaders>
+    <Item>
+     <Name>minimap</Name>
+     <FileName>minimap.sps</FileName>
+     <RenderBucket value="0" />
+     <Parameters>
+      <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+     </Parameters>
+    </Item>
+   </Shaders>
+  </ShaderGroup><DrawableModelsHigh>
       <Item>
         <RenderMask value="255" />
         <Flags value="0" />
@@ -327,8 +327,8 @@
         <Geometries>
           <Item>
             <ShaderIndex value="0" />
-            <BoundingBoxMin x="-1976.484" y="-3599.996" z="0.0" />
-            <BoundingBoxMax x="-975.0" y="-3104.0" z="0.0" />
+            <BoundingBoxMin x="-1976.484009" y="-3599.996094" z="0.000000" />
+            <BoundingBoxMax x="-975.000000" y="-3104.000000" z="0.000000" />
             <VertexBuffer>
               <Flags value="0" />
               <Layout type="GTAV1">
@@ -414,10 +414,10 @@
   </Item>
   <Item>
     <Name>supertile_sea_2_8</Name>
-    <BoundingSphereCenter x="-1562.4998" y="-3625.046" z="-12.0" />
-    <BoundingSphereRadius value="785.2677" />
-    <BoundingBoxMin x="-2150.0" y="-4146.092" z="-12.0" />
-    <BoundingBoxMax x="-974.9995" y="-3104.0" z="-12.0" />
+    <BoundingSphereCenter x="-1562.499756" y="-3625.045898" z="-12.000000" />
+    <BoundingSphereRadius value="785.267703" />
+    <BoundingBoxMin x="-2150.000000" y="-4146.091797" z="-12.000000" />
+    <BoundingBoxMax x="-974.999512" y="-3104.000000" z="-12.000000" />
     <LodDistHigh value="9998" />
     <LodDistMed value="9998" />
     <LodDistLow value="9998" />
@@ -426,19 +426,19 @@
     <FlagsMed value="0" />
     <FlagsLow value="0" />
     <FlagsVlow value="0" />
+    
     <ShaderGroup>
-      <Shaders>
-        <Item>
-          <Name>minimap</Name>
-          <FileName>minimap.sps</FileName>
-          <RenderBucket value="0" />
-          <Parameters>
-            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
-          </Parameters>
-        </Item>
-      </Shaders>
-    </ShaderGroup>
-    <DrawableModelsHigh>
+   <Shaders>
+    <Item>
+     <Name>minimap</Name>
+     <FileName>minimap.sps</FileName>
+     <RenderBucket value="0" />
+     <Parameters>
+      <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+     </Parameters>
+    </Item>
+   </Shaders>
+  </ShaderGroup><DrawableModelsHigh>
       <Item>
         <RenderMask value="255" />
         <Flags value="0" />
@@ -448,8 +448,8 @@
         <Geometries>
           <Item>
             <ShaderIndex value="0" />
-            <BoundingBoxMin x="-2150.0" y="-4146.092" z="-12.0" />
-            <BoundingBoxMax x="-974.9995" y="-3104.0" z="-12.0" />
+            <BoundingBoxMin x="-2150.000000" y="-4146.091797" z="-12.000000" />
+            <BoundingBoxMax x="-974.999512" y="-3104.000000" z="-12.000000" />
             <VertexBuffer>
               <Flags value="0" />
               <Layout type="GTAV1">
@@ -1376,4 +1376,9 @@
       </Item>
     </DrawableModelsHigh>
   </Item>
+
+
+
+
+
 </DrawableDictionary>

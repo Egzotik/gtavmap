@@ -1,11 +1,11 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <DrawableDictionary>
-  <Item>
+<Item>
     <Name>supertile_sea_0_5</Name>
-    <BoundingSphereCenter x="-3652.688" y="366.0" z="-12.0" />
-    <BoundingSphereRadius value="767.4734" />
-    <BoundingBoxMin x="-3980.376" y="-328.0" z="-12.0" />
-    <BoundingBoxMax x="-3325.0" y="1060.0" z="-12.0" />
+    <BoundingSphereCenter x="-3652.687988" y="366.000000" z="-12.000000" />
+    <BoundingSphereRadius value="767.473399" />
+    <BoundingBoxMin x="-3980.375977" y="-328.000000" z="-12.000000" />
+    <BoundingBoxMax x="-3325.000000" y="1060.000000" z="-12.000000" />
     <LodDistHigh value="9998" />
     <LodDistMed value="9998" />
     <LodDistLow value="9998" />
@@ -14,19 +14,19 @@
     <FlagsMed value="0" />
     <FlagsLow value="0" />
     <FlagsVlow value="0" />
+    
     <ShaderGroup>
-      <Shaders>
-        <Item>
-          <Name>minimap</Name>
-          <FileName>minimap.sps</FileName>
-          <RenderBucket value="0" />
-          <Parameters>
-            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
-          </Parameters>
-        </Item>
-      </Shaders>
-    </ShaderGroup>
-    <DrawableModelsHigh>
+   <Shaders>
+    <Item>
+     <Name>minimap</Name>
+     <FileName>minimap.sps</FileName>
+     <RenderBucket value="0" />
+     <Parameters>
+      <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
+     </Parameters>
+    </Item>
+   </Shaders>
+  </ShaderGroup><DrawableModelsHigh>
       <Item>
         <RenderMask value="255" />
         <Flags value="0" />
@@ -36,8 +36,8 @@
         <Geometries>
           <Item>
             <ShaderIndex value="0" />
-            <BoundingBoxMin x="-3980.376" y="-328.0" z="-12.0" />
-            <BoundingBoxMax x="-3325.0" y="1060.0" z="-12.0" />
+            <BoundingBoxMin x="-3980.375977" y="-328.000000" z="-12.000000" />
+            <BoundingBoxMax x="-3325.000000" y="1060.000000" z="-12.000000" />
             <VertexBuffer>
               <Flags value="0" />
               <Layout type="GTAV1">
@@ -1404,69 +1404,9 @@
       </Item>
     </DrawableModelsHigh>
   </Item>
-  <Item>
-    <Name>supertile_back_0_5</Name>
-    <BoundingSphereCenter x="-3376.808" y="967.43555" z="6.0" />
-    <BoundingSphereRadius value="54.246746" />
-    <BoundingBoxMin x="-3428.616" y="951.3535" z="6.0" />
-    <BoundingBoxMax x="-3325.0" y="983.5175" z="6.0" />
-    <LodDistHigh value="9998" />
-    <LodDistMed value="9998" />
-    <LodDistLow value="9998" />
-    <LodDistVlow value="9998" />
-    <FlagsHigh value="1" />
-    <FlagsMed value="0" />
-    <FlagsLow value="0" />
-    <FlagsVlow value="0" />
-    <ShaderGroup>
-      <Shaders>
-        <Item>
-          <Name>minimap</Name>
-          <FileName>minimap.sps</FileName>
-          <RenderBucket value="0" />
-          <Parameters>
-            <Item name="useTessellation" type="Vector" x="0.0" y="0.0" z="0.0" w="0.0" />
-          </Parameters>
-        </Item>
-      </Shaders>
-    </ShaderGroup>
-    <DrawableModelsHigh>
-      <Item>
-        <RenderMask value="255" />
-        <Flags value="0" />
-        <HasSkin value="0" />
-        <BoneIndex value="0" />
-        <Unknown1 value="0" />
-        <Geometries>
-          <Item>
-            <ShaderIndex value="0" />
-            <BoundingBoxMin x="-3428.616" y="951.3535" z="6.0" />
-            <BoundingBoxMax x="-3325.0" y="983.5175" z="6.0" />
-            <VertexBuffer>
-              <Flags value="0" />
-              <Layout type="GTAV1">
-                <Position />
-                <Colour0 />
-              </Layout>
-              <Data>
-                -3428.6159668 983.5175171 6.0000000   65 65 65 255
-                -3428.6159668 951.3535156 6.0000000   65 65 65 255
-                -3408.3969727 951.3535156 6.0000000   65 65 65 255
-                -3408.3969727 963.7617188 6.0000000   65 65 65 255
-                -3408.3969727 971.3613281 6.0000000   65 65 65 255
-                -3408.3969727 983.5175171 6.0000000   65 65 65 255
-                -3325.0000000 963.7617188 6.0000000   65 65 65 255
-                -3325.0000000 971.3613281 6.0000000   65 65 65 255
-              </Data>
-            </VertexBuffer>
-            <IndexBuffer>
-              <Data>
-                0 1 2 0 2 3 4 0 3 4 5 0 4 3 6 4 6 7
-              </Data>
-            </IndexBuffer>
-          </Item>
-        </Geometries>
-      </Item>
-    </DrawableModelsHigh>
-  </Item>
+
+
+
+
+
 </DrawableDictionary>
