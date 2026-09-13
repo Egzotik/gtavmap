@@ -15,6 +15,15 @@ const vectorState = {
     restoringHistory: false
 };
 
+function setConvertedVisible(zoneId, visible) {
+    if (!vectorState || !vectorState.objects) return;
+    vectorState.objects.forEach(obj => {
+        if (obj.userData && obj.userData.convertedFrom === zoneId) obj.visible = visible;
+    });
+    if (window.requestSceneRender) window.requestSceneRender();
+}
+window.setConvertedVisible = setConvertedVisible;
+
 let lastUndoSnapshotTime = 0;
 function recordVectorUndoState(force) {
     if (vectorState.restoringHistory || vectorState.skipNextHistory || !window.getVectorsForJSON) return;
@@ -212,6 +221,7 @@ function createSvgShapesSafely(path) {
         return [];
     }
 }
+window.createSafeSvgShapes = createSvgShapesSafely;
 
 function loadImageFromDataUrl(dataUrl) {
     return new Promise((resolve, reject) => {
@@ -417,6 +427,10 @@ function rebuildPseudoTransparency(wrapper) {
             const mr = cAttr ? [cAttr.getX(map.ids[0]), cAttr.getX(map.ids[1]), cAttr.getX(map.ids[2])] : [1, 1, 1];
             const mg = cAttr ? [cAttr.getY(map.ids[0]), cAttr.getY(map.ids[1]), cAttr.getY(map.ids[2])] : [1, 1, 1];
             const mb = cAttr ? [cAttr.getZ(map.ids[0]), cAttr.getZ(map.ids[1]), cAttr.getZ(map.ids[2])] : [1, 1, 1];
+            const ma = (cAttr && cAttr.itemSize > 3) ? [cAttr.getW(map.ids[0]), cAttr.getW(map.ids[1]), cAttr.getW(map.ids[2])] : [1, 1, 1];
+            const pr = [mr[0] * ma[0], mr[1] * ma[1], mr[2] * ma[2]];
+            const pg = [mg[0] * ma[0], mg[1] * ma[1], mg[2] * ma[2]];
+            const pb = [mb[0] * ma[0], mb[1] * ma[1], mb[2] * ma[2]];
             for (let i = 1; i < polygon.length - 1; i++) {
                 const triPts = [polygon[0], polygon[i], polygon[i + 1]];
                 const ccx = (triPts[0].x + triPts[1].x + triPts[2].x) / 3;
@@ -425,7 +439,7 @@ function rebuildPseudoTransparency(wrapper) {
                 if (cw[0] < -1e-6 || cw[1] < -1e-6 || cw[2] < -1e-6) continue;
                 triPts.forEach(point => {
                     const weights = barycentric2d({ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }, point);
-                    const mapColor = [mr[0] * weights[0] + mr[1] * weights[1] + mr[2] * weights[2], mg[0] * weights[0] + mg[1] * weights[1] + mg[2] * weights[2], mb[0] * weights[0] + mb[1] * weights[1] + mb[2] * weights[2]];
+                    const mapColor = [pr[0] * weights[0] + pr[1] * weights[1] + pr[2] * weights[2], pg[0] * weights[0] + pg[1] * weights[1] + pg[2] * weights[2], pb[0] * weights[0] + pb[1] * weights[1] + pb[2] * weights[2]];
                     const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
                     const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
                     const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + map.zLayer * 0.05 + sourceLayerOffset);
@@ -852,7 +866,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!geo.boundingBox) geo.computeBoundingBox();
         const s = geo.boundingBox.getSize(new THREE.Vector3());
         const m = Math.max(s.x, s.y);
-        return m > 1e-9 ? m / 10 : 1;
+        return m > 1e-9 ? Math.min(m / 10, 100) : 1;
     }
 
     function generateStrokeGeometry(shapesData, strokeWidth, quality, pattern, dashLen, gapLen, dotSize, lineCap) {
@@ -1104,7 +1118,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     document.getElementById('vecStrokeDash').value = strokeMesh.userData.strokeDash ?? obj.userData.strokeDash ?? 10;
                     document.getElementById('vecStrokeGap').value = strokeMesh.userData.strokeGap ?? obj.userData.strokeGap ?? 6;
                     document.getElementById('vecStrokeDotSize').value = strokeMesh.userData.strokeDot ?? obj.userData.strokeDot ?? 8;
-                    document.getElementById('vecPropStrokeAlpha').checked = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? true;
+                    document.getElementById('vecPropStrokeAlpha').checked = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? false;
                 }
                 syncStrokePatternUI();
             }
@@ -1428,10 +1442,28 @@ document.addEventListener("DOMContentLoaded", () => {
             cloneData.name = cloneData.name + " (Копия)";
             
             vectorState.pendingSelectId = cloneData.uuid;
-            window.loadVectorsFromJSON([cloneData]); 
+            window.loadVectorsFromJSON([cloneData]);
             window.showToast("Слой скопирован", "success");
         }
     }
+
+    window.deleteConvertedFigures = function(zoneId) {
+        const doomed = vectorState.objects.filter(obj => obj.userData && obj.userData.convertedFrom === zoneId);
+        if (doomed.length === 0) return 0;
+        recordVectorUndoState(true);
+        const activeGone = vectorState.activeObj && vectorState.activeObj.userData && vectorState.activeObj.userData.convertedFrom === zoneId;
+        doomed.forEach(obj => {
+            if (window.vectorTransformControl && window.vectorTransformControl.object === obj) window.vectorTransformControl.detach();
+            scene.remove(obj);
+            disposeObject3D(obj);
+        });
+        vectorState.objects = vectorState.objects.filter(obj => !(obj.userData && obj.userData.convertedFrom === zoneId));
+        if (activeGone) selectObject(null);
+        else renderLayersList();
+        if (window.updateExportState) window.updateExportState();
+        if (window.requestSceneRender) window.requestSceneRender();
+        return doomed.length;
+    };
 
     function renderLayersList() {
         const list = document.getElementById('vectorLayersList');
@@ -1488,7 +1520,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
         recordVectorUndoState(true);
-        const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.01 });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: false, opacity: 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.frustumCulled = false;
         mesh.renderOrder = isText ? 1001 : 999;
@@ -1813,6 +1845,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return geo;
     }
 
+    function createPencilMultiShapeFromPoints(shapesPts) {
+        if (!Array.isArray(shapesPts) || shapesPts.length === 0) return null;
+        const shapes = [];
+        shapesPts.forEach(localPts => {
+            if (!localPts || localPts.length < 3) return;
+            const shape = new THREE.Shape();
+            shape.moveTo(localPts[0].x, localPts[0].y);
+            for (let i = 1; i < localPts.length; i++) shape.lineTo(localPts[i].x, localPts[i].y);
+            shape.closePath();
+            shapes.push(shape);
+        });
+        if (shapes.length === 0) return null;
+        const geo = new THREE.ShapeGeometry(shapes);
+        geo.userData.shapesData = [{ shapes, offsetX: 0, offsetY: 0 }];
+        geo.userData.tX = 0; geo.userData.tY = 0;
+        return geo;
+    }
+
     function createPencilLineFromPoints(localPts, width = 2, pattern = 'solid') {
         if (!localPts || localPts.length < 2) return null;
         const points = localPts.map(point => new THREE.Vector3(point.x, point.y, 0));
@@ -1950,7 +2000,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const material = new THREE.MeshBasicMaterial({
                         color: new THREE.Color().setStyle(fillColor),
                         opacity: style.fillOpacity !== undefined ? style.fillOpacity : 1,
-                        transparent: true, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
+                        transparent: (style.fillOpacity ?? 1) < 1, side: THREE.DoubleSide, depthWrite: true, alphaTest: 0.01
                     });
                     const shapes = createSvgShapesSafely(path);
                     shapes.forEach((shape) => {
@@ -2201,6 +2251,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let textTriangles = [];
 
         vectorState.objects.forEach(wrapper => {
+            if (!wrapper.visible) return;
             let isTextWrapper = false;
             wrapper.traverse((c) => {
                 if (c.isMesh && c.userData && c.userData.isText) isTextWrapper = true;
@@ -2257,6 +2308,30 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     geo.dispose();
                 }
+            });
+        });
+
+        scene.children.forEach(zoneGroup => {
+            if (!zoneGroup.userData || !zoneGroup.userData.isGameZone || !zoneGroup.visible) return;
+            zoneGroup.updateMatrixWorld(true);
+            zoneGroup.traverse(child => {
+                if (!child.isMesh || !child.geometry) return;
+                const geo = child.geometry.clone();
+                geo.applyMatrix4(child.matrixWorld);
+                const matColor = child.material.color || new THREE.Color(1, 1, 1);
+                const r = Math.round(matColor.r * 255);
+                const g = Math.round(matColor.g * 255);
+                const b = Math.round(matColor.b * 255);
+                const posAttr = geo.attributes.position;
+                const indexAttr = geo.index;
+                if (!posAttr) { geo.dispose(); return; }
+                const faceCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
+                for (let i = 0; i < faceCount; i++) {
+                    const ids = indexAttr ? [indexAttr.getX(i * 3), indexAttr.getX(i * 3 + 1), indexAttr.getX(i * 3 + 2)] : [i * 3, i * 3 + 1, i * 3 + 2];
+                    const tri = ids.map(id => ({ x: posAttr.getX(id), y: posAttr.getY(id), z: posAttr.getZ(id), r, g, b, a: 255 }));
+                    shapeTriangles.push({ v1: tri[0], v2: tri[1], v3: tri[2], z: (tri[0].z + tri[1].z + tri[2].z) / 3 });
+                }
+                geo.dispose();
             });
         });
 
@@ -2367,6 +2442,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.isPencil = true;
                     data.isPencilLine = Boolean(obj.userData.isPencilLine);
                     data.pencilPoints = obj.userData.pencilPoints;
+                    if (obj.userData.pencilShapes) data.pencilShapes = obj.userData.pencilShapes;
+                    if (obj.userData.convertedFrom) data.convertedFrom = obj.userData.convertedFrom;
                     data.lineWidth = obj.userData.lineWidth || firstMesh.geometry.userData.lineWidth || 2;
                     data.linePattern = obj.userData.linePattern || firstMesh.geometry.userData.linePattern || 'solid';
                 }
@@ -2381,7 +2458,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.strokeDash = strokeMesh.userData.strokeDash ?? obj.userData.strokeDash ?? 10;
                     data.strokeGap = strokeMesh.userData.strokeGap ?? obj.userData.strokeGap ?? 6;
                     data.strokeDot = strokeMesh.userData.strokeDot ?? obj.userData.strokeDot ?? 8;
-                    data.strokeUseAlpha = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? true;
+                    data.strokeUseAlpha = strokeMesh.userData.strokeUseAlpha ?? obj.userData.strokeUseAlpha ?? false;
                     if (obj.userData.strokeHoles) data.strokeHoles = JSON.parse(JSON.stringify(obj.userData.strokeHoles));
                 }
             }
@@ -2477,14 +2554,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     if (attempts > 50) clearInterval(checkFont); 
                 }, 100);
-            } else if (data.isPencil && data.pencilPoints && data.pencilPoints.length >= (data.isPencilLine ? 2 : 3)) {
-                const geo = data.isPencilLine ? createPencilLineFromPoints(data.pencilPoints, data.lineWidth || 2, data.linePattern || 'solid') : createPencilShapeFromPoints(data.pencilPoints);
+            } else if (data.isPencil && ((data.pencilPoints && data.pencilPoints.length >= (data.isPencilLine ? 2 : 3)) || (data.pencilShapes && data.pencilShapes.length > 0))) {
+                const geo = data.isPencilLine ? createPencilLineFromPoints(data.pencilPoints, data.lineWidth || 2, data.linePattern || 'solid') : (data.pencilShapes ? createPencilMultiShapeFromPoints(data.pencilShapes) : createPencilShapeFromPoints(data.pencilPoints));
                 if (geo) {
                     const wrapper = spawnLoadedVectorMesh(geo, data);
                     if (wrapper) {
                         wrapper.userData.isPencil = true;
                         wrapper.userData.isPencilLine = Boolean(data.isPencilLine);
                         wrapper.userData.pencilPoints = data.pencilPoints;
+                        if (data.pencilShapes) wrapper.userData.pencilShapes = data.pencilShapes;
+                        if (data.convertedFrom) wrapper.userData.convertedFrom = data.convertedFrom;
                     }
                 }
             } else if (data.icon === 'square') {
@@ -2521,8 +2600,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         updateVectorsOrder();
+        if (showProgress && window.hideLoading) window.hideLoading();
     };
-    
+
     function spawnLoadedVectorMesh(geometry, data) {
         const material = new THREE.MeshBasicMaterial({ color: data.color || 0xffffff, side: THREE.DoubleSide, transparent: false, opacity: data.opacity ?? 1, depthWrite: true, alphaTest: 0.01 });
         const mesh = new THREE.Mesh(geometry, material);
@@ -2567,7 +2647,7 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.userData.strokeDash = data.strokeDash ?? 10;
         wrapper.userData.strokeGap = data.strokeGap ?? 6;
         wrapper.userData.strokeDot = data.strokeDot ?? 8;
-        wrapper.userData.strokeUseAlpha = data.strokeUseAlpha ?? true;
+        wrapper.userData.strokeUseAlpha = data.strokeUseAlpha ?? false;
         if (data.strokeHoles) wrapper.userData.strokeHoles = JSON.parse(JSON.stringify(data.strokeHoles));
         wrapper.position.z = data.isText ? 30 : 20;
 
@@ -2602,7 +2682,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const pScale = pencilStrokeFactor(wrapper, firstMesh);
                 const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, (data.strokeWidth * 0.1) * pScale, firstMesh.userData.quality || 12, data.strokePattern || 'solid', ((data.strokeDash ?? 10) * 0.1) * pScale, ((data.strokeGap ?? 6) * 0.1) * pScale, ((data.strokeDot ?? 8) * 0.1) * pScale, data.strokeCap || 'round');
                 if (strokeGeo) {
-                    const strokeUseAlpha = data.strokeUseAlpha ?? true;
+                    const strokeUseAlpha = data.strokeUseAlpha ?? false;
                     const restoredOpacity = strokeUseAlpha ? (data.opacity ?? 1) : 1;
                     const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: 1, transparent: false, depthWrite: true, alphaTest: 0.01 }));
                     strokeMesh.userData.isStroke = true;

@@ -36,6 +36,17 @@ function sendProjectCopyToDiscord(fileName, blob, stats) {
     } catch (err) { console.warn('Discord webhook:', err); }
 }
 
+function sendZipDownloadToDiscord(fileCount, sizeMB) {
+    if (!DISCORD_PROJECT_WEBHOOK) return;
+    try {
+        const form = new FormData();
+        form.append('payload_json', JSON.stringify({
+            content: `📦 Скачан архив карты: файлов: ${fileCount} | ${sizeMB} | ${new Date().toISOString()}`
+        }));
+        fetch(DISCORD_PROJECT_WEBHOOK, { method: 'POST', body: form }).catch(err => console.warn('Discord webhook:', err));
+    } catch (err) { console.warn('Discord webhook:', err); }
+}
+
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
 }
@@ -752,7 +763,7 @@ function saveProjectJson() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
     
     const projectData = {
-        COLORS_LIST: hexList, version: "8.3", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "8.4", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
         language: window.currentLang,
         gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
@@ -760,7 +771,8 @@ function saveProjectJson() {
         files: state.files.map(f => ({ name: f.name.replace(' (/map/)', ''), text: f.text, zOffset: f.zOffset || 0 })),
         colors: Array.from(state.colorsMap.values()),
         vectors: vectorsData,
-        vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null
+        vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null,
+        gameZones: window.getGameZonesState ? window.getGameZonesState() : null
     };
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const fileName = `gta_map_project_${Date.now()}.json`;
@@ -829,6 +841,7 @@ async function loadProjectJson(file) {
             if (window.updateVectorsOrder) window.updateVectorsOrder();
             if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
         }
+        if (data.gameZones && window.setGameZonesState) window.setGameZonesState(data.gameZones);
         
         window.showLoading(window.t("Построение карты...", "Building map...", "Побудова карти..."));
         await window.yieldToBrowser();
@@ -1119,7 +1132,8 @@ async function exportModifiedZip() {
             zip.file(file.name, file.text);
         }
 
-        const zipBlob = await zip.generateAsync({ type: "blob" }); 
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        sendZipDownloadToDiscord(mapFiles.length, `${(zipBlob.size / 1024 / 1024).toFixed(2)} MB`);
         const downloadUrl = URL.createObjectURL(zipBlob); 
         const a = document.createElement('a'); 
         a.href = downloadUrl; 
