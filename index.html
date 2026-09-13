@@ -45,6 +45,8 @@
         #vectorPropsPanel .flex.items-center { min-width: 0; }
         #vectorPropsPanel input[type="range"] { min-width: 0; }
         #vecPropAlphaNum { flex: 0 0 3rem; width: 3rem; }
+        .vector-upload-label { min-width: 0; min-height: 2.75rem; }
+        .vector-upload-label span { min-width: 0; text-align: center; line-height: 1.1; }
 
         @media (max-width: 640px) {
             header { height: auto !important; min-height: 3rem; flex-wrap: wrap; gap: 0.25rem; padding: max(0.35rem, env(safe-area-inset-top)) 0.5rem 0.35rem; }
@@ -135,16 +137,16 @@
                         <button id="btnAddText" data-i18n-title="add_text" title="Добавить Текст" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 rounded-lg transition"><i data-lucide="type" class="w-3.5 h-3.5"></i></button>
                     </div>
                     <div class="flex gap-1.5 mt-1">
-                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
-                            <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-[9px]" data-i18n="font_ttf">Шрифт (.TTF)</span>
+                        <label class="vector-upload-label flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
+                            <i data-lucide="type" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-[9px]" data-i18n="font_ttf">Шрифт</span>
                             <input type="file" id="vectorFontInput" accept=".ttf,.otf" class="hidden">
                         </label>
-                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
-                            <i data-lucide="image" class="w-3.5 h-3.5 text-amber-400"></i> <span class="text-[9px]" data-i18n="custom_svg">Свой SVG (.svg)</span>
+                        <label class="vector-upload-label flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
+                            <i data-lucide="image" class="w-3.5 h-3.5 text-amber-400"></i> <span class="text-[9px]" data-i18n="custom_svg">Свой SVG</span>
                             <input type="file" id="vectorSvgInput" accept=".svg" class="hidden">
                         </label>
-                        <label class="flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
-                            <i data-lucide="image-plus" class="w-3.5 h-3.5 text-cyan-400"></i> <span class="text-[9px]">PNG → Меш</span>
+                        <label class="vector-upload-label flex-1 flex justify-center items-center gap-1.5 py-1.5 border border-slate-700/80 hover:border-emerald-500 bg-slate-800/40 hover:bg-slate-800/60 rounded-lg cursor-pointer transition text-slate-300">
+                            <i data-lucide="image-plus" class="w-3.5 h-3.5 text-cyan-400"></i> <span class="text-[9px]">PNG</span>
                             <input type="file" id="vectorPngInput" accept="image/png" class="hidden">
                         </label>
                     </div>
@@ -157,6 +159,18 @@
                     <div class="grid grid-cols-4 gap-1.5 pt-1">
                         <button id="btnAddPencil" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="pen" class="w-3.5 h-3.5"></i> <span class="text-[9px]" data-i18n="pencil">Фигура</span></button>
                         <button id="btnAddPencilLine" class="py-1.5 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/80 rounded-lg text-slate-300 transition flex flex-col items-center gap-1"><i data-lucide="spline" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Линия</span></button>
+                        <button id="btnAddEraser" title="Работает по линиям карандаша и внешним обводкам" class="py-1.5 bg-slate-800/40 hover:bg-rose-500/20 border border-slate-700/80 rounded-lg text-slate-300 hover:text-rose-300 transition flex flex-col items-center gap-1"><i data-lucide="eraser" class="w-3.5 h-3.5"></i> <span class="text-[9px]">Ластик</span></button>
+                    </div>
+                    <details id="mapPresetsPanel" class="rounded-xl border border-slate-700/50 bg-slate-950/40 p-2 mt-2">
+                        <summary id="mapPresetsTitle" class="cursor-pointer text-xs font-semibold text-emerald-400">Градиент воды</summary>
+                        <div id="mapPresetsControls" class="mt-2 space-y-3 max-h-64 overflow-y-auto"></div>
+                    </details>
+                    <div id="waterAlphaControls" class="rounded-xl border border-slate-700/50 bg-slate-950/40 px-2 py-1.5 mt-2 space-y-1">
+                        <div class="text-[10px] font-semibold text-emerald-400">Прозрачность воды</div>
+                        <div class="flex items-center gap-2">
+                            <input id="waterAlphaRange" type="range" min="0" max="255" step="1" value="255" class="flex-1 accent-emerald-400 h-1.5">
+                            <input id="waterAlphaNum" type="number" min="0" max="255" step="1" value="255" class="w-12 bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400 text-[10px] text-center">
+                        </div>
                     </div>
                 </div>
 
@@ -185,10 +199,14 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" data-i18n-title="size_title" title="1 единица = 1 метр" data-i18n="size">Размер:</span>
+                        <div id="vecScaleTools" class="hidden flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" data-i18n-title="size_title" title="Вводится полный размер объекта в метрах" data-i18n="size">Масштаб:</span>
                             <input type="range" id="vecPropScale" min="1" max="5000" step="1" value="100" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
                             <input type="number" id="vecPropScaleNum" min="1" max="5000" step="1" value="100" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        <div class="flex items-center gap-2 pt-1 border-t border-slate-700/50">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" title="Радиус объекта в метрах">Радиус (м):</span>
+                            <input type="number" id="vecPropSizeMeters" min="0.01" max="100000" step="1" value="20" class="flex-1 min-w-0 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
 
                         <div class="flex items-center gap-2 pt-1 border-t border-slate-700/50">
@@ -209,6 +227,11 @@
                             <input type="range" id="vecPropAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer ml-1" data-i18n-title="opacity_title" title="Прозрачность">
                             <input type="number" id="vecPropAlphaNum" min="0" max="1" step="0.05" value="1" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
+
+                        <label class="flex items-center gap-2 pt-1.5 border-t border-slate-700/50 cursor-pointer">
+                            <input type="checkbox" id="vecPropFill" checked class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded">
+                            <span class="text-[10px] font-bold text-slate-300">Заливка фигуры</span>
+                        </label>
 
                         <div id="vecLineTools" class="hidden flex items-center gap-2 pt-1.5 border-t border-slate-700/50">
                             <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0" data-i18n="line_width">Толщина:</span>
@@ -236,6 +259,21 @@
                             <input type="range" id="vecPropStrokeWidth" min="1" max="150" step="1" value="10" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
                             <input type="number" id="vecPropStrokeWidthNum" min="1" max="150" step="1" value="10" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
+                        <div id="vecStrokePatternTools" class="hidden space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 text-[9px] uppercase font-semibold w-12 shrink-0">Обводка:</span>
+                                <select id="vecPropStrokePattern" class="flex-1 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-slate-200 text-[10px] outline-none">
+                                    <option value="solid">Сплошная</option>
+                                    <option value="dashed">Штрихпунктирная</option>
+                                    <option value="dotted">Кружочки</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <label id="vecStrokeDashRow" class="text-[9px] text-slate-400">Штрих<input id="vecStrokeDash" type="number" min="1" max="500" value="10" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
+                                <label id="vecStrokeGapRow" class="text-[9px] text-slate-400">Расстояние<input id="vecStrokeGap" type="number" min="1" max="500" value="6" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
+                                <label id="vecStrokeDotRow" class="text-[9px] text-slate-400 col-span-2">Размер точки<input id="vecStrokeDotSize" type="number" min="1" max="500" value="8" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -257,7 +295,7 @@
                         <span id="vectorLayerCount" class="bg-slate-800/60 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
                     </label>
                     <div id="vectorLayersList" class="space-y-1 flex-1 overflow-y-auto pr-1 pb-2">
-                        <div class="text-[10px] text-slate-500 text-center py-2" data-i18n="no_layers">Слоев нет</div>
+                        <div class="text-[10px] text-slate-500 text-center py-4 bg-slate-900/30 rounded border border-slate-800 border-dashed" data-i18n="no_layers">Слоев нет</div>
                     </div>
                 </div>
             </div>
@@ -358,10 +396,6 @@
             </div>
             
             <div class="p-2.5 shrink-0 space-y-2">
-                <details id="mapPresetsPanel" class="rounded-xl border border-slate-700/50 bg-slate-950/40 p-2">
-                    <summary id="mapPresetsTitle" class="cursor-pointer text-xs font-semibold text-emerald-400">Градиент воды</summary>
-                    <div id="mapPresetsControls" class="mt-2 space-y-3 max-h-64 overflow-y-auto"></div>
-                </details>
                 <div class="flex items-center justify-between">
                     <h2 class="text-xs font-bold text-slate-100 flex items-center gap-1.5"><i data-lucide="palette" class="w-3.5 h-3.5 text-emerald-400"></i> <span data-i18n="rgba_palette">Палитра RGBA</span></h2>
                     <span id="uniqueColorCount" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-full">0 <span data-i18n="colors_count">цветов</span></span>
@@ -380,8 +414,8 @@
                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                    <button id="resetAllColorsBtn" data-i18n-title="reset_colors" title="Сбросить все изменения" class="p-1.5 text-slate-300 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition shrink-0"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
-                </div>
+                        <button id="resetAllColorsBtn" data-i18n-title="reset_colors" title="Сбросить все изменения" class="p-1.5 text-slate-300 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl transition shrink-0"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
+                    </div>
             </div>
             
             <div class="flex-1 min-h-0 flex flex-col px-2 pb-2">
@@ -405,7 +439,7 @@
                 mcl: "Зоны MCL", dm: "Деморган", fz: "ФЗ", opaque_sea: "Непрозрачное море", invert_all: "Инвертировать все",
                 screenshot: "Скриншот", save_json: "Сохранить JSON", open_json: "Открыть JSON", dl_zip: "Скачать ZIP",
                 vec_layers: "Векторные слои", creation: "Создание", text_placeholder: "Текст (Enter - перенос)...", add_text: "Добавить Текст",
-                font_ttf: "Шрифт (.TTF)", custom_svg: "Свой SVG (.svg)", square: "Квадрат", circle: "Круг", triangle: "Треугол.", marker: "Маркер", pencil: "Карандаш", line_width: "Толщина:", line_pattern: "Рисунок:", line_solid: "Сплошная", line_dashed: "Штриховая", line_dotted: "Точечная",
+                font_ttf: "Шрифт", custom_svg: "Свой SVG", square: "Квадрат", circle: "Круг", triangle: "Треугол.", marker: "Маркер", pencil: "Карандаш", line_width: "Толщина:", line_pattern: "Рисунок:", line_solid: "Сплошная", line_dashed: "Штриховая", line_dotted: "Точечная",
                 layer_settings: "Настройки слоя", del_white: "Удал. белое", del_white_title: "Удалить все белые элементы",
                 del_bg: "Удал. фон", del_bg_title: "Удалить самый большой контур", text_label: "Текст:", line_height: "Интервал строк:",
                 size: "Размер:", size_title: "1 единица = 1 метр", rotation: "Поворот:", quality: "Качество:", quality_title: "Влияет на плавность контуров и вес файла",
@@ -424,7 +458,7 @@
                 mcl: "MCL Zones", dm: "Demorgan", fz: "Fort Zancudo", opaque_sea: "Opaque Sea", invert_all: "Invert All",
                 screenshot: "Screenshot", save_json: "Save JSON", open_json: "Open JSON", dl_zip: "Download ZIP",
                 vec_layers: "Vector Layers", creation: "Creation", text_placeholder: "Text (Enter - newline)...", add_text: "Add Text",
-                font_ttf: "Font (.TTF)", custom_svg: "Custom SVG (.svg)", square: "Square", circle: "Circle", triangle: "Triangle", marker: "Marker", pencil: "Pencil", line_width: "Width:", line_pattern: "Pattern:", line_solid: "Solid", line_dashed: "Dashed", line_dotted: "Dotted",
+                font_ttf: "Font", custom_svg: "Custom SVG", square: "Square", circle: "Circle", triangle: "Triangle", marker: "Marker", pencil: "Pencil", line_width: "Width:", line_pattern: "Pattern:", line_solid: "Solid", line_dashed: "Dashed", line_dotted: "Dotted",
                 layer_settings: "Layer Settings", del_white: "Del. White", del_white_title: "Remove all white elements",
                 del_bg: "Del. BG", del_bg_title: "Remove the largest contour", text_label: "Text:", line_height: "Line Height:",
                 size: "Size:", size_title: "1 unit = 1 meter", rotation: "Rotation:", quality: "Quality:", quality_title: "Affects contour smoothness and file size",
@@ -443,7 +477,7 @@
                 mcl: "Зони MCL", dm: "Деморган", fz: "ФЗ", opaque_sea: "Непрозоре море", invert_all: "Інвертувати все",
                 screenshot: "Скріншот", save_json: "Зберегти JSON", open_json: "Відкрити JSON", dl_zip: "Завантажити ZIP",
                 vec_layers: "Векторні шари", creation: "Створення", text_placeholder: "Текст (Enter - перенесення)...", add_text: "Додати Текст",
-                font_ttf: "Шрифт (.TTF)", custom_svg: "Власний SVG (.svg)", square: "Квадрат", circle: "Коло", triangle: "Трикут.", marker: "Маркер", pencil: "Олівець", line_width: "Товщина:", line_pattern: "Рисунок:", line_solid: "Суцільна", line_dashed: "Штрихова", line_dotted: "Точкова",
+                font_ttf: "Шрифт", custom_svg: "Власний SVG", square: "Квадрат", circle: "Коло", triangle: "Трикут.", marker: "Маркер", pencil: "Олівець", line_width: "Товщина:", line_pattern: "Рисунок:", line_solid: "Суцільна", line_dashed: "Штрихова", line_dotted: "Точкова",
                 layer_settings: "Налаштування шару", del_white: "Видал. біле", del_white_title: "Видалити всі білі елементи",
                 del_bg: "Видал. фон", del_bg_title: "Видалити найбільший контур", text_label: "Текст:", line_height: "Інтервал рядків:",
                 size: "Розмір:", size_title: "1 одиниця = 1 метр", rotation: "Поворот:", quality: "Якість:", quality_title: "Впливає на плавність контурів і вагу файлу",

@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stops = document.getElementById('waterGradientStops');
     const preview = document.getElementById('waterGradientPreview');
     const range = document.getElementById('waterGradientRange');
+    const alphaRange = document.getElementById('waterAlphaRange');
+    const alphaNum = document.getElementById('waterAlphaNum');
     const addButton = document.getElementById('addWaterColor');
 
     function refresh() {
@@ -71,11 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
             refresh();
         }
     });
+    if (alphaRange) alphaRange.addEventListener('input', event => window.updateWaterAlpha?.(event.target.value));
+    if (alphaNum) alphaNum.addEventListener('input', event => window.updateWaterAlpha?.(event.target.value));
     document.getElementById('applyWaterGradient').addEventListener('click', () => {
+        if (!window.MapPresets || !window.state) return;
         const changes = window.MapPresets.changesForWater(window.state.colorsMap.values(), window.layerDictionary, colors);
         changes.forEach(change => window.fastUpdateColor(change.key, change.hex, null));
         window.showToast(translate(`Градиент воды применён: ${changes.length} цветов`, `Water gradient applied: ${changes.length} colors`, `Градієнт води застосовано: ${changes.length} кольорів`));
     });
-    window.refreshMapPresets = refresh;
+    window.refreshMapPresets = () => refreshPreview();
     refresh();
 });

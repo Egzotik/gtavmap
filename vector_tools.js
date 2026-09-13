@@ -506,16 +506,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const pt = getMapIntersection(e);
             const now = Date.now();
 
-            const isDoubleClick = vectorState.pencilLastClickTime && (now - vectorState.pencilLastClickTime) < 350;
-            vectorState.addPencilPoint(pt);
-            vectorState.pencilLastClickTime = now;
-
+            const dx = e.clientX - (vectorState.pencilLastClickX || 0);
+            const dy = e.clientY - (vectorState.pencilLastClickY || 0);
+            const sameSpot = (dx * dx + dy * dy) <= 100;
+            const isDoubleClick = vectorState.pencilLastClickTime && (now - vectorState.pencilLastClickTime) < 350 && sameSpot;
             if (isDoubleClick) {
+                vectorState.pencilLastClickTime = 0;
                 if (vectorState.pencilPoints.length >= (vectorState.pencilMode === 'line' ? 2 : 3)) {
                     vectorState.finishPencilShape();
                 }
                 return;
             }
+            vectorState.addPencilPoint(pt);
+            vectorState.pencilLastClickTime = now;
+            vectorState.pencilLastClickX = e.clientX;
+            vectorState.pencilLastClickY = e.clientY;
             return;
         }
 
@@ -1237,7 +1242,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vectorState.pencilPoints.push({ x: pt.x, y: pt.y, z: z });
 
         const dot = new THREE.Mesh(
-            new THREE.CircleGeometry(5, 16),
+            new THREE.CircleGeometry(0.5, 16),
             new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide, depthTest: false })
         );
         dot.position.set(pt.x, pt.y, z);
@@ -1274,7 +1279,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const dot = new THREE.Mesh(
-            new THREE.CircleGeometry(5, 16),
+            new THREE.CircleGeometry(0.5, 16),
             new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false })
         );
         dot.position.set(pt.x, pt.y, z);

@@ -11,19 +11,13 @@ function takeScreenshot() {
     setTimeout(() => {
         if (typeof transformControl !== 'undefined' && transformControl.object) transformControl.detach();
 
-        // ОТКЛЮЧАЕМ ТЕСТ ГЛУБИНЫ ДЛЯ ВЕКТОРОВ, ЧТОБЫ ОНИ НЕ ПРОПАДАЛИ НА СКРИНШОТЕ
-        scene.traverse(child => {
-            if (child.isMesh && child.material && (!child.userData || !child.userData.isMapMesh)) {
-                child.material.depthTest = false;
-            }
-        });
-
         const container = document.getElementById('mapCanvas').parentElement;
         const oldWidth = container.clientWidth;
         const oldHeight = container.clientHeight;
 
         const oldPos = camera.position.clone();
         const oldRot = camera.rotation.clone();
+        const oldUp = camera.up.clone();
         const oldAspect = camera.aspect;
         const oldNear = camera.near; 
         const oldFar = camera.far;   
@@ -47,24 +41,27 @@ function takeScreenshot() {
             mapMinZ = -1000;
         }
 
-        camera.rotation.set(0, 0, 0);
+        const renderCamera = camera.isOrthographicCamera
+            ? new THREE.OrthographicCamera(-mapW / 2, mapW / 2, mapH / 2, -mapH / 2, 10, (mapMaxZ - mapMinZ) + 10000)
+            : camera;
 
-        if (camera.isOrthographicCamera) {
-            camera.left = -mapW / 2; camera.right = mapW / 2;
-            camera.top = mapH / 2; camera.bottom = -mapH / 2;
-            camera.zoom = 1;
-            camera.position.set(mapCenterX, mapCenterY, mapMaxZ + 5000);
-            camera.near = 10; camera.far = (mapMaxZ - mapMinZ) + 10000;
+        renderCamera.rotation.set(0, 0, 0);
+
+        if (renderCamera.isOrthographicCamera) {
+            renderCamera.position.set(mapCenterX, mapCenterY, mapMaxZ + 5000);
+            renderCamera.up.set(0, 1, 0);
+            renderCamera.lookAt(mapCenterX, mapCenterY, 0);
+            renderCamera.zoom = 1;
         } else {
-            camera.aspect = w / h;
-            const fov = camera.fov * (Math.PI / 180);
+            renderCamera.aspect = w / h;
+            const fov = renderCamera.fov * (Math.PI / 180);
             const distH = Math.abs((mapH / 2) / Math.tan(fov / 2));
             const camZ = distH + mapMaxZ;
-            camera.position.set(mapCenterX, mapCenterY, camZ);
-            camera.near = Math.max(10, camZ - mapMaxZ - 1000); 
-            camera.far = camZ - mapMinZ + 5000;
+            renderCamera.position.set(mapCenterX, mapCenterY, camZ);
+            renderCamera.near = Math.max(10, camZ - mapMaxZ - 1000); 
+            renderCamera.far = camZ - mapMinZ + 5000;
         }
-        camera.updateProjectionMatrix();
+        renderCamera.updateProjectionMatrix();
 
         const maxTile = 2048;
         const cols = Math.ceil(w / maxTile);
@@ -84,21 +81,22 @@ function takeScreenshot() {
                 const tileH = Math.min(maxTile, h - row * maxTile);
 
                 renderer.setSize(tileW, tileH);
-                camera.setViewOffset(w, h, col * maxTile, row * maxTile, tileW, tileH);
+                renderCamera.setViewOffset(w, h, col * maxTile, row * maxTile, tileW, tileH);
                 
                 renderer.clear(true, true, true);
-                renderer.render(scene, camera);
+                renderer.render(scene, renderCamera);
 
                 ctx.drawImage(renderer.domElement, 0, 0, tileW, tileH, col * maxTile, row * maxTile, tileW, tileH);
             }
         }
 
-        camera.clearViewOffset();
+        renderCamera.clearViewOffset();
         renderer.setPixelRatio(originalPixelRatio);
         renderer.setSize(oldWidth, oldHeight);
         
         camera.position.copy(oldPos);
         camera.rotation.copy(oldRot);
+        camera.up.copy(oldUp);
         camera.near = oldNear; camera.far = oldFar;
         camera.aspect = oldAspect;
         camera.updateProjectionMatrix();
@@ -106,13 +104,6 @@ function takeScreenshot() {
         scene.background = oldBg;
         renderer.setClearColor(oldClearColor, oldClearAlpha);
         renderer.render(scene, camera);
-
-        // ВОЗВРАЩАЕМ ТЕСТ ГЛУБИНЫ ОБРАТНО ДЛЯ ВЕКТОРОВ
-        scene.traverse(child => {
-            if (child.isMesh && child.material && (!child.userData || !child.userData.isMapMesh)) {
-                child.material.depthTest = true;
-            }
-        });
 
         canvas2D.toBlob(function(blob) {
             if (!blob) {

@@ -75,7 +75,7 @@
     function mergeYddGeometry(baseVertices, baseIndices, addedVertices, addedIndices) {
         if (baseIndices.length % 3 !== 0 || addedIndices.length % 3 !== 0) throw new Error('YDD index count must be divisible by three');
 
-        const vertices = baseVertices.map(formatVertex);
+        const vertices = baseVertices.slice();
         const indices = baseIndices.map(Number);
         const firstIndexByVertex = new Map();
         const canonicalBaseIndex = [];
@@ -211,13 +211,25 @@
         const bounds = calculateBoundsFromVertices(parsedVerts);
         setDirectBounds(geomItem, bounds);
         
-        const rootItem = geomItem.closest('Item');
-        if (rootItem && rootItem !== geomItem) setDirectBounds(rootItem, bounds);
+        let rootItem = null;
+        let ancestor = geomItem.parentElement;
+        while (ancestor) {
+            if (ancestor.nodeName === 'Item') rootItem = ancestor;
+            ancestor = ancestor.parentElement;
+        }
+        if (rootItem) setDirectBounds(rootItem, bounds);
 
         return mergeResult;
     }
 
-    function splitOversizedGeometries(xmlDoc, maxLimit = 60000) {
+    // GTA V limits the primitive count and the vertex index space independently.
+    // The old implementation compared the raw index count to maxLimit, allowing
+    // three times as many triangles as intended.
+    function needsGeometrySplit(vertexCount, indexCount, maxTriangles = 60000, maxVertices = 65535) {
+        return vertexCount > maxVertices || indexCount > 0 && Math.floor(indexCount / 3) > maxTriangles;
+    }
+
+    function splitOversizedGeometries(xmlDoc, maxTriangles = 60000, maxVertices = 65535) {
         const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
 
         const geomItems = Array.from(xmlDoc.querySelectorAll('Geometries > Item'));
@@ -236,7 +248,8 @@
             const iTokens = iData.textContent.trim().split(/\s+/).filter(t => t !== '');
             const indices = iTokens.map(Number);
 
-            if (indices.length < 3 || (vLines.length <= maxLimit && indices.length <= maxLimit)) return;
+            if (indices.length < 3 || !needsGeometrySplit(vLines.length, indices.length, maxTriangles, maxVertices)) return;
+            if (indices.length % 3 !== 0) throw new Error('Cannot split YDD geometry: index count is not divisible by three');
 
             if (indices.some(index => !Number.isInteger(index) || index < 0 || index >= vLines.length)) {
                 throw new Error('Cannot split YDD geometry: index is out of range');
@@ -252,7 +265,7 @@
 
             for (const tri of triangles) {
                 const newVertCount = tri.filter(idx => !current.usedVerts.has(idx)).length;
-                if ((current.usedVerts.size + newVertCount > maxLimit) || ((current.tris.length + 1) * 3 > maxLimit)) {
+                if ((current.usedVerts.size + newVertCount > maxVertices) || (current.tris.length + 1 > maxTriangles)) {
                     if (current.tris.length > 0) chunks.push(current);
                     current = { usedVerts: new Set(), tris: [] };
                 }
@@ -314,12 +327,53 @@
         return splitCount > 0;
     }
 
+    function validateYddGeometry(xmlDoc) {
+        const errors = [];
+        const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
+
+        Array.from(xmlDoc.querySelectorAll('Geometries > Item')).forEach((geomItem, geomIndex) => {
+            const vb = getDirectChild(geomItem, 'VertexBuffer');
+            const ib = getDirectChild(geomItem, 'IndexBuffer');
+            if (!vb || !ib) {
+                errors.push(`geometry #${geomIndex}: missing VertexBuffer/IndexBuffer`);
+                return;
+            }
+            const vData = getDirectChild(vb, 'Data2') || getDirectChild(vb, 'Data');
+            const iData = getDirectChild(ib, 'Data2') || getDirectChild(ib, 'Data');
+            if (!vData || !iData) {
+                errors.push(`geometry #${geomIndex}: missing vertex/index Data`);
+                return;
+            }
+            const vLines = vData.textContent.split('\n').filter(line => line.trim().split(/\s+/).filter(Boolean).length >= 7);
+            const iTokens = iData.textContent.trim().split(/\s+/).filter(t => t !== '');
+            if (iTokens.length === 0 || iTokens.length % 3 !== 0) {
+                errors.push(`geometry #${geomIndex}: index count ${iTokens.length} is not a positive multiple of three`);
+                return;
+            }
+            const indices = iTokens.map(Number);
+            const badIndex = indices.findIndex(index => !Number.isInteger(index) || index < 0 || index >= vLines.length);
+            if (badIndex !== -1) {
+                errors.push(`geometry #${geomIndex}: index ${iTokens[badIndex]} out of range (0..${vLines.length - 1})`);
+                return;
+            }
+            const badVertex = vLines.findIndex(line => {
+                const p = line.trim().split(/\s+/).filter(Boolean);
+                return p.slice(0, 3).some(value => !Number.isFinite(Number(value)));
+            });
+            if (badVertex !== -1) errors.push(`geometry #${geomIndex}: vertex #${badVertex} has a non-numeric coordinate`);
+        });
+
+        return errors;
+    }
+
     return {
         clipTriangleToCell,
         mergeYddGeometry,
         calculateBoundsFromVertices,
         setDirectBounds,
         applyYddGeometryMerge,
-        splitOversizedGeometries
+        needsGeometrySplit,
+        splitOversizedGeometries,
+        validateYddGeometry
     };
 });
