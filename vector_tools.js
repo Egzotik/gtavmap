@@ -845,6 +845,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.updateVectorsOrder = updateVectorsOrder;
 
+    function pencilStrokeFactor(obj, mesh) {
+        if (!obj || !obj.userData.isPencil || obj.userData.isPencilLine) return 1;
+        const geo = mesh && mesh.geometry;
+        if (!geo) return 1;
+        if (!geo.boundingBox) geo.computeBoundingBox();
+        const s = geo.boundingBox.getSize(new THREE.Vector3());
+        const m = Math.max(s.x, s.y);
+        return m > 1e-9 ? m / 10 : 1;
+    }
+
     function generateStrokeGeometry(shapesData, strokeWidth, quality, pattern, dashLen, gapLen, dotSize, lineCap) {
         if (!shapesData || shapesData.length === 0) return null;
         let strokeGeometries = [];
@@ -1050,6 +1060,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const isPencilLine = Boolean(obj.userData.isPencilLine);
             if (lineTools) lineTools.classList.toggle('hidden', !isPencilLine);
             if (linePatternTools) linePatternTools.classList.toggle('hidden', !isPencilLine);
+            document.getElementById('vecQualityTools')?.classList.toggle('hidden', Boolean(obj.userData.isPencil));
             if (isPencilLine && firstMesh) {
                 const lineWidth = firstMesh.geometry.userData.lineWidth || obj.userData.lineWidth || 2;
                 const linePattern = firstMesh.geometry.userData.linePattern || obj.userData.linePattern || 'solid';
@@ -1103,6 +1114,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('vecLineTools')?.classList.add('hidden');
             document.getElementById('vecLinePatternTools')?.classList.add('hidden');
             document.getElementById('vecStrokePatternTools')?.classList.add('hidden');
+            document.getElementById('vecQualityTools')?.classList.remove('hidden');
         }
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -1352,7 +1364,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (useStroke && mesh.geometry.userData && mesh.geometry.userData.shapesData) {
                 if (!strokeMesh || strokeMesh.userData.strokeWidth !== strokeWidth || strokeMesh.userData.strokePattern !== strokePattern || strokeMesh.userData.strokeDash !== strokeDash || strokeMesh.userData.strokeGap !== strokeGap || strokeMesh.userData.strokeDot !== strokeDot || strokeMesh.userData.strokeCap !== strokeCap || forceRebuildStroke) {
-                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1, qualityVal, strokePattern, strokeDash * 0.1, strokeGap * 0.1, strokeDot * 0.1, strokeCap);
+                    const pScale = pencilStrokeFactor(obj, mesh);
+                    const strokeGeo = generateStrokeGeometry(mesh.geometry.userData.shapesData, strokeWidth * 0.1 * pScale, qualityVal, strokePattern, strokeDash * 0.1 * pScale, strokeGap * 0.1 * pScale, strokeDot * 0.1 * pScale, strokeCap);
                     if (strokeGeo) {
                         if (!strokeMesh) {
                             strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: strokeHex, depthWrite: true, alphaTest: 0.01 }));
@@ -1717,7 +1730,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const u = strokeMesh.userData;
         const pi = Math.max(0, primaries.indexOf(parent));
         const holes = (obj.userData.strokeHoles && obj.userData.strokeHoles[String(pi)]) || [];
-        let g = generateStrokeGeometry(parent.geometry.userData.shapesData, (u.strokeWidth || 10) * 0.1, u.quality || parent.userData.quality || 12, u.strokePattern || 'solid', (u.strokeDash ?? 10) * 0.1, (u.strokeGap ?? 6) * 0.1, (u.strokeDot ?? 8) * 0.1, u.strokeCap || 'round');
+        const pScale = pencilStrokeFactor(obj, parent);
+        let g = generateStrokeGeometry(parent.geometry.userData.shapesData, (u.strokeWidth || 10) * 0.1 * pScale, u.quality || parent.userData.quality || 12, u.strokePattern || 'solid', (u.strokeDash ?? 10) * 0.1 * pScale, (u.strokeGap ?? 6) * 0.1 * pScale, (u.strokeDot ?? 8) * 0.1 * pScale, u.strokeCap || 'round');
         if (g) {
             g.translate(parent.geometry.userData.tX || 0, parent.geometry.userData.tY || 0, 0);
             g = applyStrokeHoles(g, holes);
@@ -2585,7 +2599,8 @@ document.addEventListener("DOMContentLoaded", () => {
             getMeshes(wrapper, false).forEach(firstMesh => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
                 firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
-                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, data.strokeWidth * 0.1, firstMesh.userData.quality || 12, data.strokePattern || 'solid', (data.strokeDash ?? 10) * 0.1, (data.strokeGap ?? 6) * 0.1, (data.strokeDot ?? 8) * 0.1, data.strokeCap || 'round');
+                const pScale = pencilStrokeFactor(wrapper, firstMesh);
+                const strokeGeo = generateStrokeGeometry(firstMesh.geometry.userData.shapesData, (data.strokeWidth * 0.1) * pScale, firstMesh.userData.quality || 12, data.strokePattern || 'solid', ((data.strokeDash ?? 10) * 0.1) * pScale, ((data.strokeGap ?? 6) * 0.1) * pScale, ((data.strokeDot ?? 8) * 0.1) * pScale, data.strokeCap || 'round');
                 if (strokeGeo) {
                     const strokeUseAlpha = data.strokeUseAlpha ?? true;
                     const restoredOpacity = strokeUseAlpha ? (data.opacity ?? 1) : 1;
