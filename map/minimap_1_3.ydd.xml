@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <DrawableDictionary>
   <Item>
-    <Name>supertile_fore_1_3_tile_1_0</Name>
+    <Name>supertile_back_1_3</Name>
     <BoundingSphereCenter x="-2671.499" y="3142.0005" z="0.250005" />
     <BoundingSphereRadius value="868.10077" />
     <BoundingBoxMin x="-3192.999" y="2448.0" z="0.0" />

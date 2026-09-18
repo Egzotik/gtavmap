@@ -3221,7 +3221,7 @@
     </DrawableModelsHigh>
   </Item>
   <Item>
-    <Name>supertile_fore_6_1_tile_1_0</Name>
+    <Name>supertile_back_6_1</Name>
     <BoundingSphereCenter x="3127.5583" y="5918.0" z="0.25" />
     <BoundingSphereRadius value="902.89" />
     <BoundingBoxMin x="2549.9998" y="5223.9995" z="0.0" />

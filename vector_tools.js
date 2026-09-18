@@ -97,7 +97,9 @@ function clipPolygon(poly, edgeStart, edgeEnd, reference) {
     if (poly.length === 0) return [];
     const side = (point) => (edgeEnd.x - edgeStart.x) * (point.y - edgeStart.y) - (edgeEnd.y - edgeStart.y) * (point.x - edgeStart.x);
     const referenceSide = side(reference);
-    if (Math.abs(referenceSide) < 1e-8) return poly;
+    // Вырожденное ребро: в закрытом виде возвращаем ПУСТО (иначе наружу
+    // протекал бы необрезанный полигон — гигантские прямоугольники поверх карты).
+    if (Math.abs(referenceSide) < 1e-8) return [];
     const inside = point => side(point) * referenceSide >= -1e-8;
     const intersection = (start, end) => {
         const startSide = side(start), endSide = side(end);
@@ -417,12 +419,18 @@ function rebuildPseudoTransparency(wrapper) {
         let sourceBaseZ = -Infinity;
         sourceTriangles.forEach(triangle => triangle.forEach(vertex => { if (vertex.z > sourceBaseZ) sourceBaseZ = vertex.z; }));
         sourceBaseZ += 0.1;
+        // Порядок фигуры в стеке (0 — верхняя): верхняя выигрывает пересечения
+        // детерминированно — и в превью, и в игре. Без этого совпадающие Z
+        // дают рваные перекрытия cutout-треугольников друг другом.
+        const stackLen = (vectorState && vectorState.objects) ? vectorState.objects.length : 1;
+        const stackIdx = (vectorState && vectorState.objects) ? vectorState.objects.indexOf(wrapper) : 0;
+        const orderFrac = stackLen > 1 ? (stackLen - 1 - Math.max(0, stackIdx)) / (stackLen - 1) : 1;
         sourceTriangles.forEach(figure => {
             const minX = Math.min(figure[0].x, figure[1].x, figure[2].x);
             const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
             const minY = Math.min(figure[0].y, figure[1].y, figure[2].y);
             const maxY = Math.max(figure[0].y, figure[1].y, figure[2].y);
-            if (Math.abs(triArea2(figure[0], figure[1], figure[2])) < 1e-9) return;
+            if (Math.abs(triArea2(figure[0], figure[1], figure[2])) < 1e-6) return;
             queryMapTriangles(mapCache, minX, minY, maxX, maxY, map => {
             if (map.maxX < minX || map.minX > maxX || map.maxY < minY || map.minY > maxY) return;
             let polygon = [{ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }];
@@ -449,9 +457,12 @@ function rebuildPseudoTransparency(wrapper) {
                     const mapColor = [pr[0] * weights[0] + pr[1] * weights[1] + pr[2] * weights[2], pg[0] * weights[0] + pg[1] * weights[1] + pg[2] * weights[2], pb[0] * weights[0] + pb[1] * weights[1] + pb[2] * weights[2]];
                     const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
                     const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
-                    const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + map.zLayer * 0.05 + sourceLayerOffset);
+                    // Порядок как в map/: sea (низ) → back → 0_0 (верх).
+                    // Шаг 0.5: back больше не выпирает и не z-fights с соседями.
+                    const kindZ = map.zLayer <= 0 ? 0 : (map.zLayer === 1 ? 1 : 2);
+                    const worldPoint = new THREE.Vector3(point.x, point.y, sourceBaseZ + kindZ * 0.5 + sourceLayerOffset + orderFrac * 0.05);
                     const localPoint = wrapper.worldToLocal(worldPoint);
-                    const bucket = outputForLayer(map.zLayer);
+                    const bucket = outputForLayer(kindZ);
                     bucket.positions.push(localPoint.x, localPoint.y, localPoint.z);
                     bucket.colors.push(color[0], color[1], color[2]);
                 });
@@ -471,7 +482,7 @@ function rebuildPseudoTransparency(wrapper) {
                 cutout.name = 'mapCutout';
                 cutout.userData.isPseudoTransparency = true;
                 cutout.userData.cutoutLayer = zLayer;
-                cutout.renderOrder = 990 + Math.min(zLayer, 90) * 0.01;
+                cutout.renderOrder = 990 + zLayer * 0.005 + orderFrac * 0.004;
                 wrapper.add(cutout);
             });
             sourceMesh.visible = false;
@@ -2609,7 +2620,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Порядок в игре: 0_0 → 1_0 → 2_0 → 0_1 → 1_1 → 2_1 → 0_2 → 1_2 → 2_2.
         const TILE_LAYER_TEXT = 'tile_1_1';    // текст лицом вверх, без подложки
         const TILE_LAYER_LABELS = 'tile_0_1';  // метки (игровые зоны)
-        const TILE_LAYER_MCL = 'tile_1_0';     // MCL/FZ/DM, псевдо-прозрачность и прозрачные фигуры
+        const TILE_LAYER_MCL = 'tile_2_1';     // MCL/FZ/DM, псевдо-прозрачность и прозрачные фигуры (tile_1_0 занят картой!)
         const TILE_LAYER_FIGURES = 'tile_2_0'; // обычные фигуры и их обводки
 
         let figureTriangles = [];
@@ -2708,7 +2719,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // MCL/FZ/DM из кастомных файлов — в слой tile_1_0.
+        // MCL/FZ/DM из кастомных файлов — в слой tile_2_1.
         if (customFilesArray && customFilesArray.length > 0) {
             customFilesArray.forEach(file => {
                 if (!file.meshesData) return;
@@ -2745,7 +2756,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Раскладка по слоям: текст 1_1, метки 0_1, MCL/псевдо 1_0, фигуры 2_0.
+        // Раскладка по слоям: текст 1_1, метки 0_1, MCL/псевдо 2_1, фигуры 2_0.
         // Повторный экспорт дописывает новое через мёрдж, legacy tile_2_2 не трогаем.
         processAndInject(mclTriangles, TILE_LAYER_MCL);
         processAndInject(labelTriangles, TILE_LAYER_LABELS);
@@ -2761,7 +2772,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // window.BLENDER_FILE_ITEM_ORDER; неизвестные слои едут в конец,
     // файлы без эталона — по запасному правилу (управляемые первыми).
     // Остальные Items сохраняют исходный относительный порядок.
-    const MANAGED_TILE_FIRST_ORDER = ['tile_1_0', 'tile_2_0', 'tile_0_1', 'tile_1_1'];
+    const MANAGED_TILE_FIRST_ORDER = ['tile_2_0', 'tile_0_1', 'tile_1_1', 'tile_2_1'];
     function moveManagedTilesFirst(stateFilesArray) {
         stateFilesArray.forEach(file => {
             if (!/^minimap_/i.test(file.name || '')) return;
