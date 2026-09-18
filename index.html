@@ -62,8 +62,8 @@
             #sidebarPanel { left: 0.5rem; right: 0.5rem; width: auto; top: 0.5rem; bottom: 4.5rem; }
             header details div.absolute { max-width: calc(100vw - 1rem); }
             #gameZonesDropdown > div { left: auto; right: 0; max-width: calc(100vw - 1rem); }
-            #vectorPropsPanel { max-width: 100%; }
-            #vectorPropsPanel input[type="number"] { min-width: 0; }
+            #markerPropsPanel, #vectorPropsPanel { max-width: 100%; }
+            #vectorPropsPanel input[type="number"], #markerPropsPanel input[type="number"] { min-width: 0; }
             #customPointsInput { max-width: 100%; }
             body { overflow-x: clip; }
             #vertexStats { top: 0.5rem; font-size: 9px; }
@@ -319,6 +319,50 @@
                                 <label id="vecStrokeDotRow" class="text-[9px] text-slate-400 col-span-2"><span data-i18n="stroke_dot">Размер точки</span><input id="vecStrokeDotSize" type="number" min="1" max="500" value="8" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div id="markerPropsPanel" class="space-y-2 pt-3 border-t border-slate-700/50 hidden mt-3">
+                    <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider">
+                        <span class="flex items-center gap-1.5"><i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400"></i> <span data-i18n="marker_settings">Настройки меток</span></span>
+                        <button id="markerPropsClose" type="button" class="text-slate-500 hover:text-rose-400 transition text-sm leading-none px-1">×</button>
+                    </label>
+                    <div id="markerPropsName" class="text-[11px] font-bold text-emerald-300 truncate"></div>
+                    <div id="markerSvgNote" class="hidden text-[9px] text-amber-300/80" data-i18n="marker_svg_note">Стоит SVG-иконка — цвета не действуют</div>
+                    <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2 shadow-inner">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="markerPropFill" checked class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded">
+                            <span class="text-[10px] font-bold text-slate-300" data-i18n="marker_fill">Заливка метки</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_color">Цвет:</span>
+                            <input type="color" id="markerPropColor" value="#ffffff" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_outline">Обводка:</span>
+                            <input type="color" id="markerPropOutline" value="#ffffff" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
+                            <select id="markerPropOutlineStyle" class="flex-1 min-w-0 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-slate-200 text-[10px] outline-none">
+                                <option value="solid" data-i18n="line_solid">Сплошная</option>
+                                <option value="dashed" data-i18n="line_dashed">Штриховая</option>
+                                <option value="none" data-i18n="marker_none">Нет</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_gap">Размах:</span>
+                            <input type="range" id="markerPropGap" min="0" max="100" step="1" value="0" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="markerPropGapNum" min="0" max="100" step="1" value="0" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_width">Толщина:</span>
+                            <input type="range" id="markerPropWidth" min="5" max="100" step="1" value="29" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="markerPropWidthNum" min="5" max="100" step="1" value="29" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_icon">Иконка:</span>
+                            <label id="markerPropIconLabel" class="flex-1 min-w-0 cursor-pointer text-center py-1 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition truncate"><span data-i18n="marker_icon_upload">Загрузить SVG</span><input type="file" id="markerPropIconFile" accept=".svg,image/svg+xml" class="hidden"></label>
+                            <button id="markerPropIconReset" type="button" class="hidden shrink-0 px-1.5 py-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 transition text-[11px] leading-none" title="Убрать иконку">×</button>
+                        </div>
+                        <button id="markerPropReset" type="button" class="w-full py-1 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition" data-i18n="marker_reset">Сбросить</button>
                     </div>
                 </div>
 
