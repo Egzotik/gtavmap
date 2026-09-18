@@ -784,6 +784,21 @@ document.addEventListener("DOMContentLoaded", () => {
         if (transformControl.axis !== null) return; 
         if (e.button !== 0) return; 
 
+        // Выбор только по клику: панорама (drag) панели не закрывает.
+        const downX = e.clientX, downY = e.clientY;
+        if (vectorState.pendingMapClick) window.removeEventListener('pointerup', vectorState.pendingMapClick);
+        vectorState.pendingMapClick = function onMapPointerUp(up) {
+            vectorState.pendingMapClick = null;
+            const dx = up.clientX - downX, dy = up.clientY - downY;
+            if (dx * dx + dy * dy > 36) return;
+            handleMapClick(up);
+        };
+        window.addEventListener('pointerup', vectorState.pendingMapClick, { once: true });
+        return;
+    });
+
+    // Клик по карте: выбор фигуры слоя или зоны меток.
+    function handleMapClick(e) {
         getMapIntersection(e);
 
         let allMeshes = [];
@@ -807,7 +822,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (zoneId) window.selectGameZone(zoneId);
             }
         }
-    });
+    }
 
     window.addEventListener('pointermove', (e) => {
         if (eraserActive && !isPencilPanning && !(e.buttons & 2)) {
@@ -1056,6 +1071,28 @@ document.addEventListener("DOMContentLoaded", () => {
                             const chain = [];
                             for (let s = 0; s <= samples; s++) chain.push(pointAt(d0 + (span * s) / samples));
                             addStroke(chain);
+                        }
+                        return;
+                    }
+
+                    if (strokePattern === 'dashdot') {
+                        // Штрихпунктир: штрих + промежуток + точка + промежуток.
+                        const period = dashLength + gapLength + dotDiameter + gapLength;
+                        const n = Math.max(4, Math.round(totalLen / period));
+                        const scaledPeriod = totalLen / n;
+                        const kDash = dashLength / period, kGap = gapLength / period, kDot = dotDiameter / period;
+                        const dotR = Math.max(0.01, dotDiameter / 2);
+                        for (let k = 0; k < n; k++) {
+                            const base = k * scaledPeriod;
+                            const span = scaledPeriod * kDash;
+                            const samples = Math.max(2, Math.ceil(span / (span / 8)));
+                            const chain = [];
+                            for (let s = 0; s <= samples; s++) chain.push(pointAt(base + (span * s) / samples));
+                            addStroke(chain);
+                            const p = pointAt(base + scaledPeriod * (kDash + kGap) + (scaledPeriod * kDot) / 2);
+                            const dot = new THREE.CircleGeometry(dotR, 12);
+                            dot.translate(p.x + offsetX, p.y + offsetY, 0);
+                            strokeGeometries.push(dot);
                         }
                         return;
                     }
@@ -1376,14 +1413,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const pattern = document.getElementById('vecPropStrokePattern')?.value || 'solid';
         const hasStroke = document.getElementById('vecPropStroke')?.checked;
         document.getElementById('vecStrokePatternTools')?.classList.toggle('hidden', !hasStroke);
-        document.getElementById('vecStrokeDashRow')?.classList.toggle('hidden', pattern !== 'dashed');
+        document.getElementById('vecStrokeDashRow')?.classList.toggle('hidden', pattern !== 'dashed' && pattern !== 'dashdot');
         document.getElementById('vecStrokeGapRow')?.classList.toggle('hidden', pattern === 'solid');
-        document.getElementById('vecStrokeDotRow')?.classList.toggle('hidden', pattern !== 'dotted');
+        document.getElementById('vecStrokeDotRow')?.classList.toggle('hidden', pattern !== 'dotted' && pattern !== 'dashdot');
         const ao = vectorState.activeObj;
         const isCircle = !!(ao && ao.userData.icon === 'circle' && !ao.userData.isPencil && !ao.userData.isSvg);
+        const isConverted = !!(ao && ao.userData.convertedFrom);
         document.getElementById('vecPropStrokeWidthWrap')?.classList.toggle('hidden', isCircle);
         document.getElementById('vecCircleOutlineTools')?.classList.toggle('hidden', !hasStroke || !isCircle);
-        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !isCircle);
+        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !(isCircle || isConverted));
         if (isCircle) {
             document.getElementById('vecStrokeDashRow')?.classList.add('hidden');
             document.getElementById('vecStrokeGapRow')?.classList.add('hidden');
@@ -1406,7 +1444,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const strokePatternRaw = document.getElementById('vecPropStrokePattern')?.value || 'solid';
         const activeForPattern = vectorState.activeObj;
         const isCircleFig = !!(activeForPattern && activeForPattern.userData.icon === 'circle' && !activeForPattern.userData.isPencil && !activeForPattern.userData.isSvg);
-        const strokePattern = isCircleFig ? strokePatternRaw : 'solid';
+        const isConvertedFig = !!(activeForPattern && activeForPattern.userData.convertedFrom);
+        const strokePattern = (isCircleFig || isConvertedFig) ? strokePatternRaw : 'solid';
         const strokeCap = document.getElementById('vecPropStrokeCap')?.value || 'round';
         const strokeDash = parseFloat(document.getElementById('vecStrokeDash')?.value) || 10;
         const strokeGap = parseFloat(document.getElementById('vecStrokeGap')?.value) || 6;
@@ -3074,7 +3113,8 @@ document.addEventListener("DOMContentLoaded", () => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
                 firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
                 const loadIsCircle = wrapper.userData.icon === 'circle' && !wrapper.userData.isPencil && !wrapper.userData.isSvg && !firstMesh.userData.isText && window.GeometryUtils;
-                const effLoadPattern = loadIsCircle ? (data.strokePattern || 'solid') : 'solid';
+                const loadIsConverted = !!wrapper.userData.convertedFrom;
+                const effLoadPattern = (loadIsCircle || loadIsConverted) ? (data.strokePattern || 'solid') : 'solid';
                 if (loadIsCircle) {
                     const coLoad = normalizeCircleOutline(wrapper.userData.circleOutline);
                     const built = buildCircleStroke(firstMesh, effLoadPattern, coLoad.gap, coLoad.width, firstMesh.userData.quality || 12, data.strokeCap || 'round', data.strokeColor);

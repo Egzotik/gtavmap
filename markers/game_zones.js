@@ -226,7 +226,7 @@
         const out = { color: defColor || '#ffffff', outline: '#ffffff', outlineStyle: 'solid', gap: 0, width: 0.29, fill: true };
         if (typeof src.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.color)) out.color = src.color;
         if (typeof src.outline === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.outline)) out.outline = src.outline;
-        if (src.outlineStyle === 'dashed' || src.outlineStyle === 'none') out.outlineStyle = src.outlineStyle;
+        if (src.outlineStyle === 'dashed' || src.outlineStyle === 'dashdot' || src.outlineStyle === 'none') out.outlineStyle = src.outlineStyle;
         if (Number.isFinite(src.gap)) out.gap = Math.min(1, Math.max(0, src.gap));
         if (Number.isFinite(src.width)) out.width = Math.min(1.5, Math.max(0.05, src.width));
         if (src.fill === false) out.fill = false;
@@ -270,6 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let selectedZoneId = null;
 
+    // Зоны-полигоны (зелёные/красные/собирательство/клады): только настройки слоя.
+    // Остальные метки (контрабанда/мусорки/телефоны/свои): только настройки меток.
+    const LAYER_ONLY_ZONES = ['zz', 'red', 'gathering', 'treasure'];
+
     window.selectGameZone = function(id) {
         selectedZoneId = id;
         renderMarkerPanel();
@@ -287,7 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = document.getElementById('markerPropsPanel');
         if (!panel) return;
         const def = selectedZoneDef();
-        if (!def) { panel.classList.add('hidden'); return; }
+        // Зоны-полигоны настраиваются только через слой фигуры —
+        // панель меток для них мертва, не показываем.
+        if (!def || LAYER_ONLY_ZONES.includes(def.id)) { panel.classList.add('hidden'); return; }
         panel.classList.remove('hidden');
         const st = state[def.id];
         const ms = markerStyleOf(def);
@@ -418,6 +424,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 ring.userData.isGameZone = true;
                 group.userData.mats.push(dashMat);
                 group.add(ring);
+            }
+            if (mstyle.outlineStyle === 'dashdot' && hasRing) {
+                // Штрихпунктир: дуги-штрихи линиями + точки кружками.
+                const midR = Math.max(0.5, (ringInnerR + ringOuterR) / 2);
+                const dashLen = Math.max(0.6, widthAbs * 1.4);
+                const gapLen = Math.max(0.4, widthAbs * 0.7);
+                const dotD = Math.max(0.4, widthAbs * 0.9);
+                const period = dashLen + gapLen + dotD + gapLen;
+                const n = Math.max(4, Math.round(2 * Math.PI * midR / period));
+                const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(mstyle.outline), transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+                const dotMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(mstyle.outline), side: THREE.DoubleSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+                group.userData.mats.push(lineMat, dotMat);
+                for (let k = 0; k < n; k++) {
+                    const a0 = (k / n) * Math.PI * 2;
+                    const a1 = a0 + (dashLen / period) * (Math.PI * 2 / n);
+                    const arc = [];
+                    for (let s = 0; s <= 8; s++) {
+                        const a = a0 + (a1 - a0) * (s / 8);
+                        arc.push(new THREE.Vector3(midR * Math.cos(a), midR * Math.sin(a), 0));
+                    }
+                    const dash = new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc), lineMat);
+                    dash.position.set(pt.x, pt.y, 0);
+                    dash.renderOrder = 1002;
+                    dash.userData.isGameZone = true;
+                    group.add(dash);
+                    const amid = a0 + ((dashLen + gapLen + dotD / 2) / period) * (Math.PI * 2 / n);
+                    const dot = new THREE.Mesh(new THREE.CircleGeometry(Math.max(0.05, dotD / 2), 10), dotMat);
+                    dot.position.set(pt.x + midR * Math.cos(amid), pt.y + midR * Math.sin(amid), 0.01);
+                    dot.renderOrder = 1002.1;
+                    dot.userData.isGameZone = true;
+                    group.add(dot);
+                }
             }
             const inner = new THREE.Mesh(new THREE.CircleGeometry(innerR, 20), innerMat);
             inner.position.set(pt.x, pt.y, 0.01);
@@ -627,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const patch = {};
             if (typeof s.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.color)) patch.color = s.color;
             if (typeof s.outline === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.outline)) patch.outline = s.outline;
-            if (s.outlineStyle === 'dashed' || s.outlineStyle === 'none') patch.outlineStyle = s.outlineStyle;
+            if (s.outlineStyle === 'dashed' || s.outlineStyle === 'dashdot' || s.outlineStyle === 'none') patch.outlineStyle = s.outlineStyle;
             if (Number.isFinite(s.gap)) patch.gap = Math.min(1, Math.max(0, s.gap));
             if (Number.isFinite(s.width)) patch.width = Math.min(1.5, Math.max(0.05, s.width));
             if (s.fill === false) patch.fill = false;
