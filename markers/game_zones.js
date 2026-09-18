@@ -811,7 +811,10 @@ document.addEventListener('DOMContentLoaded', () => {
             name.title = t('Настроить метки слоя', 'Configure layer markers', 'Налаштувати мітки шару');
             name.addEventListener('click', (e) => {
                 e.preventDefault();
-                window.selectGameZone(selectedZoneId === def.id ? null : def.id);
+                const next = selectedZoneId === def.id ? null : def.id;
+                window.selectGameZone(next);
+                // Вместо мёртвых настроек меток — настройки слоя фигуры зоны.
+                if (next && window.selectConvertedFigure) window.selectConvertedFigure(next);
             });
             if (selectedZoneId === def.id) row.classList.add('border-emerald-500', 'bg-emerald-500/10');
             row.append(checkbox, dot, name);

@@ -878,6 +878,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.updateVectorsOrder = updateVectorsOrder;
 
+    // Выбрать первую фигуру, конвертированную из зоны меток:
+    // вместо мёртвых «настроек меток» открываются настройки слоя.
+    window.selectConvertedFigure = function(zoneId) {
+        if (!zoneId || !vectorState || !vectorState.objects) return false;
+        const obj = vectorState.objects.find(o => o && o.visible && o.userData && o.userData.convertedFrom === zoneId);
+        if (!obj) return false;
+        selectObject(obj);
+        return true;
+    };
+
     // Скачивание только добавленного (фигуры, текст, метки) одним JSON
     // для переноса между проектами. Загружается той же кнопкой «Открыть JSON».
     window.saveLayersJson = function() {
