@@ -12,6 +12,7 @@
         { id: 'treasure', titles: ['Кладоискатель', 'Treasure hunter', 'Шукач скарбів'], color: '#facc15', icon: 'gem', url: 'markers/treasure.json', figureDefaults: { strokeWidth: 0.4 } },
         { id: 'rubbish', titles: ['Мусорные баки', 'Trash bins', 'Сміттєві баки'], color: '#eab308', icon: 'trash-2', url: 'markers/rubbish_points.json' },
         { id: 'phones', titles: ['Телефоны', 'Phones', 'Телефони'], color: '#34d399', icon: 'phone', url: 'markers/phones.json' },
+        { id: 'airdrop', titles: ['Аирдропы', 'Airdrops', 'Аірдропи'], color: '#6d9aed', icon: 'plane', url: 'markers/airdrop.json', figureDefaults: { strokeWidth: 0.4, strokeColor: '#ffffff' }, overlayOutline: '#ffffff' },
         { id: 'custom', titles: ['Свои метки', 'Custom markers', 'Свої мітки'], color: '#f8fafc', icon: 'map-pin', custom: true, url: null }
     ];
 
@@ -108,6 +109,7 @@
             out.push({
                 name: typeof item.name === 'string' ? item.name : '',
                 color: typeof item.color === 'string' ? item.color : null,
+                zone: typeof item.zone === 'string' ? item.zone : '',
                 points: pts
             });
         });
@@ -192,7 +194,7 @@
             };
             if (settings.strokeWidth != null) {
                 item.hasStroke = true;
-                item.strokeColor = color;
+                item.strokeColor = settings.strokeColor || color;
                 item.strokeWidth = settings.strokeWidth;
                 item.strokePattern = 'solid';
             }
@@ -254,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!container || !window.GameZones) return;
     const t = (ru, en, uk) => window.t ? window.t(ru, en, uk) : ru;
     const state = {};
-    window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null }; });
+    window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null, show: 'both' }; });
 
     function markerStyleOf(def) {
         const st = state[def.id];
@@ -285,6 +287,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return window.GameZones.GAME_ZONES.find(d => d.id === selectedZoneId) || null;
     }
 
+    // Видимые полигоны зоны с учётом переключателя подуровней
+    // (аирдропы: внешняя r300 / внутренняя r150).
+    function visiblePolygons(def) {
+        const st = def && state[def.id];
+        if (!st || !Array.isArray(st.polygons)) return [];
+        if (def.id !== 'airdrop' || !st.show || st.show === 'both') return st.polygons;
+        return st.polygons.filter(p => p && p.zone === st.show);
+    }
+
     function toPanelHex(c) { try { return '#' + new THREE.Color(c).getHexString(); } catch (e) { return '#ffffff'; } }
 
     function renderMarkerPanel() {
@@ -299,28 +310,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const ms = markerStyleOf(def);
         const nameEl = document.getElementById('markerPropsName');
         if (nameEl) nameEl.textContent = labelOf(def);
+        const airdropRow = document.getElementById('markerAirdropRow');
+        const airdropShow = document.getElementById('markerAirdropShow');
+        const isAirdrop = def.id === 'airdrop';
+        if (airdropRow) airdropRow.classList.toggle('hidden', !isAirdrop);
+        if (airdropRow) airdropRow.classList.toggle('flex', isAirdrop);
+        if (airdropShow) airdropShow.value = (st && st.show) || 'both';
         const colorEl = document.getElementById('markerPropColor');
         const outlineEl = document.getElementById('markerPropOutline');
         const styleEl = document.getElementById('markerPropOutlineStyle');
         const noteEl = document.getElementById('markerSvgNote');
-        const locked = !!(st && st.customIcon);
-        if (colorEl) { colorEl.value = toPanelHex(ms.color); colorEl.disabled = locked; }
+        const lockedInner = !!(st && st.customIcon);
+        if (colorEl) { colorEl.value = toPanelHex(ms.color); colorEl.disabled = lockedInner; }
         const fillEl = document.getElementById('markerPropFill');
-        if (fillEl) { fillEl.checked = ms.fill !== false; fillEl.disabled = locked; }
-        if (outlineEl) { outlineEl.value = toPanelHex(ms.outline); outlineEl.disabled = locked; }
-        if (styleEl) { styleEl.value = ms.outlineStyle; styleEl.disabled = locked; }
-        if (noteEl) noteEl.classList.toggle('hidden', !locked);
+        if (fillEl) { fillEl.checked = ms.fill !== false; fillEl.disabled = lockedInner; }
+        // Обводка кольца при своей иконке остаётся настраиваемой.
+        if (outlineEl) { outlineEl.value = toPanelHex(ms.outline); outlineEl.disabled = false; }
+        if (styleEl) { styleEl.value = ms.outlineStyle; styleEl.disabled = false; }
+        if (noteEl) noteEl.classList.toggle('hidden', !lockedInner);
         const gapPct = Math.round(ms.gap * 100), widthPct = Math.round(ms.width * 100);
         const gapEl = document.getElementById('markerPropGap');
         const gapNum = document.getElementById('markerPropGapNum');
         const widthEl = document.getElementById('markerPropWidth');
         const widthNum = document.getElementById('markerPropWidthNum');
         const iconReset = document.getElementById('markerPropIconReset');
-        if (gapEl) { gapEl.value = gapPct; gapEl.disabled = locked; }
-        if (gapNum) { gapNum.value = gapPct; gapNum.disabled = locked; }
-        if (widthEl) { widthEl.value = widthPct; widthEl.disabled = locked; }
-        if (widthNum) { widthNum.value = widthPct; widthNum.disabled = locked; }
-        if (iconReset) iconReset.classList.toggle('hidden', !locked);
+        if (gapEl) { gapEl.value = gapPct; gapEl.disabled = false; }
+        if (gapNum) { gapNum.value = gapPct; gapNum.disabled = false; }
+        if (widthEl) { widthEl.value = widthPct; widthEl.disabled = false; }
+        if (widthNum) { widthNum.value = widthPct; widthNum.disabled = false; }
+        if (iconReset) iconReset.classList.toggle('hidden', !lockedInner);
     }
 
     function parseCustomIconShapes(def) {
@@ -385,7 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconParts = (zoneState && zoneState.customIcon) ? parseCustomIconShapes(def) : null;
         const iconMats = [];
         if (iconParts) iconParts.forEach(part => {
-            const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(part.color), side: THREE.DoubleSide, transparent: part.opacity < 1, opacity: part.opacity, depthTest: false, depthWrite: false });
+            // Иконка всегда в transparent-проходе (поверх translucent-заливок зон),
+            // иначе заливка перекрывает её при любом z/renderOrder.
+            const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(part.color), side: THREE.DoubleSide, transparent: true, opacity: part.opacity, depthTest: false, depthWrite: false });
             iconMats.push(mat);
             group.userData.mats.push(mat);
         });
@@ -398,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     mesh.userData.isGameZone = true;
                     group.add(mesh);
                 });
-                return;
+                // Своя иконка не отменяет обводку кольца — рисуем её ниже как обычно.
             }
             const gapAbs = mstyle.gap * markerSize;
             const widthAbs = Math.max(0.2, mstyle.width * markerSize);
@@ -461,12 +481,12 @@ document.addEventListener('DOMContentLoaded', () => {
             inner.position.set(pt.x, pt.y, 0.01);
             inner.renderOrder = 1002.1;
             inner.userData.isGameZone = true;
-            if (mstyle.fill) group.add(inner);
+            if (mstyle.fill && !iconParts) group.add(inner);
         });
         polygons.forEach(poly => {
             const shape = new THREE.Shape(poly.points.map(p => new THREE.Vector2(p.x, p.y)));
             const fillMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(poly.color || def.color), side: THREE.DoubleSide, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false });
-            const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(poly.color || def.color), transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+            const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(def.overlayOutline || poly.color || def.color), transparent: true, opacity: 1, depthTest: false, depthWrite: false });
             group.userData.mats.push(fillMat, lineMat);
             const fill = new THREE.Mesh(new THREE.ShapeGeometry(shape), fillMat);
             fill.position.z = 0;
@@ -504,7 +524,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function setZoneOn(def, checkbox) {
         const st = state[def.id];
         if (!def.url && !def.custom) return;
-        if (st.on) return;
+        if (st.on || st.loading) return;
+        st.loading = true;
+        window.refreshGameZonesList();
         try {
             if (!st.group) {
                 if (def.url) {
@@ -619,12 +641,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return 0;
         }
         const data = await ensureZoneData(def);
-        if (!data || data.polygons.length === 0) return 0;
+        if (!data) return 0;
+        const polys = (def.id === 'airdrop') ? visiblePolygons(def) : data.polygons;
+        if (polys.length === 0) return 0;
         const existing = window.getVectorsForJSON ? window.getVectorsForJSON().filter(d => d.convertedFrom === id).length : 0;
         if (existing > 0) return 0;
             const label = def.titles[window.currentLang === 'en' ? 1 : window.currentLang === 'uk' ? 2 : 0];
             const fd = def.figureDefaults || {};
-            const items = window.GameZones.polygonsToMergedFigures(data.polygons, id, def.color, label, { opacity: fd.opacity ?? 1, strokeWidth: fd.strokeWidth ?? 0.4 });
+            const items = window.GameZones.polygonsToMergedFigures(polys, id, def.color, label, { opacity: fd.opacity ?? 1, strokeWidth: fd.strokeWidth ?? 0.4 });
         if (items.length === 0) return 0;
         await window.loadVectorsFromJSON(items, true);
         if (window.showToast) window.showToast(t('Создано фигур: ' + items.length, 'Created figures: ' + items.length, 'Створено фігур: ' + items.length));
@@ -643,6 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
             markerSize: markerSize,
             icons: icons,
             styles: styles,
+            shows: Object.fromEntries(window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].show && state[d.id].show !== 'both').map(d => [d.id, state[d.id].show])),
             custom: (state.custom && state.custom.customRaw) || []
         };
     };
@@ -657,6 +682,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const icons = saved.icons || {};
         Object.keys(icons).forEach(id => {
             if (state[id] && typeof icons[id] === 'string') state[id].customIcon = icons[id];
+        });
+        const shows = saved.shows || {};
+        Object.keys(shows).forEach(id => {
+            if (state[id] && (shows[id] === 'outer' || shows[id] === 'inner' || shows[id] === 'both')) state[id].show = shows[id];
         });
         const styles = saved.styles || {};
         Object.keys(styles).forEach(id => {
@@ -722,6 +751,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const def = selectedZoneDef(); if (!def) return;
         setMarkerStyle(def, { fill: e.target.checked });
         window.refreshGameZonesList();
+    });
+    // Аирдропы: какие подуровни видны (внешняя r300 / внутренняя r150).
+    document.getElementById('markerAirdropShow')?.addEventListener('change', async (e) => {
+        const def = selectedZoneDef();
+        const st = def && state[def.id];
+        if (!def || !st || def.id !== 'airdrop') return;
+        const v = e.target.value;
+        st.show = (v === 'outer' || v === 'inner') ? v : 'both';
+        e.target.value = st.show;
+        renderMarkerPanel();
+        window.refreshGameZonesList();
+        if (!st.on) return;
+        if (window.deleteConvertedFigures) window.deleteConvertedFigures(def.id);
+        if (window.convertZoneToFigures) await window.convertZoneToFigures(def.id);
+        if (window.setConvertedVisible) window.setConvertedVisible(def.id, true);
+        if (window.refreshVectorLayersList) window.refreshVectorLayersList();
+        if (window.requestSceneRender) window.requestSceneRender();
+        // Удерживаем выбор: иначе снос активной фигуры закрывает левую панель.
+        if (window.selectConvertedFigure) window.selectConvertedFigure(def.id);
     });
     document.getElementById('markerPropIconFile')?.addEventListener('change', (e) => {
         const def = selectedZoneDef(); const st = def && state[def.id];

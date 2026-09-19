@@ -558,7 +558,7 @@ function parseGtaMapTo3D(xmlText, fileName = 'XML') {
             const p = line.trim().split(/\s+/).filter(Boolean);
             if (p.length >= 7) { const x = parseFloat(p[0]), y = parseFloat(p[1]), z = parseFloat(p[2]), r = parseInt(p[3]), g = parseInt(p[4]), b = parseInt(p[5]), a = parseInt(p[6]); if (!isNaN(x) && !isNaN(y) && !isNaN(r)) { positions.push(x, y, z); colors.push(r / 255, g / 255, b / 255, a / 255); globalVertices.push({ x, y, z, r, g, b, a }); originalColorsList.push({ r, g, b, a, z }); } }
         });
-        const indices = []; if (iData) { const iTokens = iData.textContent.trim().split(/\s+/).filter(Boolean); iTokens.forEach(t => { const index = Number(t); if (!Number.isInteger(index) || index < 0 || index >= positions.length / 3) throw new Error(`${fileName}: ${window.t('некорректный индекс вершины', 'invalid vertex index', 'некоректний індекс вершини')}`); indices.push(index); }); if (indices.length % 3 !== 0) throw new Error(`${fileName}: ${window.t('число индексов не кратно трём', 'indices not multiple of 3', 'кількість індексів не кратна трьом')}`); } else { for(let i = 0; i < positions.length / 3; i++) indices.push(i); }
+        const indices = []; if (iData) { const iTokens = iData.textContent.trim().split(/\s+/).filter(Boolean); const rawIdx = []; iTokens.forEach(t => { const index = Number(t); if (!Number.isInteger(index) || index < 0 || index >= positions.length / 3) throw new Error(`${fileName}: ${window.t('некорректный индекс вершины', 'invalid vertex index', 'некоректний індекс вершини')}`); rawIdx.push(index); }); if (rawIdx.length % 3 !== 0) throw new Error(`${fileName}: ${window.t('число индексов не кратно трём', 'indices not multiple of 3', 'кількість індексів не кратна трьом')}`); for (let k = 0; k + 2 < rawIdx.length; k += 3) { const ax = positions[rawIdx[k] * 3], ay = positions[rawIdx[k] * 3 + 1], bx = positions[rawIdx[k + 1] * 3], by = positions[rawIdx[k + 1] * 3 + 1], cx = positions[rawIdx[k + 2] * 3], cy = positions[rawIdx[k + 2] * 3 + 1]; const area2 = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)); if (area2 < 1e-9) continue; indices.push(rawIdx[k], rawIdx[k + 1], rawIdx[k + 2]); } } else { for(let i = 0; i < positions.length / 3; i++) indices.push(i); }
         if (positions.length > 0) meshesData.push({ positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices), originalColorsList: originalColorsList, layerName: layerName });
     });
     return { meshesData, globalVertices };
@@ -635,13 +635,6 @@ function renderPalette(filterText = '') {
 }
 
 let pseudoTransparencyFrame = null;
-function schedulePseudoTransparencyRebuild() {
-    if (pseudoTransparencyFrame !== null || !window.rebuildVectorPseudoTransparency) return;
-    pseudoTransparencyFrame = requestAnimationFrame(() => {
-        pseudoTransparencyFrame = null;
-        window.rebuildVectorPseudoTransparency();
-    });
-}
 
 window.fastUpdateColor = function(key, newHex, newAlpha) {
     const item = state.colorsMap.get(key); if (!item) return;
@@ -650,7 +643,7 @@ window.fastUpdateColor = function(key, newHex, newAlpha) {
     const pointers = fastColorPointers.get(key); if (pointers) { const rNorm = item.currentR / 255, gNorm = item.currentG / 255, bNorm = item.currentB / 255, aNorm = item.currentA / 255; for (let p = 0; p < pointers.length; p++) { const ptr = pointers[p]; const array = ptr.attribute.array; const indices = ptr.indices; for (let i = 0; i < indices.length; i++) { const idx = indices[i]; array[idx] = rNorm; array[idx + 1] = gNorm; array[idx + 2] = bNorm; array[idx + 3] = aNorm; } ptr.attribute.needsUpdate = true; } }
     const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_'); const isModified = item.currentHex !== item.origHex || item.currentA !== item.origA; const hexInput = document.getElementById(`hex-input-${safeKey}`), colorPicker = document.getElementById(`color-picker-${safeKey}`); const alphaNum = document.getElementById(`alpha-num-${safeKey}`), alphaPreview = document.getElementById(`alpha-preview-${safeKey}`); const alphaRange = document.getElementById(`alpha-range-${safeKey}`); const resetBtn = document.getElementById(`reset-btn-${safeKey}`), modBadge = document.getElementById(`mod-badge-${safeKey}`); const colorCard = document.getElementById(`color-card-${safeKey}`);
     if (hexInput && document.activeElement !== hexInput) hexInput.value = item.currentHex.toUpperCase(); if (colorPicker) colorPicker.value = item.currentHex; if (alphaNum) alphaNum.value = item.currentA; if (alphaRange) alphaRange.value = item.currentA; if (alphaPreview) alphaPreview.style.backgroundColor = `rgba(${item.currentR}, ${item.currentG}, ${item.currentB}, ${item.currentA / 255})`;
-    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); schedulePseudoTransparencyRebuild(); requestSceneRender();
+    if (resetBtn) resetBtn.classList.toggle('hidden', !isModified); if (modBadge) modBadge.classList.toggle('hidden', !isModified); if (colorCard) { if (isModified) { colorCard.classList.remove('bg-slate-900/80', 'border-slate-800'); colorCard.classList.add('bg-emerald-950/20', 'border-emerald-500/40'); } else { colorCard.classList.add('bg-slate-900/80', 'border-slate-800'); colorCard.classList.remove('bg-emerald-950/20', 'border-emerald-500/40'); } } updateModifiedCount(); if (window.scheduleFullPseudoRebuild) window.scheduleFullPseudoRebuild(700); requestSceneRender();
 };
 
 window.updateWaterAlpha = function(value) {
@@ -763,15 +756,17 @@ async function loadProjectJson(file) {
         if (file.size > IMPORT_LIMITS.maxTotalBytes) throw new Error('JSON проекта слишком большой');
         const text = await file.text(); const data = JSON.parse(text); if (!data.files && !data.vectors) throw new Error("Неверный формат");
 
-        // Файл только добавленного (кнопка «Скачать слои JSON»): карту и палитру
-        // не трогаем, заменяем только фигуры/текст/метки.
+        // Файл только добавленного (кнопка «Скачать слои JSON»): добавляется
+        // к текущим слоям (не заменяет), импортированное группируется отдельно.
         if (data && data.type === 'vector_layers') {
-            if (window.clearVectors) window.clearVectors();
+            const groupName = (file.name || 'импорт').replace(/\.json$/i, '');
+            const hadUuids = new Set((window.getVectorsForJSON ? window.getVectorsForJSON() : []).map(d => d.uuid));
             if (data.vectorFont && window.loadVectorFontFromJSON) await window.loadVectorFontFromJSON(data.vectorFont);
             if (data.vectors && window.loadVectorsFromJSON) {
                 window.showLoading(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${data.vectors.length} ${window.t("слоёв", "layers", "шарів")}`);
                 if (window.setPendingVectorSelect) window.setPendingVectorSelect(data.vectors.length ? data.vectors[data.vectors.length - 1].uuid : null);
                 await window.loadVectorsFromJSON(data.vectors, true);
+                if (window.tagLayerGroupByUuids) window.tagLayerGroupByUuids(hadUuids, groupName);
                 if (window.updateVectorsOrder) window.updateVectorsOrder();
                 if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
             }

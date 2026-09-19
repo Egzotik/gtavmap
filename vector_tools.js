@@ -132,6 +132,93 @@ function triArea2(a, b, c) {
     return (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
 }
 
+// Кламп цвета в [0,1]: барицентрика на иголках даёт веса ±1e6,
+// без клампа в файл уплывают отрицательные цвета и роняют импорт
+// (Sollumz: could not convert '-982' to uint32).
+function clamp01(v) {
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+}
+
+// Подразбиение больше не нужно: векторное перекрытие считается точным
+// пересечением (см. ниже), а не сэмплом по центроиду.
+
+// Узоры полупрозрачной заливки (псевдо-прозрачность): фигура покрывается
+// полосами/точками тонированной карты, в промежутках видна чистая карта.
+// Возвращает массив треугольников [{x, y} x3] — кусков исходного.
+// Авторазмер узора по фигуре (метры): расстояние и толщина по умолчанию.
+function fillPatternAutoFor(obj) {
+    try {
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const diag = Math.sqrt(size.x * size.x + size.y * size.y);
+        if (!(diag > 0)) return { spacing: 12, thickness: 5 };
+        const spacing = Math.max(3, Math.min(60, diag / 12));
+        return { spacing, thickness: spacing * 0.4 };
+    } catch (e) { return { spacing: 12, thickness: 5 }; }
+}
+
+function fillPatternAngles(style) {
+    if (style === 'zebra' || style === 'crosshatch') return style === 'zebra' ? [Math.PI / 4] : [Math.PI / 4, -Math.PI / 4];
+    if (style === 'horizontal' || style === 'grid') return style === 'horizontal' ? [0] : [0, Math.PI / 2];
+    if (style === 'vertical') return [Math.PI / 2];
+    return null;
+}
+
+function splitTriangleByPattern(a, b, c, style, spacing, thickness, dotD) {
+    const tri = [{ x: a.x, y: a.y }, { x: b.x, y: b.y }, { x: c.x, y: c.y }];
+    const minX = Math.min(tri[0].x, tri[1].x, tri[2].x), maxX = Math.max(tri[0].x, tri[1].x, tri[2].x);
+    const minY = Math.min(tri[0].y, tri[1].y, tri[2].y), maxY = Math.max(tri[0].y, tri[1].y, tri[2].y);
+    if (style === 'dots') {
+        const out = [];
+        const R = Math.max(0.05, dotD / 2);
+        for (let gx = Math.floor((minX - R) / spacing) * spacing; gx <= maxX + R; gx += spacing) {
+            for (let gy = Math.floor((minY - R) / spacing) * spacing; gy <= maxY + R; gy += spacing) {
+                if (gx < minX - R || gx > maxX + R || gy < minY - R || gy > maxY + R) continue;
+                const oct = [];
+                for (let k = 0; k < 8; k++) {
+                    const ang = (k / 8) * Math.PI * 2;
+                    oct.push({ x: gx + R * Math.cos(ang), y: gy + R * Math.sin(ang) });
+                }
+                let poly = tri.slice();
+                for (let e = 0; e < 8; e++) {
+                    poly = clipPolygon(poly, oct[e], oct[(e + 1) % 8], { x: gx, y: gy });
+                    if (poly.length < 3) break;
+                }
+                for (let i = 1; i < poly.length - 1; i++) out.push([poly[0], poly[i], poly[i + 1]]);
+            }
+        }
+        return out;
+    }
+    const angles = fillPatternAngles(style);
+    if (!angles) return [tri];
+    const out = [];
+    angles.forEach(ang => {
+        const cos = Math.cos(ang), sin = Math.sin(ang);
+        const rot = p => ({ x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos });
+        const unrot = p => ({ x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos });
+        const rt = tri.map(rot);
+        const rxs = rt.map(p => p.x), rys = rt.map(p => p.y);
+        const rminX = Math.min.apply(null, rxs) - 1, rmaxX = Math.max.apply(null, rxs) + 1;
+        const rminY = Math.min.apply(null, rys);
+        const rmaxY = Math.max.apply(null, rys);
+        for (let y0 = Math.floor((rminY - thickness) / spacing) * spacing; y0 <= rmaxY; y0 += spacing) {
+            const band = [{ x: rminX, y: y0 }, { x: rmaxX, y: y0 }, { x: rmaxX, y: y0 + thickness }, { x: rminX, y: y0 + thickness }];
+            const ccx = (rminX + rmaxX) / 2, ccy = y0 + thickness / 2;
+            let poly = rt.slice();
+            const edges = [[band[0], band[1]], [band[1], band[2]], [band[2], band[3]], [band[3], band[0]]];
+            for (let e = 0; e < 4; e++) {
+                poly = clipPolygon(poly, edges[e][0], edges[e][1], { x: ccx, y: ccy });
+                if (poly.length < 3) break;
+            }
+            if (poly.length >= 3) {
+                const world = poly.map(unrot);
+                for (let i = 1; i < world.length - 1; i++) out.push([world[0], world[i], world[i + 1]]);
+            }
+        }
+    });
+    return out;
+}
+
 function applyStrokeHoles(geometry, holes) {
     if (!geometry || !holes || holes.length === 0) return geometry;
     const posAttr = geometry.attributes.position;
@@ -381,33 +468,212 @@ function queryMapTriangles(cache, minX, minY, maxX, maxY, cb) {
 }
 window.invalidateMapTriangleCache = function() { cachedMapTriangles = null; };
 
+// Кэш векторного контента под полупрозрачной фигурой: видимые непрозрачные
+// меши фигур/обводок (плоский цвет) + чужие вырезки (уже смешанный цвет).
+// Маркеры и текст не сэмплируются — они всегда рисуются поверх.
+// Строится заново при каждой перестройке (трансформы постоянно меняются).
+// Треугольники лежат в spatial grid (как mapCache): иначе фигуры-монстры
+// (обводки аирдропов на всю карту) вешают каждый кусок миллиардами проверок.
+// Кэш извлечённых треугольников меша: повторное извлечение только если
+// сменились геометрия, матрица или цвет (иначе трансформы/перекраски
+// каждый раз пережевывали бы всю сцену заново).
+const vecCoverMeshCache = new WeakMap();
+function extractCoverTris(mesh) {
+    const geometry = mesh.geometry;
+    const positions = geometry.attributes.position;
+    if (!positions) return null;
+    mesh.updateMatrixWorld(true);
+    const m = mesh.matrixWorld.elements;
+    const mat = mesh.material;
+    const colorKey = (mat && mat.color ? mat.color.getHexString() + '|' : 'x|') + (mat && mat.opacity !== undefined ? mat.opacity : 1);
+    const hit = vecCoverMeshCache.get(mesh);
+    if (hit && hit.geom === geometry && hit.colorKey === colorKey && hit.els.length === 16) {
+        let same = true;
+        for (let k = 0; k < 16; k++) {
+            if (hit.els[k] !== m[k]) { same = false; break; }
+        }
+        if (same) return hit.data;
+    }
+    const wx = (id) => positions.getX(id) * m[0] + positions.getY(id) * m[4] + positions.getZ(id) * m[8] + m[12];
+    const wy = (id) => positions.getX(id) * m[1] + positions.getY(id) * m[5] + positions.getZ(id) * m[9] + m[13];
+    const colors = geometry.attributes.customColor || geometry.attributes.color;
+    const flat = mat && mat.color ? [mat.color.r, mat.color.g, mat.color.b] : [1, 1, 1];
+    const index = geometry.index;
+    const count = index ? index.count : positions.count;
+    const data = { tris: [], minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    for (let i = 0; i + 2 < count; i += 3) {
+        const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
+        const a = { x: wx(ids[0]), y: wy(ids[0]) }, b = { x: wx(ids[1]), y: wy(ids[1]) }, c = { x: wx(ids[2]), y: wy(ids[2]) };
+        if (Math.abs(triArea2(a, b, c)) < 1e-9) continue;
+        data.tris.push({
+            a, b, c,
+            minX: Math.min(a.x, b.x, c.x), maxX: Math.max(a.x, b.x, c.x),
+            minY: Math.min(a.y, b.y, c.y), maxY: Math.max(a.y, b.y, c.y),
+            cols: colors ? ids.map(id => [colors.getX(id), colors.getY(id), colors.getZ(id)]) : [flat, flat, flat]
+        });
+        if (a.x < data.minX) data.minX = a.x; if (a.x > data.maxX) data.maxX = a.x;
+        if (b.x < data.minX) data.minX = b.x; if (b.x > data.maxX) data.maxX = b.x;
+        if (c.x < data.minX) data.minX = c.x; if (c.x > data.maxX) data.maxX = c.x;
+        if (a.y < data.minY) data.minY = a.y; if (a.y > data.maxY) data.maxY = a.y;
+        if (b.y < data.minY) data.minY = b.y; if (b.y > data.maxY) data.maxY = b.y;
+        if (c.y < data.minY) data.minY = c.y; if (c.y > data.maxY) data.maxY = c.y;
+    }
+    if (data.tris.length === 0) return null;
+    vecCoverMeshCache.set(mesh, { geom: geometry, els: Array.from(m), colorKey, data });
+    return data;
+}
+
+function buildVectorCoverCache() {
+    const tris = [];
+    if (vectorState && vectorState.objects) vectorState.objects.forEach((w, ownerIdx) => {
+        if (!w) return;
+        w.updateMatrixWorld(true);
+        w.traverse(child => {
+            if (!child.isMesh || !child.geometry) return;
+            if (!child.material) return;
+            const isCutout = Boolean(child.userData.isPseudoTransparency);
+            if (!isCutout) {
+                if (child.visible === false) return;
+                if (child.userData.isText || child.userData.isGameZone) return;
+                const op = child.userData.pseudoOpacity ?? child.material?.opacity ?? 1;
+                if (!(op >= 0.999)) return;
+            }
+            const data = extractCoverTris(child);
+            if (!data || data.tris.length === 0) return;
+            data.tris.forEach(t => tris.push({
+                a: t.a, b: t.b, c: t.c, ownerIdx,
+                minX: t.minX, maxX: t.maxX, minY: t.minY, maxY: t.maxY,
+                cols: t.cols
+            }));
+        });
+    });
+    const cache = { tris, tick: 0, stamp: new Uint32Array(Math.max(tris.length, 1)) };
+    if (tris.length > 0) {
+        let gminX = Infinity, gminY = Infinity, gmaxX = -Infinity, gmaxY = -Infinity;
+        tris.forEach(t => {
+            if (t.minX < gminX) gminX = t.minX; if (t.minY < gminY) gminY = t.minY;
+            if (t.maxX > gmaxX) gmaxX = t.maxX; if (t.maxY > gmaxY) gmaxY = t.maxY;
+        });
+        const cell = 350;
+        const nx = Math.max(1, Math.ceil((gmaxX - gminX) / cell));
+        const ny = Math.max(1, Math.ceil((gmaxY - gminY) / cell));
+        const cells = new Map();
+        tris.forEach((t, ti) => {
+            const x0 = Math.max(0, Math.min(nx - 1, Math.floor((t.minX - gminX) / cell)));
+            const x1 = Math.max(0, Math.min(nx - 1, Math.floor((t.maxX - gminX) / cell)));
+            const y0 = Math.max(0, Math.min(ny - 1, Math.floor((t.minY - gminY) / cell)));
+            const y1 = Math.max(0, Math.min(ny - 1, Math.floor((t.maxY - gminY) / cell)));
+            for (let cx = x0; cx <= x1; cx++) {
+                for (let cy = y0; cy <= y1; cy++) {
+                    const key = cx * ny + cy;
+                    let list = cells.get(key);
+                    if (!list) { list = []; cells.set(key, list); }
+                    list.push(ti);
+                }
+            }
+        });
+        cache.grid = { cells, cell, gminX, gminY, nx, ny };
+    }
+    return cache;
+}
+
+// Покрывающие треугольники векторного контента над куском: только владельцы
+// строго НИЖЕ строящейся фигуры (сверху вниз через spatial grid).
+// Первый выигрывает ties по глубине — границы идут по рёбрам, без блоков.
+function coveringVectorTris(cache, ownIdx, piece) {
+    const out = [];
+    if (!cache || !cache.tris || cache.tris.length === 0) return out;
+    const minX = Math.min(piece[0].x, piece[1].x, piece[2].x);
+    const maxX = Math.max(piece[0].x, piece[1].x, piece[2].x);
+    const minY = Math.min(piece[0].y, piece[1].y, piece[2].y);
+    const maxY = Math.max(piece[0].y, piece[1].y, piece[2].y);
+    const pushTri = (t) => {
+        if (t.ownerIdx <= ownIdx) return;
+        if (maxX < t.minX || minX > t.maxX || maxY < t.minY || minY > t.maxY) return;
+        out.push({ tri: t, cols: t.cols, ownerIdx: t.ownerIdx });
+    };
+    if (!cache.grid) {
+        cache.tris.forEach(pushTri);
+    } else {
+        const { cells, cell, gminX, gminY, nx, ny } = cache.grid;
+        cache.tick++;
+        if (cache.tick > 2000000000) { cache.stamp.fill(0); cache.tick = 1; }
+        const tick = cache.tick;
+        const x0 = Math.max(0, Math.min(nx - 1, Math.floor((minX - gminX) / cell)));
+        const x1 = Math.max(0, Math.min(nx - 1, Math.floor((maxX - gminX) / cell)));
+        const y0 = Math.max(0, Math.min(ny - 1, Math.floor((minY - gminY) / cell)));
+        const y1 = Math.max(0, Math.min(ny - 1, Math.floor((maxY - gminY) / cell)));
+        for (let cx = x0; cx <= x1; cx++) {
+            for (let cy = y0; cy <= y1; cy++) {
+                const list = cells.get(cx * ny + cy);
+                if (!list) continue;
+                for (let li = 0; li < list.length; li++) {
+                    const ti = list[li];
+                    if (cache.stamp[ti] === tick) continue;
+                    cache.stamp[ti] = tick;
+                    pushTri(cache.tris[ti]);
+                }
+            }
+        }
+    }
+    out.sort((a, b) => a.ownerIdx - b.ownerIdx);
+    return out;
+}
+
 function rebuildPseudoTransparency(wrapper) {
     if (!wrapper) return;
+    const __rbT0 = (typeof performance !== 'undefined') ? performance.now() : 0;
+    let __srcTris = 0, __cutTris = 0;
     removePseudoTransparency(wrapper);
     wrapper.traverse(child => {
         if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = !child.userData.fillHidden;
     });
 
     const mapCache = getCachedMapTriangles();
-    if (mapCache.tris.length === 0) return;
+    // Пустой кэш — не повод оставлять глухую заливку: каждый источник
+    // ниже сам решит (вырезка или честная прозрачность).
+    // Векторный кэш: всё видимое непрозрачное под фигурой (фигуры, обводки,
+    // чужие вырезки) — чтобы перекрытия тонировались друг через друга,
+    // а не только через карту.
+    const vecCoverCache = buildVectorCoverCache();
+    const ownOrderIdx = (vectorState && vectorState.objects) ? vectorState.objects.indexOf(wrapper) : -1;
 
     const pseudoSources = [];
     wrapper.traverse(child => {
-        if (child.isMesh && !child.userData.isPseudoTransparency && !child.userData.isText) pseudoSources.push(child);
+        // Текст тоже участвует в прозрачности: полупрозрачный текст получает
+        // тонированную вырезку-глифы, сплошной (opacity 1) идёт как раньше.
+        if (child.isMesh && !child.userData.isPseudoTransparency) pseudoSources.push(child);
     });
     pseudoSources.forEach(sourceMesh => {
-        const opacity = sourceMesh.userData.pseudoOpacity ?? sourceMesh.material?.opacity ?? 1;
-        if (!sourceMesh.visible || !sourceMesh.geometry || !sourceMesh.material || opacity >= 0.999) return;
+        const opacity = sourceMesh.userData.isText
+            ? (sourceMesh.userData.textOpacity ?? sourceMesh.material?.opacity ?? 1)
+            : (sourceMesh.userData.pseudoOpacity ?? sourceMesh.material?.opacity ?? 1);
+        if (!sourceMesh.visible || !sourceMesh.geometry || !sourceMesh.material) return;
+        // Обводкам вырезка нужна всегда (даже непрозрачным): иначе их хоронит
+        // вырезка заливки, лежащая выше. Остальным непрозрачным она не нужна.
+        const isStrokeSrc = Boolean(sourceMesh.userData.isStroke);
+        if (!isStrokeSrc && opacity >= 0.999) return;
+        // Прозрачность 0 = заливка выключена: ничего не рисуем и не вырезаем.
+        if (opacity < 0.001) {
+            sourceMesh.visible = false;
+            return;
+        }
         const positions = sourceMesh.geometry.attributes.position;
         if (!positions) return;
         sourceMesh.updateMatrixWorld(true);
         const index = sourceMesh.geometry.index;
         const count = index ? index.count : positions.count;
         const sourceTriangles = [];
+        const sourceTriCols = [];
+        const figureColor = sourceMesh.material.color || new THREE.Color(1, 1, 1);
+        const srcColorAttr = sourceMesh.geometry.attributes.customColor || sourceMesh.geometry.attributes.color;
+        const srcFlatCol = [figureColor.r, figureColor.g, figureColor.b];
         for (let i = 0; i + 2 < count; i += 3) {
             const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
             sourceTriangles.push(ids.map(id => new THREE.Vector3(positions.getX(id), positions.getY(id), positions.getZ(id)).applyMatrix4(sourceMesh.matrixWorld)));
+            sourceTriCols.push(ids.map(id => srcColorAttr ? [srcColorAttr.getX(id), srcColorAttr.getY(id), srcColorAttr.getZ(id)] : srcFlatCol));
         }
+        __srcTris += sourceTriangles.length;
 
         const layerOutputs = new Map();
         const outputForLayer = (zLayer) => {
@@ -415,7 +681,6 @@ function rebuildPseudoTransparency(wrapper) {
             if (!bucket) { bucket = { positions: [], colors: [] }; layerOutputs.set(zLayer, bucket); }
             return bucket;
         };
-        const figureColor = sourceMesh.material.color || new THREE.Color(1, 1, 1);
         let sourceBaseZ = -Infinity;
         sourceTriangles.forEach(triangle => triangle.forEach(vertex => { if (vertex.z > sourceBaseZ) sourceBaseZ = vertex.z; }));
         sourceBaseZ += 0.1;
@@ -425,7 +690,54 @@ function rebuildPseudoTransparency(wrapper) {
         const stackLen = (vectorState && vectorState.objects) ? vectorState.objects.length : 1;
         const stackIdx = (vectorState && vectorState.objects) ? vectorState.objects.indexOf(wrapper) : 0;
         const orderFrac = stackLen > 1 ? (stackLen - 1 - Math.max(0, stackIdx)) / (stackLen - 1) : 1;
-        sourceTriangles.forEach(figure => {
+        // Узор заливки: фигура покрывается полосами/точками, сплошная заливка
+        // при этом исчезает (вырезка строится только по кускам узора).
+        // Обводки (isStroke) всегда сплошные.
+        const fillPattern = wrapper.userData.fillPattern || 'solid';
+        const usePattern = fillPattern !== 'solid' && !sourceMesh.userData.isStroke;
+        let patSpacing = 0, patThickness = 0, patDotD = 0;
+        if (usePattern && sourceTriangles.length > 0) {
+            let pminX = Infinity, pmaxX = -Infinity, pminY = Infinity, pmaxY = -Infinity;
+            sourceTriangles.forEach(triangle => triangle.forEach(vertex => {
+                if (vertex.x < pminX) pminX = vertex.x; if (vertex.x > pmaxX) pmaxX = vertex.x;
+                if (vertex.y < pminY) pminY = vertex.y; if (vertex.y > pmaxY) pmaxY = vertex.y;
+            }));
+            const diag = Math.sqrt((pmaxX - pminX) * (pmaxX - pminX) + (pmaxY - pminY) * (pmaxY - pminY));
+            const autoS = Math.max(3, Math.min(60, diag / 12));
+            const storedS = wrapper.userData.fillPatternSpacing, storedT = wrapper.userData.fillPatternThickness;
+            patSpacing = (Number.isFinite(storedS) && storedS > 0) ? storedS : autoS;
+            patThickness = (Number.isFinite(storedT) && storedT > 0) ? storedT : patSpacing * 0.4;
+            patDotD = patThickness;
+        }
+        const figurePieces = [];
+        sourceTriangles.forEach((triangle, ti) => {
+            const tcols = sourceTriCols[ti];
+            const triXY = [{ x: triangle[0].x, y: triangle[0].y }, { x: triangle[1].x, y: triangle[1].y }, { x: triangle[2].x, y: triangle[2].y }];
+            if (usePattern) {
+                splitTriangleByPattern(triangle[0], triangle[1], triangle[2], fillPattern, patSpacing, patThickness, patDotD).forEach(p => {
+                    figurePieces.push(p.map(pt => {
+                        const w = barycentric2d(triXY[0], triXY[1], triXY[2], pt);
+                        return {
+                            x: pt.x, y: pt.y,
+                            c: [
+                                clamp01(tcols[0][0] * w[0] + tcols[1][0] * w[1] + tcols[2][0] * w[2]),
+                                clamp01(tcols[0][1] * w[0] + tcols[1][1] * w[1] + tcols[2][1] * w[2]),
+                                clamp01(tcols[0][2] * w[0] + tcols[1][2] * w[1] + tcols[2][2] * w[2])
+                            ]
+                        };
+                    }));
+                });
+            } else {
+                figurePieces.push([
+                    { x: triangle[0].x, y: triangle[0].y, c: tcols[0] },
+                    { x: triangle[1].x, y: triangle[1].y, c: tcols[1] },
+                    { x: triangle[2].x, y: triangle[2].y, c: tcols[2] }
+                ]);
+            }
+        });
+        // Крупные куски идут как есть: векторное перекрытие считается точным
+        // пересечением ниже, блочных ошибок нет.
+        figurePieces.forEach(figure => {
             const minX = Math.min(figure[0].x, figure[1].x, figure[2].x);
             const maxX = Math.max(figure[0].x, figure[1].x, figure[2].x);
             const minY = Math.min(figure[0].y, figure[1].y, figure[2].y);
@@ -455,8 +767,14 @@ function rebuildPseudoTransparency(wrapper) {
                 triPts.forEach(point => {
                     const weights = barycentric2d({ x: map.x0, y: map.y0 }, { x: map.x1, y: map.y1 }, { x: map.x2, y: map.y2 }, point);
                     const mapColor = [pr[0] * weights[0] + pr[1] * weights[1] + pr[2] * weights[2], pg[0] * weights[0] + pg[1] * weights[1] + pg[2] * weights[2], pb[0] * weights[0] + pb[1] * weights[1] + pb[2] * weights[2]];
-                    const color = [figureColor.r * opacity + mapColor[0] * (1 - opacity), figureColor.g * opacity + mapColor[1] * (1 - opacity), figureColor.b * opacity + mapColor[2] * (1 - opacity)];
-                    const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.002 : 0;
+                    const fw = barycentric2d(figure[0], figure[1], figure[2], point);
+                    const figCol = [
+                        figure[0].c[0] * fw[0] + figure[1].c[0] * fw[1] + figure[2].c[0] * fw[2],
+                        figure[0].c[1] * fw[0] + figure[1].c[1] * fw[1] + figure[2].c[1] * fw[2],
+                        figure[0].c[2] * fw[0] + figure[1].c[2] * fw[1] + figure[2].c[2] * fw[2]
+                    ];
+                    const color = [clamp01(figCol[0] * opacity + mapColor[0] * (1 - opacity)), clamp01(figCol[1] * opacity + mapColor[1] * (1 - opacity)), clamp01(figCol[2] * opacity + mapColor[2] * (1 - opacity))];
+                    const sourceLayerOffset = sourceMesh.userData.isStroke ? 0.02 : 0;
                     // Порядок как в map/: sea (низ) → back → 0_0 (верх).
                     // Шаг 0.5: back больше не выпирает и не z-fights с соседями.
                     const kindZ = map.zLayer <= 0 ? 0 : (map.zLayer === 1 ? 1 : 2);
@@ -468,6 +786,38 @@ function rebuildPseudoTransparency(wrapper) {
                 });
             }
             });
+            // Векторное содержимое под куском: точное пересечение с каждым
+            // покрывающим треугольником (сверху вниз). Первый выигрывает
+            // ties по глубине — границы идут по рёбрам, без блоков.
+            const coverTris = coveringVectorTris(vecCoverCache, ownOrderIdx, figure);
+            if (coverTris.length > 0) {
+                const vw = sourceBaseZ + 3 * 0.5 + (sourceMesh.userData.isStroke ? 0.002 : 0) + orderFrac * 0.05;
+                const bk = outputForLayer(3);
+                coverTris.forEach(ct => {
+                    let frag = [figure[0], figure[1], figure[2]];
+                    frag = clipPolygon(frag, ct.tri.a, ct.tri.b, ct.tri.c);
+                    frag = clipPolygon(frag, ct.tri.b, ct.tri.c, ct.tri.a);
+                    frag = clipPolygon(frag, ct.tri.c, ct.tri.a, ct.tri.b);
+                    for (let i = 1; i < frag.length - 1; i++) {
+                        [frag[0], frag[i], frag[i + 1]].forEach(p => {
+                            const w = barycentric2d(ct.tri.a, ct.tri.b, ct.tri.c, p);
+                            const wf = barycentric2d(figure[0], figure[1], figure[2], p);
+                            const figCol = [
+                                figure[0].c[0] * wf[0] + figure[1].c[0] * wf[1] + figure[2].c[0] * wf[2],
+                                figure[0].c[1] * wf[0] + figure[1].c[1] * wf[1] + figure[2].c[1] * wf[2],
+                                figure[0].c[2] * wf[0] + figure[1].c[2] * wf[1] + figure[2].c[2] * wf[2]
+                            ];
+                            const wp = wrapper.worldToLocal(new THREE.Vector3(p.x, p.y, vw));
+                            bk.positions.push(wp.x, wp.y, wp.z);
+                            bk.colors.push(
+                                clamp01(figCol[0] * opacity + (ct.cols[0][0] * w[0] + ct.cols[1][0] * w[1] + ct.cols[2][0] * w[2]) * (1 - opacity)),
+                                clamp01(figCol[1] * opacity + (ct.cols[0][1] * w[0] + ct.cols[1][1] * w[1] + ct.cols[2][1] * w[2]) * (1 - opacity)),
+                                clamp01(figCol[2] * opacity + (ct.cols[0][2] * w[0] + ct.cols[1][2] * w[1] + ct.cols[2][2] * w[2]) * (1 - opacity))
+                            );
+                        });
+                    }
+                });
+            }
         });
 
         const sortedLayers = Array.from(layerOutputs.keys()).sort((a, b) => a - b);
@@ -482,31 +832,146 @@ function rebuildPseudoTransparency(wrapper) {
                 cutout.name = 'mapCutout';
                 cutout.userData.isPseudoTransparency = true;
                 cutout.userData.cutoutLayer = zLayer;
-                cutout.renderOrder = 990 + zLayer * 0.005 + orderFrac * 0.004;
+                cutout.userData.bakedFrac = orderFrac;
+                cutout.renderOrder = 990 + zLayer * 0.005 + orderFrac * 0.004 + (sourceMesh.userData.isStroke ? 0.001 : 0);
+                __cutTris += bucket.positions.length / 9;
                 wrapper.add(cutout);
             });
             sourceMesh.visible = false;
+        } else if (opacity < 0.999) {
+            // Вырезки нет (под фигурой нет карты): честная прозрачность меша
+            // вместо глухой заливки, которая прятала всё снизу.
+            // Непрозрачные без вырезки оставляем как есть (видны сами).
+            const mat = sourceMesh.material;
+            if (mat && !Array.isArray(mat)) {
+                mat.transparent = true;
+                mat.opacity = opacity;
+                mat.depthWrite = false;
+                mat.needsUpdate = true;
+            }
         }
     });
+    if (typeof performance !== 'undefined' && (performance.now() - __rbT0) > 500) {
+        console.warn('[pseudo] slow rebuild:', wrapper.name, 'src=' + __srcTris, 'cut=' + Math.round(__cutTris), ((performance.now() - __rbT0) | 0) + 'ms');
+    }
 }
 
 window.rebuildVectorPseudoTransparency = function() {
-    vectorState.objects.forEach(rebuildPseudoTransparency);
+    // Снизу вверх: вырезки нижних уже свежие, когда верхние их сэмплируют.
+    vectorState.objects.slice().reverse().forEach(rebuildPseudoTransparency);
+    if (window.validateSceneGeometry) window.validateSceneGeometry(true);
+};
+
+// Асинхронная версия для тяжёлых путей (загрузки, включение зон):
+// та же снизу-вверх, но с уступками браузеру и живым прогрессом.
+// Параллельные вызовы складываются в один прогон.
+let pseudoAsyncCurrent = null;
+window.rebuildVectorPseudoTransparencyAsync = function(onProgress, only) {
+    if (pseudoAsyncCurrent) return pseudoAsyncCurrent;
+    pseudoAsyncCurrent = (async () => {
+        try {
+            const list = (only && only.length ? only.slice() : vectorState.objects.slice()).reverse();
+            for (let i = 0; i < list.length; i++) {
+                rebuildPseudoTransparency(list[i]);
+                if (onProgress) {
+                    try { onProgress(i + 1, list.length); } catch (e) {}
+                }
+                if (window.yieldToBrowser) await window.yieldToBrowser();
+            }
+            if (window.validateSceneGeometry) window.validateSceneGeometry(true);
+            if (window.requestSceneRender) window.requestSceneRender();
+        } finally {
+            pseudoAsyncCurrent = null;
+        }
+    })();
+    return pseudoAsyncCurrent;
+};
+
+// Срочно выполнить отложенные одиночные пересборки (перед экспортом,
+// чтобы не читать сцену с несобранной прозрачностью).
+window.flushPseudoRebuilds = function() {
+    if (singleRebuildTimer !== null) { try { clearTimeout(singleRebuildTimer); } catch (e) {} singleRebuildTimer = null; }
+    if (singleRebuildTargets.size === 0) return;
+    const targets = Array.from(singleRebuildTargets);
+    singleRebuildTargets.clear();
+    targets.filter(t => t && vectorState.objects.includes(t))
+        .sort((a, b) => vectorState.objects.indexOf(b) - vectorState.objects.indexOf(a))
+        .forEach(target => rebuildPseudoTransparency(target));
+    if (window.requestSceneRender) window.requestSceneRender();
+};
+
+// Ловец артефактов: ищет нефинитные вершины и длинные тонкие треугольники
+// (полосы через полкарты). quiet=true — молчит, если всё чисто.
+window.validateSceneGeometry = function(quiet) {
+    const bad = [];
+    try {
+        scene.traverse(obj => {
+            if (!obj.isMesh || !obj.geometry) return;
+            const pos = obj.geometry.attributes.position;
+            if (!pos) return;
+            const arr = pos.array;
+            const index = obj.geometry.index;
+            const count = index ? index.count : pos.count;
+            const nm = obj.name || obj.uuid || '?';
+            for (let i = 0; i + 2 < count; i += 3) {
+                const ids = index ? [index.getX(i), index.getX(i + 1), index.getX(i + 2)] : [i, i + 1, i + 2];
+                const ax = arr[ids[0] * 3], ay = arr[ids[0] * 3 + 1];
+                const bx = arr[ids[1] * 3], by = arr[ids[1] * 3 + 1];
+                const cx = arr[ids[2] * 3], cy = arr[ids[2] * 3 + 1];
+                if (!Number.isFinite(ax) || !Number.isFinite(ay) || !Number.isFinite(bx) || !Number.isFinite(by) || !Number.isFinite(cx) || !Number.isFinite(cy)) {
+                    bad.push({ mesh: nm, kind: 'nonfinite', tri: i / 3 });
+                    return;
+                }
+                const e0 = Math.hypot(bx - ax, by - ay), e1 = Math.hypot(cx - bx, cy - by), e2 = Math.hypot(ax - cx, ay - cy);
+                const longest = Math.max(e0, e1, e2);
+                const area2 = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+                if (longest > 1000 && area2 < longest * 2 && bad.length < 20) {
+                    bad.push({ mesh: nm, kind: 'sliver', tri: i / 3, longest: Math.round(longest), pts: [[ax, ay], [bx, by], [cx, cy]].map(p => p.map(v => Math.round(v * 10) / 10)) });
+                }
+            }
+        });
+    } catch (err) { console.warn('[geo-validate]', err); }
+    if (bad.length > 0 || !quiet) console.warn('[geo-validate] issues:', bad.length, bad.slice(0, 20));
+    return bad;
 };
 
 let singleRebuildTimer = null;
 const singleRebuildTargets = new Set();
+// Полная пересборка с задержкой после последнего вызова (перекраска карты):
+// карта обновляется сразу, зоны подтягиваются потом.
+let fullRebuildTimer = null;
+window.scheduleFullPseudoRebuild = function(delayMs) {
+    const delay = Number.isFinite(delayMs) ? delayMs : 700;
+    if (fullRebuildTimer !== null) { try { clearTimeout(fullRebuildTimer); } catch (e) {} fullRebuildTimer = null; }
+    fullRebuildTimer = setTimeout(() => {
+        fullRebuildTimer = null;
+        if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
+        else if (window.requestSceneRender) window.requestSceneRender();
+    }, delay);
+};
 window.scheduleSinglePseudoRebuild = function(wrapper) {
+    const addWithAbove = (w) => {
+        if (!w) return;
+        singleRebuildTargets.add(w);
+        // Всё, что выше изменённой фигуры, может показывать её старый оттенок.
+        if (vectorState && vectorState.objects.includes(w)) {
+            const idx = vectorState.objects.indexOf(w);
+            for (let i = 0; i < idx; i++) singleRebuildTargets.add(vectorState.objects[i]);
+        }
+    };
     if (wrapper) {
-        if (Array.isArray(wrapper)) wrapper.forEach(w => singleRebuildTargets.add(w));
-        else singleRebuildTargets.add(wrapper);
+        if (Array.isArray(wrapper)) wrapper.forEach(addWithAbove);
+        else addWithAbove(wrapper);
     }
     if (singleRebuildTimer !== null) return;
     singleRebuildTimer = setTimeout(() => {
         singleRebuildTimer = null;
         const targets = Array.from(singleRebuildTargets);
         singleRebuildTargets.clear();
-        targets.forEach(target => rebuildPseudoTransparency(target));
+        // Снизу вверх — свежие нижние вырезки для верхних.
+        targets.filter(t => t && vectorState.objects.includes(t))
+            .sort((a, b) => vectorState.objects.indexOf(b) - vectorState.objects.indexOf(a))
+            .forEach(target => rebuildPseudoTransparency(target));
         if (window.requestSceneRender) window.requestSceneRender();
     }, 120);
 };
@@ -898,6 +1363,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
             const orderOffset = (len - i) * 0.001;
             o.position.z = (isText ? 30 : 20) + orderOffset;
+            // Порядок поменялся (клик/undo/создание): сдвигаем готовые вырезки
+            // за фигурой без перестройки геометрии (z и порядок отрисовки).
+            const frac = len > 1 ? (len - 1 - i) / (len - 1) : 1;
+            o.traverse(child => {
+                if (child.isMesh && child.userData.isPseudoTransparency) {
+                    const baked = Number.isFinite(child.userData.bakedFrac) ? child.userData.bakedFrac : frac;
+                    child.position.z = (frac - baked) * 0.05;
+                    child.renderOrder = 990 + (child.userData.cutoutLayer || 0) * 0.005 + frac * 0.004 + (child.userData.isStrokeCutout ? 0.001 : 0);
+                }
+            });
         });
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
@@ -925,7 +1400,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         const layersData = {
-            type: 'vector_layers', version: "10.0", timestamp: new Date().toISOString(),
+            type: 'vector_layers', version: "10.1", timestamp: new Date().toISOString(),
             vectors: vectorsData,
             vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null,
             gameZones: zonesState
@@ -1189,6 +1664,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 vectorState.objects.splice(idx, 1);
                 vectorState.objects.unshift(obj);
                 updateVectorsOrder();
+                // Фигура всплыла наверх: её оттенок устарел (считался для низа) —
+                // пересобрать с новым набором «под ней».
+                if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(obj);
             }
         }
         
@@ -1222,6 +1700,19 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 document.getElementById('vecPropTextContainer').classList.add('hidden');
             }
+            const fillPatternEl = document.getElementById('vecPropFillPattern');
+            if (fillPatternEl) fillPatternEl.value = obj.userData.fillPattern || 'solid';
+            const autoFP = fillPatternAutoFor(obj);
+            const effS = (obj.userData.fillPatternSpacing > 0) ? obj.userData.fillPatternSpacing : autoFP.spacing;
+            const effT = (obj.userData.fillPatternThickness > 0) ? obj.userData.fillPatternThickness : autoFP.thickness;
+            const setPair = (r, n, v) => {
+                const re = document.getElementById(r), ne = document.getElementById(n);
+                if (re) re.value = v;
+                if (ne) ne.value = v;
+            };
+            setPair('vecFillSpacing', 'vecFillSpacingNum', Math.round(effS));
+            setPair('vecFillThickness', 'vecFillThicknessNum', Math.round(effT * 2) / 2);
+            syncFillPatternUI();
 
             const lineTools = document.getElementById('vecLineTools');
             const linePatternTools = document.getElementById('vecLinePatternTools');
@@ -1419,7 +1910,25 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecStrokeDotSize')?.addEventListener('input', () => applyPropsToActive(false, true));
     document.getElementById('vecPropStrokeAlpha')?.addEventListener('change', () => applyPropsToActive());
     document.getElementById('vecPropFill')?.addEventListener('change', () => applyPropsToActive());
+    document.getElementById('vecPropFillPattern')?.addEventListener('change', () => applyPropsToActive());
+    const syncFillPair = (r, n) => {
+        document.getElementById(r)?.addEventListener('input', (e) => { document.getElementById(n).value = e.target.value; applyPropsToActive(); });
+        document.getElementById(n)?.addEventListener('input', (e) => { document.getElementById(r).value = e.target.value; applyPropsToActive(); });
+    };
+    syncFillPair('vecFillSpacing', 'vecFillSpacingNum');
+    syncFillPair('vecFillThickness', 'vecFillThicknessNum');
 
+    function syncFillPatternUI() {
+        const ao = vectorState.activeObj;
+        const pm = ao ? getPrimaryMesh(ao) : null;
+        const isText = Boolean(pm && pm.userData.isText);
+        const pat = document.getElementById('vecPropFillPattern')?.value || (ao && ao.userData.fillPattern) || 'solid';
+        document.getElementById('vecFillPatternRow')?.classList.toggle('hidden', isText);
+        document.getElementById('vecFillPatternTune')?.classList.toggle('hidden', isText || pat === 'solid');
+    }
+
+    // Паттерны обводки действуют на любые фигуры с обводкой.
+    window.STROKE_PATTERNS = window.STROKE_PATTERNS || ['solid', 'dashed', 'dashdot', 'dotted'];
     function syncStrokePatternUI() {
         const pattern = document.getElementById('vecPropStrokePattern')?.value || 'solid';
         const hasStroke = document.getElementById('vecPropStroke')?.checked;
@@ -1432,7 +1941,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isConverted = !!(ao && ao.userData.convertedFrom);
         document.getElementById('vecPropStrokeWidthWrap')?.classList.toggle('hidden', isCircle);
         document.getElementById('vecCircleOutlineTools')?.classList.toggle('hidden', !hasStroke || !isCircle);
-        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !(isCircle || isConverted));
+        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !hasStroke);
         if (isCircle) {
             document.getElementById('vecStrokeDashRow')?.classList.add('hidden');
             document.getElementById('vecStrokeGapRow')?.classList.add('hidden');
@@ -1453,16 +1962,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const strokeHex = document.getElementById('vecPropStrokeColor').value;
         const strokeWidth = Math.min(150, Math.max(0.1, parseFloat(document.getElementById('vecPropStrokeWidthNum').value) || 10));
         const strokePatternRaw = document.getElementById('vecPropStrokePattern')?.value || 'solid';
-        const activeForPattern = vectorState.activeObj;
-        const isCircleFig = !!(activeForPattern && activeForPattern.userData.icon === 'circle' && !activeForPattern.userData.isPencil && !activeForPattern.userData.isSvg);
-        const isConvertedFig = !!(activeForPattern && activeForPattern.userData.convertedFrom);
-        const strokePattern = (isCircleFig || isConvertedFig) ? strokePatternRaw : 'solid';
+        const strokePattern = (window.STROKE_PATTERNS || []).includes(strokePatternRaw) ? strokePatternRaw : 'solid';
         const strokeCap = document.getElementById('vecPropStrokeCap')?.value || 'round';
         const strokeDash = parseFloat(document.getElementById('vecStrokeDash')?.value) || 10;
         const strokeGap = parseFloat(document.getElementById('vecStrokeGap')?.value) || 6;
         const strokeDot = parseFloat(document.getElementById('vecStrokeDotSize')?.value) || 8;
         const strokeUseAlpha = document.getElementById('vecPropStrokeAlpha')?.checked !== false;
         const fillEnabled = document.getElementById('vecPropFill')?.checked !== false;
+        const fillPattern = document.getElementById('vecPropFillPattern')?.value || 'solid';
         const scaleVal = parseFloat(document.getElementById('vecPropScaleNum').value) || 1;
         const rotVal = parseFloat(document.getElementById('vecPropRotNum').value) || 0;
         const qualityVal = parseInt(document.getElementById('vecPropQualityNum').value) || 12;
@@ -1473,6 +1980,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
         syncStrokePatternUI();
+        syncFillPatternUI();
 
         const obj = vectorState.activeObj;
         if (obj.userData.isSvg && markStyleOverride) obj.userData.styleOverridden = true;
@@ -1483,6 +1991,11 @@ document.addEventListener("DOMContentLoaded", () => {
         obj.userData.strokeDot = strokeDot;
         obj.userData.strokeUseAlpha = strokeUseAlpha;
         obj.userData.fillEnabled = fillEnabled;
+        obj.userData.fillPattern = fillPattern;
+        const fillSpacingRaw = parseFloat(document.getElementById('vecFillSpacingNum')?.value);
+        const fillThicknessRaw = parseFloat(document.getElementById('vecFillThicknessNum')?.value);
+        obj.userData.fillPatternSpacing = (Number.isFinite(fillSpacingRaw) && fillSpacingRaw > 0) ? fillSpacingRaw : null;
+        obj.userData.fillPatternThickness = (Number.isFinite(fillThicknessRaw) && fillThicknessRaw > 0) ? fillThicknessRaw : null;
         const circleGapRaw = parseFloat(document.getElementById('vecCircleGapNum')?.value);
         const circleWidthRaw = parseFloat(document.getElementById('vecCircleWidthNum')?.value);
         const prevCo = normalizeCircleOutline(obj.userData.circleOutline);
@@ -1555,8 +2068,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     mesh.material.transparent = alpha < 1;
                 } else {
                     mesh.userData.pseudoOpacity = alpha;
-                    mesh.material.opacity = 1;
-                    mesh.material.transparent = false;
+                    if (mesh.material.transparent !== false || mesh.material.depthWrite !== true || mesh.material.opacity !== 1) {
+                        mesh.material.opacity = 1;
+                        mesh.material.transparent = false;
+                        mesh.material.depthWrite = true;
+                        mesh.material.needsUpdate = true;
+                    }
                 }
             }
             mesh.renderOrder = mesh.userData.isText ? 1001 : 999;
@@ -1630,7 +2147,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.pseudoOpacity = strokeUseAlpha ? alpha : 1;
                     strokeMesh.material.opacity = 1;
                     strokeMesh.material.transparent = false;
-                    strokeMesh.position.z = obj.userData.convertedFrom ? 0.015 : -0.005; // Фикс z-offset для обводки (зоны — поверх заливок)
+                    strokeMesh.position.z = 0.015; // Фикс z-offset для обводки (зоны — поверх заливок)
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
                 }
@@ -1676,6 +2193,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vectorState.objects = vectorState.objects.filter(obj => !(obj.userData && obj.userData.convertedFrom === zoneId));
         if (activeGone) selectObject(null);
         else renderLayersList();
+        if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
         if (window.updateExportState) window.updateExportState();
         if (window.requestSceneRender) window.requestSceneRender();
         return doomed.length;
@@ -1694,6 +2212,47 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         vectorState.objects.forEach((obj, idx) => {
+            if (!obj.userData.layerGroup) makeLayerRow(obj, idx, list);
+        });
+        const seenGroups = [];
+        vectorState.objects.forEach(obj => {
+            const g = obj.userData.layerGroup;
+            if (g && !seenGroups.includes(g)) seenGroups.push(g);
+        });
+        seenGroups.forEach(g => {
+            const members = vectorState.objects.filter(o => o.userData.layerGroup === g);
+            if (members.length === 0) return;
+            const header = document.createElement('div');
+            header.className = 'flex items-center justify-between px-1.5 py-1 mt-1 rounded bg-slate-900/60 border border-slate-700/50 text-[9px] uppercase tracking-wider text-slate-400 font-semibold';
+            const title = document.createElement('span');
+            title.className = 'truncate';
+            title.textContent = g;
+            title.title = g;
+            const count = document.createElement('span');
+            count.className = 'font-mono text-emerald-400';
+            count.textContent = members.length;
+            header.append(title, count);
+            list.appendChild(header);
+            members.forEach(obj => {
+                makeLayerRow(obj, vectorState.objects.indexOf(obj), list);
+            });
+        });
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Помечает импортированные слои группой (для отдельного отображения
+    // в менеджере). hadUuids — uuid слоёв до импорта.
+    window.tagLayerGroupByUuids = function(hadUuids, groupName) {
+        if (!groupName) return 0;
+        let n = 0;
+        vectorState.objects.forEach(o => {
+            if (o && !hadUuids.has(o.uuid)) { o.userData.layerGroup = groupName; n++; }
+        });
+        renderLayersList();
+        return n;
+    };
+
+    function makeLayerRow(obj, idx, list) {
             const isActive = (vectorState.activeObj === obj);
             const div = document.createElement('div');
             div.className = `flex justify-between items-center p-1.5 rounded cursor-pointer text-[10px] border transition ${isActive ? 'bg-emerald-900/40 border-emerald-500/50 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`;
@@ -1717,6 +2276,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     vectorState.objects = vectorState.objects.filter(o => o !== obj);
                     if (isActive) selectObject(null);
                     else renderLayersList();
+                    // Удаление меняет «низ» для верхних — пересобрать всё.
+                    if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
                     
                     const countSpan = document.getElementById('vectorLayerCount');
                     if (countSpan) countSpan.textContent = vectorState.objects.length;
@@ -1730,8 +2291,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
             list.appendChild(div);
-        });
-        if (window.lucide) window.lucide.createIcons();
     }
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
@@ -2841,7 +3400,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 isText: false,
                 isSvg: false,
                 styleOverridden: Boolean(obj.userData.styleOverridden),
-                fillEnabled: obj.userData.fillEnabled !== false
+                layerGroup: obj.userData.layerGroup || null,
+                fillEnabled: obj.userData.fillEnabled !== false,
+                fillPattern: obj.userData.fillPattern || 'solid',
+                fillPatternSpacing: (Number.isFinite(obj.userData.fillPatternSpacing) && obj.userData.fillPatternSpacing > 0) ? obj.userData.fillPatternSpacing : null,
+                fillPatternThickness: (Number.isFinite(obj.userData.fillPatternThickness) && obj.userData.fillPatternThickness > 0) ? obj.userData.fillPatternThickness : null
             };
             if (obj.userData.isPixelImage) {
                 data.isPixelImage = true;
@@ -2906,13 +3469,16 @@ document.addEventListener("DOMContentLoaded", () => {
     
     window.loadVectorsFromJSON = async function(vectorsData, showProgress = false) {
         if (!vectorsData || !Array.isArray(vectorsData)) return;
+        const hadObjects = new Set(vectorState.objects);
 
+        try {
         for (let vectorIndex = 0; vectorIndex < vectorsData.length; vectorIndex++) {
             const data = vectorsData[vectorIndex];
             if (showProgress && window.yieldToBrowser) {
                 window.showLoading?.(window.t("Восстановление слоёв...", "Restoring layers...", "Відновлення шарів..."), `${vectorIndex + 1}/${vectorsData.length}`);
                 await window.yieldToBrowser();
             }
+            const __t0 = (typeof performance !== 'undefined') ? performance.now() : 0;
             if (data.isPixelImage && data.pixelImageData) {
                 try {
                     const geometry = await createPixelImageGeometry(data.pixelImageData);
@@ -3038,7 +3604,30 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         updateVectorsOrder();
-        if (showProgress && window.hideLoading) window.hideLoading();
+        // Пересобираем только добавленное и всё выше самого нижнего нового:
+        // новые всегда сверху, нижние от них не зависят — их не трогаем.
+        // Ничего не добавилось — пересобирать нечего.
+        const inserted = vectorState.objects.filter(o => !hadObjects.has(o));
+        if (inserted.length > 0 && window.rebuildVectorPseudoTransparencyAsync) {
+            const minIdx = Math.min.apply(null, inserted.map(o => vectorState.objects.indexOf(o)).filter(i => i >= 0).concat([0]));
+            const affected = vectorState.objects.slice(0, Math.max(0, minIdx) + 1);
+            // Плашку «Псевдо» показываем, только если реально долго (>600мс),
+            // иначе она лишь мелькает поверх мгновенной сборки.
+            const __pt0 = Date.now();
+            let __pshown = false;
+            await window.rebuildVectorPseudoTransparencyAsync(showProgress ? (done, total) => {
+                if (__pshown || Date.now() - __pt0 > 600) {
+                    __pshown = true;
+                    window.showLoading?.(window.t("Псевдо-прозрачность...", "Pseudo-transparency...", "Псевдо-прозорість..."), `${done}/${total}`);
+                }
+            } : null, affected);
+        }
+        } catch (err) {
+            console.error('[loadVectorsFromJSON]', err);
+            throw err;
+        } finally {
+            if (showProgress && window.hideLoading) { try { window.hideLoading(); } catch (e) {} }
+        }
     };
 
     function spawnLoadedVectorMesh(geometry, data) {
@@ -3072,6 +3661,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.isText) group.userData.textAlign = data.textAlign || 'center';
         
         applyTransformAndProperties(group, data);
+        // Дебаунс схлопывает пачку при массовой загрузке; поздние объекты
+        // (текст после шрифта) тоже получают свою пересборку.
+        if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(group);
         return group;
     }
     
@@ -3114,6 +3706,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         wrapper.userData.fillEnabled = data.fillEnabled !== false;
+        wrapper.userData.layerGroup = data.layerGroup || null;
+        wrapper.userData.fillPattern = data.fillPattern || 'solid';
+        wrapper.userData.fillPatternSpacing = (Number.isFinite(data.fillPatternSpacing) && data.fillPatternSpacing > 0) ? data.fillPatternSpacing : null;
+        wrapper.userData.fillPatternThickness = (Number.isFinite(data.fillPatternThickness) && data.fillPatternThickness > 0) ? data.fillPatternThickness : null;
         getMeshes(wrapper, false).forEach(mesh => {
             mesh.userData.fillHidden = data.fillEnabled === false;
             mesh.visible = data.fillEnabled !== false;
@@ -3124,8 +3720,7 @@ document.addEventListener("DOMContentLoaded", () => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
                 firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
                 const loadIsCircle = wrapper.userData.icon === 'circle' && !wrapper.userData.isPencil && !wrapper.userData.isSvg && !firstMesh.userData.isText && window.GeometryUtils;
-                const loadIsConverted = !!wrapper.userData.convertedFrom;
-                const effLoadPattern = (loadIsCircle || loadIsConverted) ? (data.strokePattern || 'solid') : 'solid';
+                const effLoadPattern = (window.STROKE_PATTERNS || []).includes(data.strokePattern) ? data.strokePattern : 'solid';
                 if (loadIsCircle) {
                     const coLoad = normalizeCircleOutline(wrapper.userData.circleOutline);
                     const built = buildCircleStroke(firstMesh, effLoadPattern, coLoad.gap, coLoad.width, firstMesh.userData.quality || 12, data.strokeCap || 'round', data.strokeColor);
@@ -3143,7 +3738,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         built.userData.pseudoOpacity = (data.strokeUseAlpha ?? false) ? (data.opacity ?? 1) : 1;
                         built.userData.quality = firstMesh.userData.quality || 12;
                         built.userData.parentMeshId = firstMesh.uuid;
-                        built.position.z = -0.005;
+                        built.position.z = 0.015;
                         built.renderOrder = 998;
                         firstMesh.parent.add(built);
                     }
@@ -3168,7 +3763,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                    strokeMesh.position.z = wrapper.userData.convertedFrom ? 0.015 : -0.005;
+                    strokeMesh.position.z = 0.015;
                     strokeMesh.renderOrder = 998;
                     
                     const tX = firstMesh.geometry.userData.tX || 0;
@@ -3190,8 +3785,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         scene.add(wrapper);
-        vectorState.objects.unshift(wrapper); 
-        rebuildPseudoTransparency(wrapper);
+        vectorState.objects.unshift(wrapper);
+        // Без поштучной пересборки: в конце загрузки всё пересоберётся разом
+        // снизу вверх (иначе двойная работа на тяжёлых фигурах).
         
         if (vectorState.pendingSelectId === wrapper.uuid) {
             selectObject(wrapper);

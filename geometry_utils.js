@@ -332,14 +332,15 @@
         return mergeResult;
     }
 
-    // GTA V limits the primitive count and the vertex index space independently.
-    // The old implementation compared the raw index count to maxLimit, allowing
-    // three times as many triangles as intended.
-    function needsGeometrySplit(vertexCount, indexCount, maxTriangles = 60000, maxVertices = 65535) {
-        return vertexCount > maxVertices || indexCount > 0 && Math.floor(indexCount / 3) > maxTriangles;
+    // Лимит движка — 65535 ИНДЕКСОВ на геометрию (Blender/CodeWalker режет
+    // индексный буфер ровно там: ib0 nidx=65535). Лимит треугольников 60000
+    // был неверен: 60000 треугольников = 180000 индексов, и всё, что дальше
+    // 65535-го индекса, игра молча роняла (хвосты заливок, центральные точки).
+    function needsGeometrySplit(vertexCount, indexCount, maxIndices = 65535, maxVertices = 65535) {
+        return vertexCount > maxVertices || indexCount > 0 && indexCount > maxIndices;
     }
 
-    function splitOversizedGeometries(xmlDoc, maxTriangles = 60000, maxVertices = 65535) {
+    function splitOversizedGeometries(xmlDoc, maxIndices = 65535, maxVertices = 65535) {
         const getDirectChild = (parent, tag) => Array.from(parent.children).find(c => c.nodeName === tag);
 
         const geomItems = Array.from(xmlDoc.querySelectorAll('Geometries > Item'));
@@ -358,7 +359,7 @@
             const iTokens = iData.textContent.trim().split(/\s+/).filter(t => t !== '');
             const indices = iTokens.map(Number);
 
-            if (indices.length < 3 || !needsGeometrySplit(vLines.length, indices.length, maxTriangles, maxVertices)) return;
+            if (indices.length < 3 || !needsGeometrySplit(vLines.length, indices.length, maxIndices, maxVertices)) return;
             if (indices.length % 3 !== 0) throw new Error('Cannot split YDD geometry: index count is not divisible by three');
 
             if (indices.some(index => !Number.isInteger(index) || index < 0 || index >= vLines.length)) {
@@ -375,7 +376,7 @@
 
             for (const tri of triangles) {
                 const newVertCount = tri.filter(idx => !current.usedVerts.has(idx)).length;
-                if ((current.usedVerts.size + newVertCount > maxVertices) || (current.tris.length + 1 > maxTriangles)) {
+                if ((current.usedVerts.size + newVertCount > maxVertices) || (current.tris.length * 3 + 3 > maxIndices)) {
                     if (current.tris.length > 0) chunks.push(current);
                     current = { usedVerts: new Set(), tris: [] };
                 }

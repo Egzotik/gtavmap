@@ -58,7 +58,7 @@ function buildProjectJsonBlob() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
 
     const projectData = {
-        COLORS_LIST: hexList, version: "10.0", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "10.1", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
         language: window.currentLang,
         gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
@@ -238,6 +238,10 @@ async function exportModifiedZip() {
         const mapFiles = exportFiles.filter(f => f.name.toLowerCase().startsWith('minimap_'));
         const customFiles = exportFiles.filter(f => !f.name.toLowerCase().startsWith('minimap_'));
 
+        // Добираем отложенные пересборки прозрачности, иначе в архив
+        // уйдёт сцена с несобранными слоями.
+        if (window.flushPseudoRebuilds) window.flushPseudoRebuilds();
+
         if (window.exportVectorsToXMLFiles) {
              window.exportVectorsToXMLFiles(mapFiles, customFiles);
         }
@@ -336,7 +340,7 @@ async function exportModifiedZip() {
             }
             
             if (window.GeometryUtils && window.GeometryUtils.splitOversizedGeometries) {
-                window.GeometryUtils.splitOversizedGeometries(doc, 60000, 65535);
+                window.GeometryUtils.splitOversizedGeometries(doc, 65535, 65535);
             }
 
             const match = file.name.match(/minimap_(\d+)_(\d+)/i);
