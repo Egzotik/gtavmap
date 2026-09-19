@@ -203,7 +203,9 @@
         return figures;
     }
 
-    function parsePastedPoints(text) {
+    // isGame=true: вход уже в игровых координатах (ПКМ-копия с вики) —
+    // переводим обратно в вики-пространство, дальше конвейер общий.
+    function parsePastedPoints(text, isGame) {
         const out = [];
         String(text || '').split('\n').forEach(rawLine => {
             let line = String(rawLine).trim().replace(/^(?:[-–—](?=\s)|•)\s*/, '');
@@ -218,7 +220,7 @@
             const x = Number(parts[0]), y = Number(parts[1]);
             if (!Number.isFinite(x) || !Number.isFinite(y)) return;
             const name = parts.slice(2).join(usedComma ? ', ' : ' ').replace(/^[-–—]\s*/, '');
-            out.push({ point: [x, y], name });
+            out.push({ point: isGame ? [y, x] : [x, y], name });
         });
         return out;
     }
@@ -822,7 +824,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const def = window.GameZones.GAME_ZONES.find(d => d.id === 'custom');
         const st = state.custom;
         if (!ta || !def || !st || !Array.isArray(st.customRaw)) return;
-        const items = window.GameZones.parsePastedPoints(ta.value);
+        const isGame = Boolean(document.getElementById('customPointsGameCoords')?.checked);
+        const items = window.GameZones.parsePastedPoints(ta.value, isGame);
         if (items.length === 0) {
             if (window.showToast) window.showToast(t('Нет координат для добавления', 'No coordinates to add', 'Немає координат для додавання'), 'error');
             return;
