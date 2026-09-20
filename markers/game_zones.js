@@ -405,11 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedZoneId = id;
         selectedPointIdx = (Number.isInteger(pointIdx) && pointIdx >= 0) ? pointIdx : -1;
         selectedCustomIdx = (id === 'custom' && Number.isInteger(pointIdx) && pointIdx >= 0) ? pointIdx : -1;
-        const selectedDef = window.GameZones.GAME_ZONES.find(d => d.id === id);
-        const selectedState = id && state[id];
-        const selectedPoint = selectedState && selectedPointIdx >= 0 ? selectedState.points[selectedPointIdx] : null;
-        const hasDefaultIcon = !!(selectedPoint && selectedPoint.icon && markerStyleOf(selectedDef).useIcon && !selectedState.customIcon);
-        if (id && window.showObjectHeight) window.showObjectHeight(hasDefaultIcon ? 75 : 50, (selectedPoint && selectedPoint.name) || labelOf(selectedDef || { titles: ['Метка', 'Marker', 'Мітка'] }));
         renderMarkerPanel();
         window.refreshGameZonesList();
         if (window.refreshVectorLayersList) window.refreshVectorLayersList();

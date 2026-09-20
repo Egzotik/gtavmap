@@ -989,12 +989,6 @@ function base64ToArrayBuffer(value) {
 }
 
     window.getVectorCount = () => vectorState.objects.length;
-    window.showObjectHeight = function(z, name) {
-        const el = document.getElementById('objectHeightInfo');
-        if (!el || !Number.isFinite(Number(z))) return;
-        el.textContent = (name ? name + ': ' : '') + 'Z = ' + Number(z).toFixed(2) + ' м';
-        el.classList.remove('hidden');
-    };
 window.setPendingVectorSelect = id => { vectorState.pendingSelectId = id; };
 
 window.clearVectors = function() {
