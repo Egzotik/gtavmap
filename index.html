@@ -63,6 +63,8 @@
             header details div.absolute { max-width: calc(100vw - 1rem); }
             #gameZonesDropdown > div { left: auto; right: 0; max-width: calc(100vw - 1rem); }
             #markerPropsPanel, #vectorPropsPanel { max-width: 100%; }
+            #markerPropsPanel > *, #markerPropsPanel .bg-slate-900\/40 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+            #markerPropsPanel input[type="range"] { min-width: 0; }
             #vectorPropsPanel input[type="number"], #markerPropsPanel input[type="number"] { min-width: 0; }
             #customPointsInput { max-width: 100%; }
             body { overflow-x: clip; }
@@ -111,7 +113,10 @@
                 </summary>
                 <div class="absolute right-0 top-full mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-slate-700/50 bg-slate-900/95 backdrop-blur-xl p-2 shadow-2xl z-50">
                     <div class="flex items-center gap-2 px-1 pb-1.5">
-                        <span class="text-[9px] text-slate-400 uppercase font-semibold shrink-0" data-i18n="zones_size">Размер</span>
+                        <input id="gameZoneSearch" type="text" placeholder="Поиск..." class="flex-1 min-w-0 bg-slate-950/50 border border-slate-700/80 rounded-lg text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 text-[10px]">
+                    </div>
+                    <div class="flex items-center gap-2 px-1 pb-1.5">
+                        <span class="text-[9px] text-slate-400 uppercase font-semibold shrink-0">Общий размер</span>
                         <input id="gameZoneSize" type="range" min="1" max="40" step="1" value="6" class="flex-1 accent-emerald-400 h-1.5 cursor-pointer">
                         <span id="gameZoneSizeNum" class="text-[9px] font-mono text-emerald-400 w-6 text-right shrink-0">6</span>
                     </div>
@@ -357,6 +362,45 @@
                         <button id="markerPropsClose" type="button" class="text-slate-500 hover:text-rose-400 transition text-sm leading-none px-1">×</button>
                     </label>
                     <div id="markerPropsName" class="text-[11px] font-bold text-emerald-300 truncate"></div>
+                    <div id="markerPropsDescription" class="hidden text-[10px] leading-tight text-slate-400"></div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="markerPropLabel" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded">
+                        <span class="text-[10px] font-bold text-slate-300">Показывать название</span>
+                    </label>
+                    <textarea id="markerPropLabelTemplate" rows="2" placeholder="Шаблон, например: ГШ #{n}" class="w-full bg-slate-950/50 border border-slate-700/80 rounded-lg text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 text-[10px] resize-y"></textarea>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <label class="text-[9px] text-slate-400">Цвет текста<input id="markerPropLabelColor" type="color" value="#ffffff" class="w-full h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer"></label>
+                        <label class="text-[9px] text-slate-400">Цвет обводки<input id="markerPropLabelOutline" type="color" value="#000000" class="w-full h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer"></label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Обводка:</span>
+                        <input type="range" id="markerPropLabelOutlineSize" min="0" max="20" step="1" value="2" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                        <input type="number" id="markerPropLabelOutlineSizeNum" min="0" max="20" step="1" value="2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Размер:</span>
+                        <input type="range" id="markerPropLabelSize" min="1" max="100" step="1" value="1" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                        <input type="number" id="markerPropLabelSizeNum" min="1" max="100" step="1" value="1" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Высота:</span>
+                        <input type="range" id="markerPropLabelHeight" min="0" max="500" step="1" value="2" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                        <input type="number" id="markerPropLabelHeightNum" min="0" max="500" step="1" value="2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                        <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Метка:</span>
+                        <input type="range" id="markerPropSize" min="1" max="40" step="1" value="6" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                        <input type="number" id="markerPropSizeNum" min="1" max="40" step="1" value="6" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        </div>
+                    </div>
+                    <div id="markerCustomColorRow" class="hidden flex items-center gap-2">
+                        <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0">Цвет метки:</span>
+                        <input type="color" id="markerCustomColor" value="#ffffff" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
+                        <button id="markerCustomColorReset" type="button" class="shrink-0 px-1.5 py-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 transition text-[11px] leading-none" title="Общий цвет слоя">×</button>
+                    </div>
                     <div id="markerAirdropRow" class="hidden flex items-center gap-2">
                         <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0">Зоны:</span>
                         <select id="markerAirdropShow" class="flex-1 min-w-0 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-slate-200 text-[10px] outline-none">
@@ -380,23 +424,30 @@
                             <input type="color" id="markerPropOutline" value="#ffffff" class="w-6 h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer shrink-0 shadow-sm">
                             <select id="markerPropOutlineStyle" class="flex-1 min-w-0 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-slate-200 text-[10px] outline-none">
                                 <option value="solid" data-i18n="line_solid">Сплошная</option>
-                                <option value="dashed" data-i18n="line_dashed">Штриховая</option>
-                                <option value="dashdot">Штрихпунктирная</option>
+                                <option value="dashed">Штрихпунктирная</option>
+                                <option value="dashdot">Штрихпунктирная с точкой</option>
                                 <option value="none" data-i18n="marker_none">Нет</option>
                             </select>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_gap">Размах:</span>
-                            <input type="range" id="markerPropGap" min="0" max="100" step="1" value="0" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="markerPropGapNum" min="0" max="100" step="1" value="0" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0" data-i18n="marker_gap">Размах:</span>
+                        <input type="range" id="markerPropGap" min="0" max="2000" step="1" value="0" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="markerPropGapNum" min="0" max="2000" step="1" value="0" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            </div>
+                            <div class="flex items-center gap-1 min-w-0">
+                        <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0" data-i18n="marker_width">Толщина:</span>
+                        <input type="range" id="markerPropWidth" min="1" max="500" step="1" value="2" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                            <input type="number" id="markerPropWidthNum" min="1" max="500" step="1" value="2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <label class="text-[9px] text-slate-400">Штрих<input id="markerPropDash" type="number" min="0.5" max="500" step="0.5" value="3" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
+                            <label class="text-[9px] text-slate-400">Промежуток<input id="markerPropDashGap" type="number" min="0.5" max="500" step="0.5" value="2" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
+                            <label class="text-[9px] text-slate-400">Точка<input id="markerPropDot" type="number" min="0.5" max="500" step="0.5" value="1.5" class="w-full bg-slate-950/50 border border-slate-700 rounded p-1 text-emerald-400"></label>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_width">Толщина:</span>
-                            <input type="range" id="markerPropWidth" min="5" max="100" step="1" value="29" class="flex-1 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
-                            <input type="number" id="markerPropWidthNum" min="5" max="100" step="1" value="29" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-400 text-[9px] uppercase font-semibold w-14 shrink-0" data-i18n="marker_icon">Иконка:</span>
+                            <label class="flex items-center gap-1.5 cursor-pointer shrink-0"><input type="checkbox" id="markerPropIconEnabled" class="w-3.5 h-3.5 accent-emerald-500" title="Включить дефолтную иконку"><span class="text-[9px] text-slate-300">Дефолтная иконка</span></label>
                             <label id="markerPropIconLabel" class="flex-1 min-w-0 cursor-pointer text-center py-1 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition truncate"><span data-i18n="marker_icon_upload">Загрузить SVG</span><input type="file" id="markerPropIconFile" accept=".svg,image/svg+xml" class="hidden"></label>
                             <button id="markerPropIconReset" type="button" class="hidden shrink-0 px-1.5 py-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 transition text-[11px] leading-none" title="Убрать иконку">×</button>
                         </div>
@@ -417,9 +468,12 @@
                 </div>
 
                 <div class="space-y-2 pt-3 border-t border-slate-700/50 flex-1 flex flex-col mt-3">
-                    <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider w-full">
-                        <span data-i18n="layer_manager">Менеджер слоев</span>
-                        <span id="vectorLayerCount" class="bg-slate-800/60 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
+                        <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider w-full">
+                            <span data-i18n="layer_manager">Менеджер слоев</span>
+                            <span class="flex items-center gap-1">
+                                <button id="vectorLayersToggleAll" type="button" class="p-1 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/20 transition" title="Скрыть/показать все слои"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+                                <span id="vectorLayerCount" class="bg-slate-800/60 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
+                            </span>
                     </label>
                     <div id="vectorLayersList" class="space-y-1 flex-1 overflow-y-auto pr-1 pb-2">
                         <div class="text-[10px] text-slate-500 text-center py-4 bg-slate-900/30 rounded border border-slate-800 border-dashed" data-i18n="no_layers">Слоев нет</div>
@@ -438,6 +492,7 @@
                     <i data-lucide="box" class="w-3 h-3 text-emerald-400"></i> <span data-i18n="vertices">Вертексов:</span> 0
                 </span>
             </div>
+            <div id="objectHeightInfo" class="hidden absolute top-12 left-1/2 -translate-x-1/2 z-20 text-[10px] text-slate-200 bg-slate-900/80 backdrop-blur-xl px-2.5 py-1 rounded-lg border border-slate-700/60 shadow-xl pointer-events-none"></div>
 
             <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 pointer-events-none">
                 <button id="toggleLeftPanelBtn" data-i18n-title="toggle_left" title="Скрыть/показать панель векторов" class="pointer-events-auto p-2 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-xl text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition shadow-2xl flex items-center justify-center">

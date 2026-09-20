@@ -10,11 +10,93 @@
         { id: 'contraband', titles: ['Контрабанда (тайники)', 'Contraband (caches)', 'Контрабанда (схованки)'], color: '#f59e0b', icon: 'package', url: 'markers/contraband.json' },
         { id: 'gathering', titles: ['Собирательство', 'Gathering', 'Збиральництво'], color: '#a3e635', icon: 'leaf', url: 'markers/gathering.json' },
         { id: 'treasure', titles: ['Кладоискатель', 'Treasure hunter', 'Шукач скарбів'], color: '#facc15', icon: 'gem', url: 'markers/treasure.json', figureDefaults: { strokeWidth: 0.4 } },
-        { id: 'rubbish', titles: ['Мусорные баки', 'Trash bins', 'Сміттєві баки'], color: '#eab308', icon: 'trash-2', url: 'markers/rubbish_points.json' },
-        { id: 'phones', titles: ['Телефоны', 'Phones', 'Телефони'], color: '#34d399', icon: 'phone', url: 'markers/phones.json' },
+        { id: 'rubbish', titles: ['Мусорные баки', 'Trash bins', 'Сміттєві баки'], color: '#eab308', icon: 'trash-2', url: 'markers/rubbish_points.json', directCoordinates: false },
+        { id: 'phones', titles: ['Телефоны', 'Phones', 'Телефони'], color: '#34d399', icon: 'phone', url: 'markers/phones.json', directCoordinates: false },
         { id: 'airdrop', titles: ['Аирдропы', 'Airdrops', 'Аірдропи'], color: '#6d9aed', icon: 'plane', url: 'markers/airdrop.json', figureDefaults: { strokeWidth: 0.4, strokeColor: '#ffffff' }, overlayOutline: '#ffffff' },
         { id: 'custom', titles: ['Свои метки', 'Custom markers', 'Свої мітки'], color: '#f8fafc', icon: 'map-pin', custom: true, url: null }
     ];
+    // --- СГЕНЕРИРОВАНО из out/all (78 групп стандартных меток). Не править вручную ---
+    const STANDARD_ZONE_DEFS = [
+        { id: 'std-car-rent', group: 'car-rent', title: 'Car Rent', color: '#e6194B', ru: 'Аренда авто' },
+        { id: 'std-gas-station', group: 'gas-station', title: 'Gas Station', color: '#3cb44b', ru: 'Заправки' },
+        { id: 'std-grocery-store', group: 'grocery-store', title: 'Grocery Store', color: '#ffe119', ru: 'Магазины' },
+        { id: 'std-fishing', group: 'fishing', title: 'Fishing', color: '#4363d8', ru: 'Рыбалка' },
+        { id: 'std-free-premises', group: 'free-premises', title: 'Free Premises', color: '#f58231', ru: 'Свободные помещения' },
+        { id: 'std-job', group: 'job', title: 'Job', color: '#911eb4', ru: 'Работы' },
+        { id: 'std-clothing-store', group: 'clothing-store', title: 'Clothing Store', color: '#46f0f0', ru: 'Одежда' },
+        { id: 'std-autoservice', group: 'autoservice', title: 'Autoservice', color: '#f032e6', ru: 'Автосервис' },
+        { id: 'std-farm', group: 'farm', title: 'Farm', color: '#bcf60c', ru: 'Фермы' },
+        { id: 'std-gunshop', group: 'gunshop', title: 'Gunshop', color: '#fabebe', ru: 'Оружейные' },
+        { id: 'std-auto-shop', group: 'auto-shop', title: 'Auto Shop', color: '#008080', ru: 'Автомагазины' },
+        { id: 'std-spawn', group: 'spawn', title: 'Spawn', color: '#e6beff', ru: 'Спавны' },
+        { id: 'std-warehouse', group: 'warehouse', title: 'Warehouse', color: '#9a6324', ru: 'Склады' },
+        { id: 'std-bank', group: 'bank', title: 'Bank', color: '#fffac8', ru: 'Банки' },
+        { id: 'std-apartment', group: 'apartment', title: 'Apartment', color: '#800000', ru: 'Апартаменты' },
+        { id: 'std-auto-repair', group: 'auto-repair', title: 'Auto Repair', color: '#aaffc3', ru: 'Автомастерские' },
+        { id: 'std-bar', group: 'bar', title: 'Bar', color: '#808000', ru: 'Бары' },
+        { id: 'std-barbershop', group: 'barbershop', title: 'Barbershop', color: '#ffd8b1', ru: 'Парикмахерские' },
+        { id: 'std-craft-family', title: 'Family crafting', color: '#808080', ru: 'Семейные крафты', descriptionFilter: 'Точка крафта для семейных организаций' },
+        { id: 'std-craft-gangs', title: 'Gang crafting', color: '#f032e6', ru: 'Крафты банд', descriptionFilter: 'Точка крафта для банд' },
+        { id: 'std-craft-government', title: 'Government crafting', color: '#008080', ru: 'Гос крафт', descriptionFilter: 'государственных организаций' },
+        { id: 'std-lsc', group: 'lsc', title: 'Lsc', color: '#000000', ru: 'LSC' },
+        { id: 'std-mansion', group: 'mansion', title: 'Mansion', color: '#e6194B', ru: 'Особняки' },
+        { id: 'std-mushrooms', group: 'mushrooms', title: 'Mushrooms', color: '#3cb44b', ru: 'Грибы' },
+        { id: 'std-pvz', group: 'pvz', title: 'Pvz', color: '#ffe119', ru: 'ПВЗ' },
+        { id: 'std-tattoo', group: 'tattoo', title: 'Tattoo', color: '#4363d8', ru: 'Тату' },
+        { id: 'std-car-point', group: 'car-point', title: 'Car Point', color: '#f58231', ru: 'Точки авто' },
+        { id: 'std-car-washing', group: 'car-washing', title: 'Car Washing', color: '#911eb4', ru: 'Автомойки' },
+        { id: 'std-drift', group: 'drift', title: 'Drift', color: '#46f0f0', ru: 'Дрифт' },
+        { id: 'std-forest', group: 'forest', title: 'Forest', color: '#f032e6', ru: 'Лес' },
+        { id: 'std-office', group: 'office', title: 'Office', color: '#bcf60c', ru: 'Офисы' },
+        { id: 'std-quests', group: 'quests', title: 'Quests', color: '#fabebe', ru: 'Квесты' },
+        { id: 'std-truck-spawn', group: 'truck-spawn', title: 'Truck Spawn', color: '#008080', ru: 'Спавн грузовиков' },
+        { id: 'std-boat-rent', group: 'boat-rent', title: 'Boat Rent', color: '#e6beff', ru: 'Аренда лодок' },
+        { id: 'std-boat-station', group: 'boat-station', title: 'Boat Station', color: '#9a6324', ru: 'Лодочные станции' },
+        { id: 'std-church', group: 'church', title: 'Church', color: '#fffac8', ru: 'Церкви' },
+        { id: 'std-cinema', group: 'cinema', title: 'Cinema', color: '#800000', ru: 'Кинотеатры' },
+        { id: 'std-ems', group: 'ems', title: 'Ems', color: '#aaffc3', ru: 'Медики' },
+        { id: 'std-market', group: 'market', title: 'Market', color: '#808000', ru: 'Рынки' },
+        { id: 'std-special-tuning', group: 'special-tuning', title: 'Special Tuning', color: '#ffd8b1', ru: 'Тюнинг' },
+        { id: 'std-utilization', group: 'utilization', title: 'Utilization', color: '#000075', ru: 'Утилизация' },
+        { id: 'std-aircraft-spawn', group: 'aircraft-spawn', title: 'Aircraft Spawn', color: '#808080', ru: 'Спавн самолётов' },
+        { id: 'std-airport', group: 'airport', title: 'Airport', color: '#ffffff', ru: 'Аэропорты' },
+        { id: 'std-anchor', group: 'anchor', title: 'Anchor', color: '#000000', ru: 'Якорь' },
+        { id: 'std-arm', group: 'arm', title: 'Arm', color: '#e6194B', ru: 'Армрестлинг' },
+        { id: 'std-biker', group: 'biker', title: 'Biker', color: '#3cb44b', ru: 'Байкеры' },
+        { id: 'std-lscsd', group: 'lscsd', title: 'Lscsd', color: '#4363d8', ru: 'LSCSD' },
+        { id: 'std-lspd', group: 'lspd', title: 'Lspd', color: '#f58231', ru: 'LSPD' },
+        { id: 'std-arena', group: 'arena', title: 'Arena', color: '#911eb4', ru: 'Арена' },
+        { id: 'std-ballas', group: 'ballas', title: 'Ballas', color: '#46f0f0', ru: 'Баллас' },
+        { id: 'std-betting', group: 'betting', title: 'Betting', color: '#f032e6', ru: 'Ставки' },
+        { id: 'std-bike-spawn', group: 'bike-spawn', title: 'Bike Spawn', color: '#bcf60c', ru: 'Спавн мото' },
+        { id: 'std-bloods', group: 'bloods', title: 'Bloods', color: '#fabebe', ru: 'Bloods' },
+        { id: 'std-car-market', group: 'car-market', title: 'Car Market', color: '#008080', ru: 'Авторынок' },
+        { id: 'std-casino', group: 'casino', title: 'Casino', color: '#e6beff', ru: 'Казино' },
+        { id: 'std-container', group: 'container', title: 'Container', color: '#9a6324', ru: 'Контейнеры' },
+        { id: 'std-court', group: 'court', title: 'Court', color: '#fffac8', ru: 'Суд' },
+        { id: 'std-driving-school', group: 'driving-school', title: 'Driving School', color: '#808000', ru: 'Автошкола' },
+        { id: 'std-famillies', group: 'famillies', title: 'Famillies', color: '#ffd8b1', ru: 'Фамилии' },
+        { id: 'std-fib', group: 'fib', title: 'Fib', color: '#000075', ru: 'FIB' },
+        { id: 'std-flying-school', group: 'flying-school', title: 'Flying School', color: '#808080', ru: 'Лётная школа' },
+        { id: 'std-government', group: 'government', title: 'Government', color: '#ffffff', ru: 'Правительство' },
+        { id: 'std-gym', group: 'gym', title: 'Gym', color: '#000000', ru: 'Спортзалы' },
+        { id: 'std-jail', group: 'jail', title: 'Jail', color: '#e6194B', ru: 'Тюрьма' },
+        { id: 'std-marabunta', group: 'marabunta', title: 'Marabunta', color: '#3cb44b', ru: 'Марабунта' },
+        { id: 'std-marketplace', group: 'marketplace', title: 'Marketplace', color: '#ffe119', ru: 'Маркетплейс' },
+        { id: 'std-nettle-grower', group: 'nettle-grower', title: 'Nettle Grower', color: '#4363d8', ru: 'Крапива' },
+        { id: 'std-parking-fine', group: 'parking-fine', title: 'Parking Fine', color: '#f58231', ru: 'Штрафстоянка' },
+        { id: 'std-sang', group: 'sang', title: 'Sang', color: '#911eb4', ru: 'SANG' },
+        { id: 'std-strip-club', group: 'strip-club', title: 'Strip Club', color: '#46f0f0', ru: 'Стрип-клуб' },
+        { id: 'std-university', group: 'university', title: 'University', color: '#f032e6', ru: 'Университет' },
+        { id: 'std-vagos', group: 'vagos', title: 'Vagos', color: '#bcf60c', ru: 'Вагос' },
+        { id: 'std-vehicle-registration', group: 'vehicle-registration', title: 'Vehicle Registration', color: '#fabebe', ru: 'Регистрация ТС' },
+        { id: 'std-weazle-news', group: 'weazle-news', title: 'Weazle News', color: '#008080', ru: 'Weazel News' },
+        { id: 'std-wolf', group: 'wolf', title: 'Wolf', color: '#e6beff', ru: 'Волк' },
+    ];
+    STANDARD_ZONE_DEFS.forEach(g => GAME_ZONES.push({
+        id: g.id, titles: [g.ru || g.title, g.title, g.title], color: g.color, icon: 'map-pin',
+        url: 'markers/standard.json', group: g.group, descriptionFilter: g.descriptionFilter, standard: true
+    }));
 
     // Wiki CRS is rotated 90 degrees clockwise relative to game coordinates,
     // so points are rotated 90 degrees counter-clockwise about the origin: (x, y) -> (-y, x),
@@ -27,23 +109,32 @@
         return { x: 2 * MAP_CENTER_X + y + SHIFT_X, y: x };
     }
 
-    function parseZonePoints(raw) {
+    function parseZonePoints(raw, options) {
+        const opts = options || {};
         if (!Array.isArray(raw)) return [];
         const out = [];
-        raw.forEach(item => {
+        raw.forEach((item, ri) => {
             if (!item || typeof item !== 'object') return;
+            const source = (item.data && typeof item.data === 'object') ? item.data : item;
             let x, y, name;
-            if (Array.isArray(item.point) && item.point.length >= 2) {
-                x = Number(item.point[0]); y = Number(item.point[1]);
-            } else if (item.x !== undefined || item.y !== undefined) {
-                x = Number(item.x); y = Number(item.y);
+            if (Array.isArray(source.point) && source.point.length >= 2) {
+                x = Number(source.point[0]); y = Number(source.point[1]);
+            } else if (source.x !== undefined || source.y !== undefined) {
+                x = Number(source.x); y = Number(source.y);
             } else {
                 return;
             }
-            const g = wikiToGame(x, y);
+            const g = opts.direct ? { x, y } : wikiToGame(x, y);
             if (!g) return;
-            name = typeof item.name === 'string' ? item.name : '';
-            out.push({ x: g.x, y: g.y, name });
+            name = typeof source.name === 'string' ? source.name : '';
+            const pt = { x: g.x, y: g.y, name, ri };
+            if (typeof source.description === 'string' && source.description.trim()) pt.description = source.description.trim();
+            if (typeof source.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(source.color)) pt.color = source.color;
+            if (source.style && typeof source.style.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(source.style.color)) pt.color = source.style.color;
+            if (typeof source.group === 'string' && source.group) pt.group = source.group;
+            if (typeof source.category === 'string' && source.category) pt.group = source.category;
+            if (typeof source.icon === 'string' && source.icon) pt.icon = source.icon;
+            out.push(pt);
         });
         return out;
     }
@@ -116,11 +207,11 @@
         return snapPolygonVertices(out, tolerance === undefined ? 1 : tolerance);
     }
 
-    function parseZoneFile(raw) {
-        if (Array.isArray(raw)) return { points: parseZonePoints(raw), polygons: [] };
+    function parseZoneFile(raw, options) {
+        if (Array.isArray(raw)) return { points: parseZonePoints(raw, options), polygons: [] };
         if (!raw || typeof raw !== 'object') return { points: [], polygons: [] };
         return {
-            points: parseZonePoints(raw.points || []),
+            points: parseZonePoints(raw.points || [], options),
             polygons: parseZonePolygons(raw.polygons || [])
         };
     }
@@ -219,20 +310,41 @@
             if (parts.length < 2) return;
             const x = Number(parts[0]), y = Number(parts[1]);
             if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-            const name = parts.slice(2).join(usedComma ? ', ' : ' ').replace(/^[-–—]\s*/, '');
-            out.push({ point: isGame ? [y, x] : [x, y], name });
+            let cleanName = parts.slice(2).join(usedComma ? ', ' : ' ').replace(/^[-–—]\s*/, '');
+            let color = null;
+            const colorTail = cleanName.match(/(#[0-9a-fA-F]{6})\s*$/);
+            if (colorTail) {
+                color = colorTail[1].toLowerCase();
+                cleanName = cleanName.slice(0, colorTail.index).trim();
+            }
+            const pt = { point: isGame ? [y, x] : [x, y], name: cleanName };
+            if (color) pt.color = color;
+            out.push(pt);
         });
         return out;
     }
 
     function normalizeMarkerStyle(ms, defColor) {
         const src = (ms && typeof ms === 'object') ? ms : {};
-        const out = { color: defColor || '#ffffff', outline: '#ffffff', outlineStyle: 'solid', gap: 0, width: 0.29, fill: true };
+        const out = { color: defColor || '#ffffff', outline: '#ffffff', outlineStyle: 'solid', gap: 0, width: 2, dash: 3, dashGap: 2, dot: 1.5, size: 6, label: false, labelSize: 1, labelHeight: 2, labelTemplate: '{name}', labelColor: '#ffffff', labelOutline: '#000000', labelOutlineSize: 2, useIcon: false, fill: true };
         if (typeof src.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.color)) out.color = src.color;
         if (typeof src.outline === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.outline)) out.outline = src.outline;
         if (src.outlineStyle === 'dashed' || src.outlineStyle === 'dashdot' || src.outlineStyle === 'none') out.outlineStyle = src.outlineStyle;
-        if (Number.isFinite(src.gap)) out.gap = Math.min(1, Math.max(0, src.gap));
-        if (Number.isFinite(src.width)) out.width = Math.min(1.5, Math.max(0.05, src.width));
+        // Размах — в метрах от центра (как радиус в игре), не в процентах.
+        if (Number.isFinite(src.gap)) out.gap = Math.min(5000, Math.max(0, src.gap));
+        if (Number.isFinite(src.width)) out.width = Math.min(5000, Math.max(0.2, src.width));
+        if (Number.isFinite(src.dash)) out.dash = Math.min(5000, Math.max(0.5, src.dash));
+        if (Number.isFinite(src.dashGap)) out.dashGap = Math.min(5000, Math.max(0.5, src.dashGap));
+        if (Number.isFinite(src.dot)) out.dot = Math.min(5000, Math.max(0.5, src.dot));
+        if (Number.isFinite(src.size)) out.size = Math.min(40, Math.max(1, src.size));
+        if (src.label === true) out.label = true;
+        if (Number.isFinite(src.labelSize)) out.labelSize = Math.min(100, Math.max(1, src.labelSize));
+        if (typeof src.labelTemplate === 'string') out.labelTemplate = src.labelTemplate.slice(0, 120);
+        if (Number.isFinite(src.labelHeight)) out.labelHeight = Math.min(500, Math.max(0, src.labelHeight));
+        if (typeof src.labelColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.labelColor)) out.labelColor = src.labelColor;
+        if (typeof src.labelOutline === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.labelOutline)) out.labelOutline = src.labelOutline;
+        if (Number.isFinite(src.labelOutlineSize)) out.labelOutlineSize = Math.min(20, Math.max(0, src.labelOutlineSize));
+        if (src.useIcon === true) out.useIcon = true;
         if (src.fill === false) out.fill = false;
         return out;
     }
@@ -262,7 +374,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function markerStyleOf(def) {
         const st = state[def.id];
-        return window.GameZones.normalizeMarkerStyle(st && st.markerStyle, def.color);
+        const style = window.GameZones.normalizeMarkerStyle(st && st.markerStyle, def.color);
+        if (!st || !st.markerStyle || !Number.isFinite(st.markerStyle.size)) style.size = markerSize;
+        return style;
     }
 
     function setMarkerStyle(def, patch) {
@@ -270,16 +384,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!st) return;
         st.markerStyle = Object.assign({}, st.markerStyle, patch);
         rebuildZoneGroup(def);
+        if (window.updatePixelImageLayerScale) window.updatePixelImageLayerScale(def.id, markerStyleOf(def).size / 5);
     }
 
     let selectedZoneId = null;
+    let selectedPointIdx = -1;
+    let selectedCustomIdx = -1;
+    let zoneSearchQuery = '';
+    const zoneMatchesQuery = (def) => {
+        const q = zoneSearchQuery.trim().toLowerCase();
+        if (!q) return true;
+        return def.titles.some(t => String(t || '').toLowerCase().includes(q));
+    };
 
     // Зоны-полигоны (зелёные/красные/собирательство/клады): только настройки слоя.
     // Остальные метки (контрабанда/мусорки/телефоны/свои): только настройки меток.
     const LAYER_ONLY_ZONES = ['zz', 'red', 'gathering', 'treasure'];
 
-    window.selectGameZone = function(id) {
+    window.selectGameZone = function(id, pointIdx) {
         selectedZoneId = id;
+        selectedPointIdx = (Number.isInteger(pointIdx) && pointIdx >= 0) ? pointIdx : -1;
+        selectedCustomIdx = (id === 'custom' && Number.isInteger(pointIdx) && pointIdx >= 0) ? pointIdx : -1;
+        const selectedDef = window.GameZones.GAME_ZONES.find(d => d.id === id);
+        const selectedState = id && state[id];
+        const selectedPoint = selectedState && selectedPointIdx >= 0 ? selectedState.points[selectedPointIdx] : null;
+        const hasDefaultIcon = !!(selectedPoint && selectedPoint.icon && markerStyleOf(selectedDef).useIcon && !selectedState.customIcon);
+        if (id && window.showObjectHeight) window.showObjectHeight(hasDefaultIcon ? 75 : 50, (selectedPoint && selectedPoint.name) || labelOf(selectedDef || { titles: ['Метка', 'Marker', 'Мітка'] }));
         renderMarkerPanel();
         window.refreshGameZonesList();
         if (window.refreshVectorLayersList) window.refreshVectorLayersList();
@@ -311,13 +441,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const st = state[def.id];
         const ms = markerStyleOf(def);
         const nameEl = document.getElementById('markerPropsName');
-        if (nameEl) nameEl.textContent = labelOf(def);
+        const selectedPoint = st && selectedPointIdx >= 0 && st.points[selectedPointIdx];
+        if (nameEl) nameEl.textContent = (selectedPoint && selectedPoint.name) || labelOf(def);
+        const descriptionEl = document.getElementById('markerPropsDescription');
+        if (descriptionEl) {
+            descriptionEl.textContent = (selectedPoint && selectedPoint.description) || '';
+            descriptionEl.classList.toggle('hidden', !(selectedPoint && selectedPoint.description));
+        }
         const airdropRow = document.getElementById('markerAirdropRow');
         const airdropShow = document.getElementById('markerAirdropShow');
         const isAirdrop = def.id === 'airdrop';
         if (airdropRow) airdropRow.classList.toggle('hidden', !isAirdrop);
         if (airdropRow) airdropRow.classList.toggle('flex', isAirdrop);
         if (airdropShow) airdropShow.value = (st && st.show) || 'both';
+        // Своя метка, выбранная кликом: её личный цвет (иначе общий цвет слоя).
+        const customRow = document.getElementById('markerCustomColorRow');
+        const customColorEl = document.getElementById('markerCustomColor');
+        const customPt = (def.id === 'custom' && st && selectedCustomIdx >= 0 && st.points[selectedCustomIdx]) || null;
+        const customRi = customPt ? customPt.ri : null;
+        const customRawPt = (customRi !== null && customRi !== undefined && st.customRaw && st.customRaw[customRi]) || null;
+        if (customRow) customRow.classList.toggle('hidden', !customPt);
+        if (customRow) customRow.classList.toggle('flex', !!customPt);
+        if (customColorEl) customColorEl.value = toPanelHex((customRawPt && customRawPt.color) || ms.color);
+        if (customColorEl) customColorEl.dataset.ri = (customRi !== null && customRi !== undefined) ? customRi : '';
         const colorEl = document.getElementById('markerPropColor');
         const outlineEl = document.getElementById('markerPropOutline');
         const styleEl = document.getElementById('markerPropOutlineStyle');
@@ -330,20 +476,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (outlineEl) { outlineEl.value = toPanelHex(ms.outline); outlineEl.disabled = false; }
         if (styleEl) { styleEl.value = ms.outlineStyle; styleEl.disabled = false; }
         if (noteEl) noteEl.classList.toggle('hidden', !lockedInner);
-        const gapPct = Math.round(ms.gap * 100), widthPct = Math.round(ms.width * 100);
+        const gapPct = Math.round(ms.gap), widthPct = Math.round(ms.width);
         const gapEl = document.getElementById('markerPropGap');
         const gapNum = document.getElementById('markerPropGapNum');
         const widthEl = document.getElementById('markerPropWidth');
         const widthNum = document.getElementById('markerPropWidthNum');
+        const labelEl = document.getElementById('markerPropLabel');
+        const sizeEl = document.getElementById('markerPropSize');
+        const sizeNum = document.getElementById('markerPropSizeNum');
+        const labelSizeEl = document.getElementById('markerPropLabelSize');
+        const labelSizeNum = document.getElementById('markerPropLabelSizeNum');
+        const labelHeightEl = document.getElementById('markerPropLabelHeight');
+        const labelHeightNum = document.getElementById('markerPropLabelHeightNum');
+        const labelTemplateEl = document.getElementById('markerPropLabelTemplate');
+        const labelColorEl = document.getElementById('markerPropLabelColor');
+        const labelOutlineEl = document.getElementById('markerPropLabelOutline');
+        const labelOutlineSizeEl = document.getElementById('markerPropLabelOutlineSize');
+        const labelOutlineSizeNum = document.getElementById('markerPropLabelOutlineSizeNum');
+        const iconEnabledEl = document.getElementById('markerPropIconEnabled');
+        const iconLabelEl = document.getElementById('markerPropIconLabel');
         const iconReset = document.getElementById('markerPropIconReset');
         if (gapEl) { gapEl.value = gapPct; gapEl.disabled = false; }
         if (gapNum) { gapNum.value = gapPct; gapNum.disabled = false; }
         if (widthEl) { widthEl.value = widthPct; widthEl.disabled = false; }
         if (widthNum) { widthNum.value = widthPct; widthNum.disabled = false; }
+        if (labelEl) labelEl.checked = ms.label === true;
+        if (sizeEl) sizeEl.value = ms.size;
+        if (sizeNum) sizeNum.value = ms.size;
+        if (labelSizeEl) labelSizeEl.value = ms.labelSize;
+        if (labelSizeNum) labelSizeNum.value = ms.labelSize;
+        if (labelHeightEl) labelHeightEl.value = ms.labelHeight;
+        if (labelHeightNum) labelHeightNum.value = ms.labelHeight;
+        if (labelTemplateEl) labelTemplateEl.value = ms.labelTemplate || '{name}';
+        if (labelColorEl) labelColorEl.value = ms.labelColor;
+        if (labelOutlineEl) labelOutlineEl.value = ms.labelOutline;
+        if (labelOutlineSizeEl) labelOutlineSizeEl.value = ms.labelOutlineSize;
+        if (labelOutlineSizeNum) labelOutlineSizeNum.value = ms.labelOutlineSize;
+        if (iconEnabledEl) iconEnabledEl.checked = ms.useIcon === true;
+        if (iconLabelEl) iconLabelEl.classList.remove('opacity-50');
+        const dashEl = document.getElementById('markerPropDash');
+        const dashGapEl = document.getElementById('markerPropDashGap');
+        const dotEl = document.getElementById('markerPropDot');
+        if (dashEl) dashEl.value = ms.dash;
+        if (dashGapEl) dashGapEl.value = ms.dashGap;
+        if (dotEl) dotEl.value = ms.dot;
         if (iconReset) iconReset.classList.toggle('hidden', !lockedInner);
     }
 
-    function parseCustomIconShapes(def) {
+    function parseCustomIconShapes(def, sizeOverride) {
         const st = state[def.id];
         const svgString = st && st.customIcon;
         if (!svgString || !window.createSafeSvgShapes) return null;
@@ -369,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pts.shape.concat(pts.holes.reduce((a, h) => a.concat(h), [])).forEach(v => box.expandByPoint(v));
             });
             const size = box.getSize(new THREE.Vector2());
-            const scale = Math.max(size.x, size.y) > 1e-9 ? (markerSize * 2) / Math.max(size.x, size.y) : 1;
+            const scale = Math.max(size.x, size.y) > 1e-9 ? ((sizeOverride || markerSize) * 2) / Math.max(size.x, size.y) : 1;
             const center = box.getCenter(new THREE.Vector2());
             return parts.map(p => {
                 const g = new THREE.ShapeGeometry(p.shape);
@@ -387,22 +567,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const labelOf = (def) => def.titles[window.currentLang === 'en' ? 1 : window.currentLang === 'uk' ? 2 : 0];
 
     let markerSize = 6;
+    const markerLabelTextureCache = new Map();
 
     function buildGroup(def, data) {
         const points = data.points || [];
         const polygons = data.polygons || [];
         const mstyle = markerStyleOf(def);
+        const pointSize = mstyle.size;
         const group = new THREE.Group();
-        group.position.z = 31;
+        group.position.z = 50;
         group.userData.isGameZone = true;
         group.userData.zoneId = def.id;
         group.userData.mats = [];
         const outerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(mstyle.outline), side: THREE.DoubleSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
-        const innerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(mstyle.color), side: THREE.DoubleSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
-        group.userData.mats.push(outerMat, innerMat);
-        const outerR = markerSize, innerR = markerSize * 0.71;
+        const innerMatShared = new THREE.MeshBasicMaterial({ color: new THREE.Color(mstyle.color), side: THREE.DoubleSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+        group.userData.mats.push(outerMat, innerMatShared);
+        const outerR = pointSize, innerR = pointSize * 0.71;
         const zoneState = state[def.id];
-        const iconParts = (zoneState && zoneState.customIcon) ? parseCustomIconShapes(def) : null;
+        const iconParts = (zoneState && zoneState.customIcon && mstyle.useIcon) ? parseCustomIconShapes(def, pointSize) : null;
         const iconMats = [];
         if (iconParts) iconParts.forEach(part => {
             // Иконка всегда в transparent-проходе (поверх translucent-заливок зон),
@@ -422,11 +604,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 // Своя иконка не отменяет обводку кольца — рисуем её ниже как обычно.
             }
-            const gapAbs = mstyle.gap * markerSize;
-            const widthAbs = Math.max(0.2, mstyle.width * markerSize);
-            const ringInnerR = innerR + gapAbs;
+            const hasPointIcon = mstyle.useIcon && !iconParts && typeof pt.icon === 'string' && pt.icon.length > 0;
+            if (hasPointIcon && !window.addPixelImageLayer) {
+                const file = pt.icon.split('/').pop();
+                if (file) {
+                    try {
+                        const loader = new THREE.TextureLoader();
+                        loader.load('icons/' + file, (texture) => {
+                            const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+                            const sprite = new THREE.Sprite(mat);
+                            sprite.position.set(pt.x, pt.y, 0.02);
+                            sprite.scale.set(pointSize * 2, pointSize * 2, 1);
+                            sprite.renderOrder = 1002.2;
+                            sprite.userData.isGameZone = true;
+                            group.userData.mats.push(mat);
+                            group.add(sprite);
+                            if (window.requestSceneRender) window.requestSceneRender();
+                        }, undefined, () => {});
+                    } catch (e) { /* PNG is optional */ }
+                }
+            }
+            if (mstyle.label && pt.name && typeof document !== 'undefined') {
+                const numberMatch = String(pt.name).match(/(?:#\s*)?(\d+)\s*$/);
+                const markerName = mstyle.labelTemplate
+                    ? mstyle.labelTemplate.replace(/\{name\}/gi, String(pt.name).trim()).replace(/\{n\}/gi, numberMatch ? numberMatch[1] : '').trim()
+                    : String(pt.name).trim();
+                const lines = [];
+                markerName.split(/\r?\n/).forEach(rawLine => {
+                    const words = rawLine.trim().split(/\s+/).filter(Boolean);
+                    let line = '';
+                    words.forEach(word => {
+                        const next = line ? line + ' ' + word : word;
+                        if (line && next.length > 14) { lines.push(line); line = word; }
+                        else line = next;
+                    });
+                    if (line) lines.push(line);
+                });
+                if (lines.length === 0) lines.push(markerName || String(pt.name).trim());
+                const fontSize = Math.round(34 * mstyle.labelSize);
+                const lineHeight = Math.round(fontSize * 1.35);
+                const textureKey = [markerName, fontSize, mstyle.labelColor, mstyle.labelOutline, mstyle.labelOutlineSize].join('|');
+                let cachedLabel = markerLabelTextureCache.get(textureKey);
+                if (!cachedLabel) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 1024; canvas.height = Math.max(lineHeight, lines.length * lineHeight);
+                    const ctx = canvas.getContext('2d');
+                    ctx.font = 'bold ' + fontSize + 'px Arial';
+                    canvas.width = Math.ceil(Math.max(...lines.map(text => ctx.measureText(text).width), 1) + fontSize * 0.8);
+                    canvas.height = Math.max(lineHeight, lines.length * lineHeight);
+                    ctx.font = 'bold ' + fontSize + 'px Arial';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.lineWidth = mstyle.labelOutlineSize * mstyle.labelSize; ctx.strokeStyle = mstyle.labelOutline;
+                    lines.forEach((text, index) => {
+                        const y = lineHeight / 2 + index * lineHeight;
+                        ctx.strokeText(text, canvas.width / 2, y);
+                        ctx.fillStyle = mstyle.labelColor; ctx.fillText(text, canvas.width / 2, y);
+                    });
+                    cachedLabel = { texture: new THREE.CanvasTexture(canvas), width: canvas.width, height: canvas.height };
+                    markerLabelTextureCache.set(textureKey, cachedLabel);
+                }
+                const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: cachedLabel.texture, transparent: true, depthTest: false, depthWrite: false }));
+                label.position.set(pt.x, pt.y + pointSize + mstyle.labelHeight, 0.03);
+                const labelHeight = 0.75 * lines.length * mstyle.labelSize;
+                label.scale.set(labelHeight * (cachedLabel.width / cachedLabel.height), labelHeight, 1);
+                label.renderOrder = 1002.3;
+                label.userData.isGameZone = true;
+                group.userData.mats.push(label.material);
+                group.add(label);
+            }
+            const gapAbs = mstyle.gap;
+            const widthAbs = Math.max(0.2, mstyle.width);
+            // Размах задаёт радиус от центра метки, а не расстояние от её края.
+            const ringInnerR = gapAbs > 0 ? gapAbs : innerR;
             const ringOuterR = ringInnerR + widthAbs;
-            const hasRing = mstyle.outlineStyle !== 'none' && ringOuterR > ringInnerR;
+            const hasRing = !hasPointIcon && mstyle.outlineStyle !== 'none' && ringOuterR > ringInnerR;
             const outer = (hasRing && mstyle.outlineStyle === 'solid') ? new THREE.Mesh(new THREE.RingGeometry(Math.max(0.01, ringInnerR), ringOuterR, 40), outerMat) : null;
             if (outer) {
                 outer.position.set(pt.x, pt.y, 0);
@@ -436,23 +687,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (mstyle.outlineStyle === 'dashed' && hasRing) {
                 const midR = Math.max(0.5, (ringInnerR + ringOuterR) / 2);
-                const dashPts = new THREE.EllipseCurve(0, 0, midR, midR).getPoints(72).map(p => new THREE.Vector3(p.x, p.y, 0));
-                const fit = window.GeometryUtils.fitRingDashes(2 * Math.PI * midR, widthAbs);
-                const dashMat = new THREE.LineDashedMaterial({ color: new THREE.Color(mstyle.outline), dashSize: fit.dashSize, gapSize: fit.gapSize, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
-                const ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(dashPts), dashMat);
-                ring.computeLineDistances();
-                ring.position.set(pt.x, pt.y, 0);
-                ring.renderOrder = 1002;
-                ring.userData.isGameZone = true;
-                group.userData.mats.push(dashMat);
-                group.add(ring);
+                const dashLen = Math.max(0.5, mstyle.dash);
+                const gapLen = Math.max(0.5, mstyle.dashGap);
+                const period = dashLen + gapLen;
+                const count = Math.max(3, Math.round((2 * Math.PI * midR) / period));
+                const step = (Math.PI * 2) / count;
+                const dashAngle = Math.min(step * 0.95, dashLen / midR);
+                for (let k = 0; k < count; k++) {
+                    const dash = new THREE.Mesh(new THREE.RingGeometry(ringInnerR, ringOuterR, 8, 1, k * step, dashAngle), outerMat);
+                    dash.position.set(pt.x, pt.y, 0);
+                    dash.renderOrder = 1002;
+                    dash.userData.isGameZone = true;
+                    group.add(dash);
+                }
             }
             if (mstyle.outlineStyle === 'dashdot' && hasRing) {
                 // Штрихпунктир: дуги-штрихи линиями + точки кружками.
                 const midR = Math.max(0.5, (ringInnerR + ringOuterR) / 2);
-                const dashLen = Math.max(0.6, widthAbs * 1.4);
-                const gapLen = Math.max(0.4, widthAbs * 0.7);
-                const dotD = Math.max(0.4, widthAbs * 0.9);
+                 const dashLen = Math.max(0.5, mstyle.dash);
+                 const gapLen = Math.max(0.5, mstyle.dashGap);
+                 const dotD = Math.max(0.5, mstyle.dot);
                 const period = dashLen + gapLen + dotD + gapLen;
                 const n = Math.max(4, Math.round(2 * Math.PI * midR / period));
                 const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(mstyle.outline), transparent: true, opacity: 1, depthTest: false, depthWrite: false });
@@ -479,11 +733,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     group.add(dot);
                 }
             }
-            const inner = new THREE.Mesh(new THREE.CircleGeometry(innerR, 20), innerMat);
+            // Личный цвет точки — только у своих меток (выбран пользователем).
+            // Цвета из файлов данных стиль слоя не перебивают.
+            const ptColor = (def.id === 'custom' && typeof pt.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(pt.color)) ? pt.color : null;
+            const innerMat = ptColor
+                ? new THREE.MeshBasicMaterial({ color: new THREE.Color(ptColor), side: THREE.DoubleSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false })
+                : null;
+            if (innerMat) group.userData.mats.push(innerMat);
+            const inner = new THREE.Mesh(new THREE.CircleGeometry(innerR, 20), innerMat || innerMatShared);
             inner.position.set(pt.x, pt.y, 0.01);
             inner.renderOrder = 1002.1;
             inner.userData.isGameZone = true;
-            if (mstyle.fill && !iconParts) group.add(inner);
+            if (mstyle.fill && !iconParts && !hasPointIcon) group.add(inner);
         });
         polygons.forEach(poly => {
             const shape = new THREE.Shape(poly.points.map(p => new THREE.Vector2(p.x, p.y)));
@@ -523,21 +784,77 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.requestSceneRender) window.requestSceneRender();
     }
 
+    // Общий кэш JSON слоёв: стандартные группы делят один файл.
+    const zoneFileCache = {};
+    const iconDataCache = {};
+    async function fetchIconDataUrl(iconPath) {
+        const file = String(iconPath || '').split('/').pop();
+        if (!file) return null;
+        if (!iconDataCache[file]) {
+            iconDataCache[file] = fetch('icons/' + file).then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.blob();
+            }).then(blob => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            }));
+        }
+        return iconDataCache[file];
+    }
+    async function fetchZoneJson(def) {
+        if (!def.url) return null;
+        if (!zoneFileCache[def.url]) {
+            zoneFileCache[def.url] = (async () => {
+                const response = await fetch(def.url, { cache: 'no-store' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })();
+        }
+        return zoneFileCache[def.url];
+    }
+
+    // Точки одной группы стандартных меток (def.group), остальные — как есть.
+    function filterGroupPoints(def, points) {
+        if (def.descriptionFilter) {
+            const filter = def.descriptionFilter.toLowerCase();
+            return (Array.isArray(points) ? points : []).filter(p => p && typeof p.description === 'string' && p.description.toLowerCase().includes(filter));
+        }
+        if (!def.group || !Array.isArray(points)) return points;
+        return points.filter(p => p && p.group === def.group);
+    }
+
+    async function addZoneIconMeshes(def) {
+        const st = state[def.id];
+        if (!window.addPixelImageLayer || !st || !markerStyleOf(def).useIcon || st.customIcon) return;
+        await Promise.all(st.points.filter(point => point.icon).map(async point => {
+            try {
+                const dataUrl = await fetchIconDataUrl(point.icon);
+                if (dataUrl) await window.addPixelImageLayer(dataUrl, point.name || def.id, point.x, point.y, markerStyleOf(def).size / 5, def.id, labelOf(def));
+            } catch (error) { console.warn('Marker icon mesh failed:', point.icon, error); }
+        }));
+        if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
+    }
+
     async function setZoneOn(def, checkbox) {
         const st = state[def.id];
         if (!def.url && !def.custom) return;
         if (st.on || st.loading) return;
+        if (def.group === 'gunshop') {
+            st.customIcon = null;
+        }
         st.loading = true;
         window.refreshGameZonesList();
         try {
             if (!st.group) {
                 if (def.url) {
                     st.loading = true;
-                    const response = await fetch(def.url, { cache: 'no-store' });
-                    if (!response.ok) throw new Error('HTTP ' + response.status);
-                    const raw = await response.json();
-                    const data = window.GameZones.parseZoneFile(raw);
-                    st.points = data.points;
+                    const raw = await fetchZoneJson(def);
+                    // Координаты стандартных меток в JSON записаны в исходной ориентации карты.
+                    // Перевод через wikiToGame разворачивает их на 90 градусов влево.
+                    const data = window.GameZones.parseZoneFile(raw, { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard });
+                    st.points = def.id === 'airdrop' ? [] : filterGroupPoints(def, data.points);
                     st.polygons = data.polygons;
                 } else if (def.custom) {
                     st.points = window.GameZones.parseZonePoints(st.customRaw);
@@ -552,6 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (st.polygons.length > 0 && window.convertZoneToFigures) await window.convertZoneToFigures(def.id);
                 scene.add(st.group);
             }
+            await addZoneIconMeshes(def);
             st.on = true;
             if (window.requestSceneRender) window.requestSceneRender();
         } catch (err) {
@@ -606,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (idx >= 0) {
                     const s = project(st.points[idx].x, st.points[idx].y);
                     bestDist = Math.sqrt((s[0] - x) * (s[0] - x) + (s[1] - y) * (s[1] - y));
-                    best = def.id;
+                    best = { id: def.id, index: idx };
                 }
             });
             return best;
@@ -614,8 +932,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.clearGameZoneSelection = function() {
-        if (!selectedZoneId) return;
+        if (!selectedZoneId && selectedPointIdx < 0 && selectedCustomIdx < 0) return;
         selectedZoneId = null;
+        selectedPointIdx = -1;
+        selectedCustomIdx = -1;
         renderMarkerPanel();
         window.refreshGameZonesList();
         if (window.refreshVectorLayersList) window.refreshVectorLayersList();
@@ -627,12 +947,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (st.polygons.length > 0 || st.points.length > 0) {
             return { points: st.points, polygons: st.polygons };
         }
-        const response = await fetch(def.url, { cache: 'no-store' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const data = window.GameZones.parseZoneFile(await response.json());
-        st.points = data.points;
+        const data = window.GameZones.parseZoneFile(await fetchZoneJson(def), { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard });
+        st.points = def.id === 'airdrop' ? [] : filterGroupPoints(def, data.points);
         st.polygons = data.polygons;
-        return data;
+        return { points: st.points, polygons: st.polygons };
     }
 
     window.convertZoneToFigures = async function(id) {
@@ -667,6 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             on: window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].on).map(d => d.id),
             markerSize: markerSize,
+            v: 3,
             icons: icons,
             styles: styles,
             shows: Object.fromEntries(window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].show && state[d.id].show !== 'both').map(d => [d.id, state[d.id].show])),
@@ -690,6 +1009,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state[id] && (shows[id] === 'outer' || shows[id] === 'inner' || shows[id] === 'both')) state[id].show = shows[id];
         });
         const styles = saved.styles || {};
+        // v2: размах в метрах; v3: толщина в метрах. Старые доли пересчитываем
+        // через размер меток из того же сейва.
+        const gapScale = (saved.v >= 2) ? 1 : (Number.isFinite(saved.markerSize) ? saved.markerSize : 6);
+        const widthScale = (saved.v >= 3) ? 1 : (Number.isFinite(saved.markerSize) ? saved.markerSize : 6);
         Object.keys(styles).forEach(id => {
             const s = styles[id];
             if (!state[id] || !s || typeof s !== 'object') return;
@@ -697,8 +1020,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof s.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.color)) patch.color = s.color;
             if (typeof s.outline === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.outline)) patch.outline = s.outline;
             if (s.outlineStyle === 'dashed' || s.outlineStyle === 'dashdot' || s.outlineStyle === 'none') patch.outlineStyle = s.outlineStyle;
-            if (Number.isFinite(s.gap)) patch.gap = Math.min(1, Math.max(0, s.gap));
-            if (Number.isFinite(s.width)) patch.width = Math.min(1.5, Math.max(0.05, s.width));
+            if (Number.isFinite(s.gap)) patch.gap = Math.min(5000, Math.max(0, s.gap * gapScale));
+            if (Number.isFinite(s.width)) patch.width = Math.min(5000, Math.max(0.2, s.width * widthScale));
+            if (Number.isFinite(s.dash)) patch.dash = Math.min(5000, Math.max(0.5, s.dash));
+            if (Number.isFinite(s.dashGap)) patch.dashGap = Math.min(5000, Math.max(0.5, s.dashGap));
+            if (Number.isFinite(s.dot)) patch.dot = Math.min(5000, Math.max(0.5, s.dot));
+            if (Number.isFinite(s.size)) patch.size = Math.min(40, Math.max(1, s.size));
+            if (s.label === true) patch.label = true;
+            if (Number.isFinite(s.labelSize)) patch.labelSize = Math.min(100, Math.max(1, s.labelSize));
+            if (typeof s.labelTemplate === 'string') patch.labelTemplate = s.labelTemplate.slice(0, 120);
+            if (Number.isFinite(s.labelHeight)) patch.labelHeight = Math.min(500, Math.max(0, s.labelHeight));
+            if (typeof s.labelColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.labelColor)) patch.labelColor = s.labelColor;
+            if (typeof s.labelOutline === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.labelOutline)) patch.labelOutline = s.labelOutline;
+            if (Number.isFinite(s.labelOutlineSize)) patch.labelOutlineSize = Math.min(20, Math.max(0, s.labelOutlineSize));
+            if (s.useIcon === true) patch.useIcon = true;
             if (s.fill === false) patch.fill = false;
             if (Object.keys(patch).length > 0) state[id].markerStyle = patch;
         });
@@ -747,11 +1082,169 @@ document.addEventListener('DOMContentLoaded', () => {
             set(def, v / 100);
         });
     };
-    syncPctPair('markerPropGap', 'markerPropGapNum', (def, v) => setMarkerStyle(def, { gap: v }));
-    syncPctPair('markerPropWidth', 'markerPropWidthNum', (def, v) => setMarkerStyle(def, { width: v }));
+    // Толщина — метры напрямую, без процентов.
+    (() => {
+        const range = document.getElementById('markerPropWidth'), num = document.getElementById('markerPropWidthNum');
+        if (!range || !num) return;
+        const setM = (v) => {
+            const def = selectedZoneDef(); if (!def) return;
+            setMarkerStyle(def, { width: v });
+        };
+        range.addEventListener('input', () => { num.value = range.value; setM(parseFloat(range.value) || 0); });
+        num.addEventListener('input', () => {
+            let v = parseFloat(num.value);
+            if (!Number.isFinite(v)) return;
+            v = Math.min(parseFloat(range.max), Math.max(parseFloat(range.min), v));
+            range.value = v;
+            setM(v);
+        });
+    })();
+    // Размах — метры напрямую, без процентов.
+    (() => {
+        const range = document.getElementById('markerPropGap'), num = document.getElementById('markerPropGapNum');
+        if (!range || !num) return;
+        const setM = (v) => {
+            const def = selectedZoneDef(); if (!def) return;
+            setMarkerStyle(def, { gap: v });
+        };
+        range.addEventListener('input', () => { num.value = range.value; setM(parseFloat(range.value) || 0); });
+        num.addEventListener('input', () => {
+            let v = parseFloat(num.value);
+            if (!Number.isFinite(v)) return;
+            v = Math.min(parseFloat(range.max), Math.max(parseFloat(range.min), v));
+            range.value = v;
+            setM(v);
+        });
+    })();
+    // Параметры разметки штрихпунктирной линии — в метрах.
+    ['markerPropDash', 'markerPropDashGap', 'markerPropDot'].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener('input', () => {
+            const def = selectedZoneDef();
+            const value = parseFloat(input.value);
+            if (!def || !Number.isFinite(value)) return;
+            const key = id === 'markerPropDash' ? 'dash' : id === 'markerPropDashGap' ? 'dashGap' : 'dot';
+            setMarkerStyle(def, { [key]: Math.min(500, Math.max(0.5, value)) });
+        });
+    });
     document.getElementById('markerPropFill')?.addEventListener('change', (e) => {
         const def = selectedZoneDef(); if (!def) return;
         setMarkerStyle(def, { fill: e.target.checked });
+        window.refreshGameZonesList();
+    });
+    document.getElementById('markerPropLabel')?.addEventListener('change', (e) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const st = state[def.id];
+        const patch = { label: e.target.checked };
+        if (e.target.checked && (!st.markerStyle || !st.markerStyle.labelTemplate)) patch.labelTemplate = '{name}';
+        setMarkerStyle(def, patch);
+    });
+    let markerLabelTemplateTimer = 0;
+    document.getElementById('markerPropLabelTemplate')?.addEventListener('input', (e) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const value = String(e.target.value || '').slice(0, 120);
+        clearTimeout(markerLabelTemplateTimer);
+        markerLabelTemplateTimer = setTimeout(() => {
+            if (selectedZoneDef() === def) setMarkerStyle(def, { labelTemplate: value });
+        }, 300);
+    });
+    document.getElementById('markerPropLabelColor')?.addEventListener('input', (e) => {
+        const def = selectedZoneDef(); if (!def) return;
+        setMarkerStyle(def, { labelColor: e.target.value });
+    });
+    document.getElementById('markerPropLabelOutline')?.addEventListener('input', (e) => {
+        const def = selectedZoneDef(); if (!def) return;
+        setMarkerStyle(def, { labelOutline: e.target.value });
+    });
+    let markerLabelOutlineSizeTimer = 0;
+    const setMarkerLabelOutlineSize = (value) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const v = Math.min(20, Math.max(0, Number(value) || 0));
+        const range = document.getElementById('markerPropLabelOutlineSize');
+        const num = document.getElementById('markerPropLabelOutlineSizeNum');
+        if (range) range.value = v;
+        if (num) num.value = v;
+        clearTimeout(markerLabelOutlineSizeTimer);
+        markerLabelOutlineSizeTimer = setTimeout(() => {
+            if (selectedZoneDef() === def) setMarkerStyle(def, { labelOutlineSize: v });
+        }, 300);
+    };
+    document.getElementById('markerPropLabelOutlineSize')?.addEventListener('input', (e) => setMarkerLabelOutlineSize(e.target.value));
+    document.getElementById('markerPropLabelOutlineSizeNum')?.addEventListener('input', (e) => setMarkerLabelOutlineSize(e.target.value));
+    const setMarkerSize = (value) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const v = Math.min(40, Math.max(1, Number(value) || 6));
+        const sizeEl = document.getElementById('markerPropSize');
+        const sizeNum = document.getElementById('markerPropSizeNum');
+        if (sizeEl) sizeEl.value = v;
+        if (sizeNum) sizeNum.value = v;
+        setMarkerStyle(def, { size: v });
+    };
+    document.getElementById('markerPropSize')?.addEventListener('input', (e) => setMarkerSize(e.target.value));
+    document.getElementById('markerPropSizeNum')?.addEventListener('input', (e) => setMarkerSize(e.target.value));
+    let markerLabelSizeTimer = 0;
+    const setMarkerLabelSize = (value) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const v = Math.min(100, Math.max(1, Number(value) || 1));
+        const range = document.getElementById('markerPropLabelSize');
+        const num = document.getElementById('markerPropLabelSizeNum');
+        if (range) range.value = v;
+        if (num) num.value = v;
+        clearTimeout(markerLabelSizeTimer);
+        markerLabelSizeTimer = setTimeout(() => {
+            if (selectedZoneDef() === def) setMarkerStyle(def, { labelSize: v });
+        }, 300);
+    };
+    document.getElementById('markerPropLabelSize')?.addEventListener('input', (e) => setMarkerLabelSize(e.target.value));
+    document.getElementById('markerPropLabelSizeNum')?.addEventListener('input', (e) => setMarkerLabelSize(e.target.value));
+    let markerLabelHeightTimer = 0;
+    const setMarkerLabelHeight = (value) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const v = Math.min(500, Math.max(0, Number(value) || 0));
+        const range = document.getElementById('markerPropLabelHeight');
+        const num = document.getElementById('markerPropLabelHeightNum');
+        if (range) range.value = v;
+        if (num) num.value = v;
+        clearTimeout(markerLabelHeightTimer);
+        markerLabelHeightTimer = setTimeout(() => {
+            if (selectedZoneDef() === def) setMarkerStyle(def, { labelHeight: v });
+        }, 300);
+    };
+    document.getElementById('markerPropLabelHeight')?.addEventListener('input', (e) => setMarkerLabelHeight(e.target.value));
+    document.getElementById('markerPropLabelHeightNum')?.addEventListener('input', (e) => setMarkerLabelHeight(e.target.value));
+    // Личный цвет выбранной своей метки (иначе — общий цвет слоя).
+    const applyCustomColor = (hex) => {
+        const def = selectedZoneDef();
+        const st = def && state[def.id];
+        const input = document.getElementById('markerCustomColor');
+        const ri = input ? Number(input.dataset.ri) : NaN;
+        if (!def || def.id !== 'custom' || !st || !Array.isArray(st.customRaw) || !Number.isInteger(ri) || !st.customRaw[ri]) return;
+        if (!/^#[0-9a-fA-F]{6}$/.test(hex || '')) return;
+        st.customRaw[ri].color = hex.toLowerCase();
+        st.points = window.GameZones.parseZonePoints(st.customRaw);
+        rebuildZoneGroup(def);
+        renderMarkerPanel();
+        window.refreshGameZonesList();
+        if (window.requestSceneRender) window.requestSceneRender();
+    };
+    document.getElementById('markerCustomColor')?.addEventListener('input', (e) => applyCustomColor(e.target.value));
+    document.getElementById('markerCustomColorReset')?.addEventListener('click', () => {
+        const def = selectedZoneDef();
+        const st = def && state[def.id];
+        const input = document.getElementById('markerCustomColor');
+        const ri = input ? Number(input.dataset.ri) : NaN;
+        if (!def || def.id !== 'custom' || !st || !Array.isArray(st.customRaw) || !Number.isInteger(ri) || !st.customRaw[ri]) return;
+        delete st.customRaw[ri].color;
+        st.points = window.GameZones.parseZonePoints(st.customRaw);
+        rebuildZoneGroup(def);
+        renderMarkerPanel();
+        window.refreshGameZonesList();
+        if (window.requestSceneRender) window.requestSceneRender();
+    });
+    // Аирдропы: какие подуровни видны (внешняя r300 / внутренняя r150).
+    document.getElementById('gameZoneSearch')?.addEventListener('input', (e) => {
+        zoneSearchQuery = e.target.value || '';
         window.refreshGameZonesList();
     });
     // Аирдропы: какие подуровни видны (внешняя r300 / внутренняя r150).
@@ -773,29 +1266,51 @@ document.addEventListener('DOMContentLoaded', () => {
         // Удерживаем выбор: иначе снос активной фигуры закрывает левую панель.
         if (window.selectConvertedFigure) window.selectConvertedFigure(def.id);
     });
+    document.getElementById('markerPropIconEnabled')?.addEventListener('change', async (e) => {
+        const def = selectedZoneDef(); if (!def) return;
+        const st = state[def.id];
+        if (!st) return;
+        if (st.on && window.deleteConvertedFigures) window.deleteConvertedFigures(def.id);
+        st.markerStyle = Object.assign({}, st.markerStyle, { useIcon: e.target.checked });
+        rebuildZoneGroup(def);
+        await addZoneIconMeshes(def);
+        renderMarkerPanel();
+        window.refreshGameZonesList();
+    });
     document.getElementById('markerPropIconFile')?.addEventListener('change', (e) => {
         const def = selectedZoneDef(); const st = def && state[def.id];
         const file = e.target.files && e.target.files[0];
         e.target.value = '';
         if (!def || !st || !file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
+            const wasOn = st.on;
             st.customIcon = ev.target.result;
+            st.markerStyle = Object.assign({}, st.markerStyle, { useIcon: true, outlineStyle: 'none' });
             if (!parseCustomIconShapes(def)) {
                 st.customIcon = null;
+                st.markerStyle = Object.assign({}, st.markerStyle, { useIcon: false });
                 if (window.showToast) window.showToast(t('В SVG нет залитых контуров', 'SVG has no filled contours', 'У SVG немає залитих контурів'), 'error');
             }
+            if (wasOn) {
+                setZoneOff(def);
+            }
             rebuildZoneGroup(def);
+            if (wasOn) await setZoneOn(def);
             renderMarkerPanel();
             window.refreshGameZonesList();
         };
         reader.readAsText(file);
     });
-    document.getElementById('markerPropIconReset')?.addEventListener('click', () => {
+    document.getElementById('markerPropIconReset')?.addEventListener('click', async () => {
         const def = selectedZoneDef(); const st = def && state[def.id];
         if (!def || !st) return;
         st.customIcon = null;
-        rebuildZoneGroup(def);
+        st.markerStyle = Object.assign({}, st.markerStyle, { useIcon: false });
+        if (st.on) {
+            setZoneOff(def);
+            await setZoneOn(def);
+        } else rebuildZoneGroup(def);
         renderMarkerPanel();
         window.refreshGameZonesList();
     });
@@ -810,11 +1325,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sizeInput = document.getElementById('gameZoneSize');
     const sizeNum = document.getElementById('gameZoneSizeNum');
+    let globalMarkerSizeFrame = 0;
     if (sizeInput) sizeInput.addEventListener('input', () => {
         markerSize = parseFloat(sizeInput.value) || 6;
         if (sizeNum) sizeNum.textContent = markerSize;
-        window.GameZones.GAME_ZONES.forEach(def => {
-            if (state[def.id] && state[def.id].points.length > 0) rebuildZoneGroup(def);
+        if (globalMarkerSizeFrame) cancelAnimationFrame(globalMarkerSizeFrame);
+        globalMarkerSizeFrame = requestAnimationFrame(() => {
+            window.GameZones.GAME_ZONES.forEach(def => {
+                const st = state[def.id];
+                if (!st) return;
+                st.markerStyle = Object.assign({}, st.markerStyle, { size: markerSize });
+                if (st.points.length > 0) rebuildZoneGroup(def);
+                if (window.updatePixelImageLayerScale) window.updatePixelImageLayerScale(def.id, markerSize / 5);
+            });
+            globalMarkerSizeFrame = 0;
         });
     });
 
@@ -878,9 +1402,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.refreshGameZonesList = function() {
         const active = document.activeElement;
         renderMarkerPanel();
+        // Запоминаем скролл, чтобы список не прыгал вверх при перерисовке.
+        const panel = document.querySelector('#gameZonesDropdown > div');
+        const panelTop = panel ? panel.scrollTop : 0;
+        const stdBody = container.querySelector('.std-scroll');
+        const stdTop = stdBody ? stdBody.scrollTop : 0;
         const pasteBox = document.getElementById('customPointsInput');
         if (pasteBox) pasteBox.placeholder = t('x, y, название — напр.: 4624.88, 1947.76, контейнер #25', 'x, y, name — e.g.: 4624.88, 1947.76, bin #25', 'x, y, назва — напр.: 4624.88, 1947.76, контейнер #25');
-        container.replaceChildren(...window.GameZones.GAME_ZONES.map(def => {
+        const makeZoneRow = (def) => {
             const st = state[def.id];
             const row = document.createElement('label');
             row.className = 'flex items-center gap-2 py-1 px-1.5 rounded-lg border border-slate-700/50 bg-slate-800/40 cursor-pointer hover:border-emerald-500 transition' + (def.url ? '' : ' opacity-50');
@@ -916,11 +1445,83 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (active && active !== document.body) { /* keep focus stable: do nothing */ }
             return row;
-        }));
+        };
+        const mainDefs = window.GameZones.GAME_ZONES.filter(def => !def.standard && zoneMatchesQuery(def));
+        const stdDefs = window.GameZones.GAME_ZONES.filter(def => def.standard && zoneMatchesQuery(def));
+        const nodes = mainDefs.map(makeZoneRow);
+        if (zoneSearchQuery.trim() && mainDefs.length === 0 && stdDefs.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'text-[10px] text-slate-500 text-center py-3';
+            empty.textContent = t('Ничего не найдено', 'Nothing found', 'Нічого не знайдено');
+            nodes.push(empty);
+        }
+        if (stdDefs.length > 0) {
+            const onCount = stdDefs.filter(def => state[def.id] && state[def.id].on).length;
+            const details = document.createElement('details');
+            details.className = 'rounded-lg border border-slate-700/50 bg-slate-950/40 mt-1.5';
+            if (zoneSearchQuery.trim()) {
+                details.open = true;
+            } else if (window.__stdZonesOpen === undefined) {
+                if (onCount > 0) details.open = true;
+            } else if (window.__stdZonesOpen) {
+                details.open = true;
+            }
+            const summary = document.createElement('summary');
+            summary.className = 'cursor-pointer px-2 py-1 text-[10px] font-semibold text-slate-300 flex items-center justify-between';
+            const sTitle = document.createElement('span');
+            sTitle.textContent = t('Стандартные метки', 'Standard markers', 'Стандартні мітки');
+            const sCount = document.createElement('span');
+            sCount.className = 'text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 rounded-full';
+            sCount.textContent = onCount + '/' + stdDefs.length;
+            summary.append(sTitle, sCount);
+            summary.addEventListener('click', () => {
+                window.__stdZonesOpen = !details.open;
+            });
+            details.append(summary);
+            const body = document.createElement('div');
+            body.className = 'std-scroll p-1.5 pt-0 space-y-1';
+            stdDefs.forEach(def => body.appendChild(makeZoneRow(def)));
+            details.append(body);
+            nodes.push(details);
+        }
+        container.replaceChildren(...nodes);
+        try {
+            const panel2 = document.querySelector('#gameZonesDropdown > div');
+            if (panel2) panel2.scrollTop = panelTop;
+            const stdBody2 = container.querySelector('.std-scroll');
+            if (stdBody2) stdBody2.scrollTop = stdTop;
+        } catch (e) {}
         if (window.lucide) window.lucide.createIcons();
     };
 
+    async function loadStandardMenuLabels() {
+        try {
+            const raw = await fetchZoneJson({ url: 'markers/standard.json' });
+            const data = Array.isArray(raw) ? raw : raw && Array.isArray(raw.points) ? raw.points : [];
+            window.GameZones.GAME_ZONES.filter(def => def.standard && !def.descriptionFilter).forEach(def => {
+                const points = data.filter(point => point && point.group === def.group && typeof point.name === 'string' && point.name.trim());
+                const names = new Map();
+                points.forEach(point => {
+                    const title = point.name.trim()
+                        .replace(/\s*\|.*$/, '')
+                        .replace(/\s*\(\d+\s*уровень\)\s*$/i, '')
+                        .replace(/\s+#\d+\s*$/i, '')
+                        .trim();
+                    if (title) names.set(title, (names.get(title) || 0) + 1);
+                });
+                let best = '';
+                let bestCount = -1;
+                names.forEach((count, title) => {
+                    if (count > bestCount) { best = title; bestCount = count; }
+                });
+                if (best) def.titles[0] = best;
+            });
+        } catch (e) {
+            console.warn('Standard marker labels failed:', e);
+        }
+    }
+
     window.renderGameZonesList = window.refreshGameZonesList;
-    window.refreshGameZonesList();
+    loadStandardMenuLabels().finally(() => window.refreshGameZonesList());
 });
 }

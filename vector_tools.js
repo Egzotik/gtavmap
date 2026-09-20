@@ -988,7 +988,13 @@ function base64ToArrayBuffer(value) {
     return bytes.buffer;
 }
 
-window.getVectorCount = () => vectorState.objects.length;
+    window.getVectorCount = () => vectorState.objects.length;
+    window.showObjectHeight = function(z, name) {
+        const el = document.getElementById('objectHeightInfo');
+        if (!el || !Number.isFinite(Number(z))) return;
+        el.textContent = (name ? name + ': ' : '') + 'Z = ' + Number(z).toFixed(2) + ' м';
+        el.classList.remove('hidden');
+    };
 window.setPendingVectorSelect = id => { vectorState.pendingSelectId = id; };
 
 window.clearVectors = function() {
@@ -1290,12 +1296,18 @@ document.addEventListener("DOMContentLoaded", () => {
             while (clicked.parent && clicked.parent.type === 'Group' && clicked.parent !== scene) {
                 clicked = clicked.parent;
             }
+            if (clicked.userData && clicked.userData.isPixelImage && clicked.userData.convertedFrom && window.GameZones && window.GameZones.pickMarkerAt && window.selectGameZone) {
+                selectObject(null);
+                const hit = window.GameZones.pickMarkerAt(e.clientX, e.clientY);
+                if (hit) window.selectGameZone(hit.id || hit, hit.index);
+                return;
+            }
             selectObject(clicked);
         } else {
             selectObject(null);
             if (window.GameZones && window.GameZones.pickMarkerAt && window.selectGameZone) {
-                const zoneId = window.GameZones.pickMarkerAt(e.clientX, e.clientY);
-                if (zoneId) window.selectGameZone(zoneId);
+                const hit = window.GameZones.pickMarkerAt(e.clientX, e.clientY);
+                if (hit) window.selectGameZone(hit.id || hit, hit.index);
             }
         }
     }
@@ -1362,7 +1374,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vectorState.objects.forEach((o, i) => {
             const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
             const orderOffset = (len - i) * 0.001;
-            o.position.z = (isText ? 30 : 20) + orderOffset;
+            o.position.z = (o.userData.isPixelImage ? 75 : (isText ? 30 : 20)) + orderOffset;
             // Порядок поменялся (клик/undo/создание): сдвигаем готовые вырезки
             // за фигурой без перестройки геометрии (z и порядок отрисовки).
             const frac = len > 1 ? (len - 1 - i) / (len - 1) : 1;
@@ -1932,16 +1944,19 @@ document.addEventListener("DOMContentLoaded", () => {
     function syncStrokePatternUI() {
         const pattern = document.getElementById('vecPropStrokePattern')?.value || 'solid';
         const hasStroke = document.getElementById('vecPropStroke')?.checked;
+        const ao = vectorState.activeObj;
+        const pm = ao ? getPrimaryMesh(ao) : null;
+        const isText = Boolean(pm && pm.userData.isText);
         document.getElementById('vecStrokePatternTools')?.classList.toggle('hidden', !hasStroke);
         document.getElementById('vecStrokeDashRow')?.classList.toggle('hidden', pattern !== 'dashed' && pattern !== 'dashdot');
         document.getElementById('vecStrokeGapRow')?.classList.toggle('hidden', pattern === 'solid');
         document.getElementById('vecStrokeDotRow')?.classList.toggle('hidden', pattern !== 'dotted' && pattern !== 'dashdot');
-        const ao = vectorState.activeObj;
         const isCircle = !!(ao && ao.userData.icon === 'circle' && !ao.userData.isPencil && !ao.userData.isSvg);
         const isConverted = !!(ao && ao.userData.convertedFrom);
         document.getElementById('vecPropStrokeWidthWrap')?.classList.toggle('hidden', isCircle);
         document.getElementById('vecCircleOutlineTools')?.classList.toggle('hidden', !hasStroke || !isCircle);
-        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !hasStroke);
+        document.getElementById('vecStrokePatternRow')?.classList.toggle('hidden', !hasStroke || isText);
+        if (isText) document.getElementById('vecPropStrokePattern').value = 'solid';
         if (isCircle) {
             document.getElementById('vecStrokeDashRow')?.classList.add('hidden');
             document.getElementById('vecStrokeGapRow')?.classList.add('hidden');
@@ -1961,7 +1976,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const useStroke = document.getElementById('vecPropStroke').checked;
         const strokeHex = document.getElementById('vecPropStrokeColor').value;
         const strokeWidth = Math.min(150, Math.max(0.1, parseFloat(document.getElementById('vecPropStrokeWidthNum').value) || 10));
-        const strokePatternRaw = document.getElementById('vecPropStrokePattern')?.value || 'solid';
+        const activePrimary = vectorState.activeObj ? getPrimaryMesh(vectorState.activeObj) : null;
+        const isText = Boolean(activePrimary && activePrimary.userData.isText);
+        const strokePatternRaw = isText ? 'solid' : (document.getElementById('vecPropStrokePattern')?.value || 'solid');
         const strokePattern = (window.STROKE_PATTERNS || []).includes(strokePatternRaw) ? strokePatternRaw : 'solid';
         const strokeCap = document.getElementById('vecPropStrokeCap')?.value || 'round';
         const strokeDash = parseFloat(document.getElementById('vecStrokeDash')?.value) || 10;
@@ -2147,7 +2164,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.pseudoOpacity = strokeUseAlpha ? alpha : 1;
                     strokeMesh.material.opacity = 1;
                     strokeMesh.material.transparent = false;
-                    strokeMesh.position.z = 0.015; // Фикс z-offset для обводки (зоны — поверх заливок)
+                    strokeMesh.position.z = mesh.userData.isText ? 0 : 0.015; // Текст: обводка под заливкой
                     strokeMesh.renderOrder = 998; 
                     strokeMesh.scale.set(1, 1, 1);
                 }
@@ -2204,6 +2221,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const countSpan = document.getElementById('vectorLayerCount');
         
         if (countSpan) countSpan.textContent = vectorState.objects.length;
+        const allEye = document.getElementById('vectorLayersToggleAll');
+        if (allEye) {
+            const allHidden = vectorState.objects.length > 0 && vectorState.objects.every(obj => obj.visible === false);
+            allEye.classList.toggle('text-red-400', allHidden);
+            allEye.classList.toggle('text-slate-400', !allHidden);
+            allEye.innerHTML = '<i data-lucide="' + (allHidden ? 'eye-off' : 'eye') + '" class="w-3.5 h-3.5"></i>';
+        }
         
         list.innerHTML = '';
         if (vectorState.objects.length === 0) {
@@ -2231,7 +2255,25 @@ document.addEventListener("DOMContentLoaded", () => {
             const count = document.createElement('span');
             count.className = 'font-mono text-emerald-400';
             count.textContent = members.length;
-            header.append(title, count);
+            const eye = document.createElement('button');
+            eye.type = 'button';
+            eye.className = 'layer-eye p-1 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/20 transition';
+            eye.title = 'Скрыть/показать группу';
+            const syncGroupEye = () => {
+                const hidden = members.every(member => member.visible === false);
+                eye.classList.toggle('text-red-400', hidden);
+                eye.classList.toggle('text-slate-400', !hidden);
+                eye.innerHTML = '<i data-lucide="' + (hidden ? 'eye-off' : 'eye') + '" class="w-3.5 h-3.5"></i>';
+            };
+            syncGroupEye();
+            eye.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const visible = members.some(member => member.visible !== false);
+                members.forEach(member => { member.visible = !visible; });
+                renderLayersList();
+                if (window.requestSceneRender) window.requestSceneRender();
+            });
+            header.append(title, eye, count);
             list.appendChild(header);
             members.forEach(obj => {
                 makeLayerRow(obj, vectorState.objects.indexOf(obj), list);
@@ -2262,11 +2304,26 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span class="layer-name truncate font-bold"></span>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
+                    <button class="visibility-btn text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/20 p-1 rounded transition" title="Скрыть/показать"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
                     <button class="dup-btn text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 p-1 rounded transition" title="Дублировать"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                     <button class="delete-btn text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 p-1 rounded transition" title="Удалить"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 </div>
             `;
             div.querySelector('.layer-name').textContent = obj.name || 'Слой ' + (idx + 1);
+            const visibilityButton = div.querySelector('.visibility-btn');
+            const syncVisibility = () => {
+                const hidden = obj.visible === false;
+                visibilityButton.classList.toggle('text-red-400', hidden);
+                visibilityButton.classList.toggle('text-slate-400', !hidden);
+                visibilityButton.innerHTML = '<i data-lucide="' + (hidden ? 'eye-off' : 'eye') + '" class="w-3.5 h-3.5"></i>';
+            };
+            syncVisibility();
+            visibilityButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                obj.visible = obj.visible === false;
+                renderLayersList();
+                if (window.requestSceneRender) window.requestSceneRender();
+            });
             div.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-btn')) {
                     recordVectorUndoState(true);
@@ -2292,6 +2349,14 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             list.appendChild(div);
     }
+
+    document.getElementById('vectorLayersToggleAll')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const visible = vectorState.objects.some(obj => obj.visible !== false);
+        vectorState.objects.forEach(obj => { obj.visible = !visible; });
+        renderLayersList();
+        if (window.requestSceneRender) window.requestSceneRender();
+    });
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
         recordVectorUndoState(true);
@@ -2335,6 +2400,44 @@ document.addEventListener("DOMContentLoaded", () => {
         
         return group; // Возвращаем для drag-to-size
     }
+
+    // PNG-иконка, добавленная программно к игровой метке, проходит тем же
+    // пиксельным конвертером и становится обычным экспортируемым mesh-слоем.
+    window.addPixelImageLayer = async function(dataUrl, name, x, y, scale, convertedFrom, layerGroup) {
+        const geometry = await createPixelImageGeometry(dataUrl);
+        const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: false, opacity: 1, depthWrite: true, alphaTest: 0.01 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 999;
+        const group = new THREE.Group();
+        group.uuid = THREE.MathUtils.generateUUID();
+        group.add(mesh);
+        // Дефолтная PNG-иконка должна быть выше самой метки на 25м.
+        group.position.set(x, y, 75);
+        group.scale.set(scale || 1, scale || 1, 1);
+        group.name = name || 'PNG icon';
+        group.userData.icon = 'image';
+        group.userData.isPixelImage = true;
+        group.userData.pixelImageData = dataUrl;
+        group.userData.pixelImageName = name || 'icon.png';
+        group.userData.convertedFrom = convertedFrom || null;
+        group.userData.layerGroup = layerGroup || null;
+        scene.add(group);
+        vectorState.objects.unshift(group);
+        updateVectorsOrder();
+        renderLayersList();
+        if (window.updateExportState) window.updateExportState();
+        if (window.requestSceneRender) window.requestSceneRender();
+        return group;
+    };
+    window.updatePixelImageLayerScale = function(convertedFrom, scale) {
+        vectorState.objects.forEach(obj => {
+            if (!obj.userData || !obj.userData.isPixelImage || obj.userData.convertedFrom !== convertedFrom) return;
+            const value = Number(scale) || 1;
+            obj.scale.set(value, value, 1);
+        });
+        if (window.requestSceneRender) window.requestSceneRender();
+    };
 
     document.getElementById('btnAddSquare')?.addEventListener('click', () => {
         activatePlacementMode((x, y) => {
@@ -3720,7 +3823,7 @@ document.addEventListener("DOMContentLoaded", () => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
                 firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
                 const loadIsCircle = wrapper.userData.icon === 'circle' && !wrapper.userData.isPencil && !wrapper.userData.isSvg && !firstMesh.userData.isText && window.GeometryUtils;
-                const effLoadPattern = (window.STROKE_PATTERNS || []).includes(data.strokePattern) ? data.strokePattern : 'solid';
+                 const effLoadPattern = firstMesh.userData.isText ? 'solid' : ((window.STROKE_PATTERNS || []).includes(data.strokePattern) ? data.strokePattern : 'solid');
                 if (loadIsCircle) {
                     const coLoad = normalizeCircleOutline(wrapper.userData.circleOutline);
                     const built = buildCircleStroke(firstMesh, effLoadPattern, coLoad.gap, coLoad.width, firstMesh.userData.quality || 12, data.strokeCap || 'round', data.strokeColor);
@@ -3763,7 +3866,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                    strokeMesh.position.z = 0.015;
+                     strokeMesh.position.z = firstMesh.userData.isText ? 0 : 0.015;
                     strokeMesh.renderOrder = 998;
                     
                     const tX = firstMesh.geometry.userData.tX || 0;
