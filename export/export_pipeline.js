@@ -73,7 +73,7 @@ async function buildProjectJsonBlob() {
     const hexList = Array.from(state.colorsMap.values()).map(item => item.customName ? `${item.currentHex} - ${item.customName}` : item.currentHex);
 
     const projectData = {
-        COLORS_LIST: hexList, version: "10.1", timestamp: new Date().toISOString(),
+        COLORS_LIST: hexList, version: "11.0", timestamp: new Date().toISOString(),
         solidSea: window.isSeaSolid,
         language: window.currentLang,
         gridVisible: typeof isGridVisible !== 'undefined' ? isGridVisible : false,
