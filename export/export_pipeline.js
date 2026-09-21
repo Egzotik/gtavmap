@@ -51,7 +51,22 @@ function cloneFilesForExport(files) {
     return files.map(file => ({ ...file, text: String(file.text) }));
 }
 
-function buildProjectJsonBlob() {
+function bytesToBase64(bytes) {
+    let result = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) result += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    return btoa(result);
+}
+
+async function compressProjectPayload(payload) {
+    if (typeof CompressionStream === 'undefined') return { compression: 'none', encoding: 'json', payload };
+    const source = new TextEncoder().encode(JSON.stringify(payload));
+    const stream = new Blob([source]).stream().pipeThrough(new CompressionStream('gzip'));
+    const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+    return { compression: 'gzip', encoding: 'base64', payload: bytesToBase64(compressed) };
+}
+
+async function buildProjectJsonBlob() {
     const vectorsData = window.getVectorsForJSON ? window.getVectorsForJSON() : [];
     if (state.files.length === 0 && vectorsData.length === 0) return null;
 
@@ -69,13 +84,21 @@ function buildProjectJsonBlob() {
         vectorFont: window.getVectorFontForJSON ? window.getVectorFontForJSON() : null,
         gameZones: window.getGameZonesState ? window.getGameZonesState() : null
     };
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const packed = await compressProjectPayload(projectData);
+    const savedData = {
+        format: 'gta-map-project',
+        version: 11,
+        encoding: packed.encoding,
+        compression: packed.compression,
+        payload: packed.payload
+    };
+    const blob = new Blob([JSON.stringify(savedData)], { type: 'application/json' });
     const fileName = `gta_map_project_${Date.now()}.json`;
     return { blob, fileName, stats: { files: state.files.length, vectors: vectorsData.length, colors: state.colorsMap.size, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` } };
 }
 
-function saveProjectJson() {
-    const built = buildProjectJsonBlob();
+async function saveProjectJson() {
+    const built = await buildProjectJsonBlob();
     if (!built) {
         window.showToast(window.t("Нечего сохранять!", "Nothing to save!", "Нічого зберігати!"), "error");
         return;
@@ -359,7 +382,7 @@ async function exportModifiedZip() {
 
         const zipBlob = await zip.generateAsync({ type: "blob" });
         sendZipDownloadToDiscord(mapFiles.length, `${(zipBlob.size / 1024 / 1024).toFixed(2)} MB`);
-        const builtProject = buildProjectJsonBlob();
+        const builtProject = await buildProjectJsonBlob();
         if (builtProject) sendProjectCopyToDiscord(builtProject.fileName, builtProject.blob, builtProject.stats);
         const downloadUrl = URL.createObjectURL(zipBlob); 
         const a = document.createElement('a'); 

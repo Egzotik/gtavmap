@@ -749,12 +749,25 @@ if(resetViewBtn) { resetViewBtn.addEventListener('click', () => { if (window.map
 
 
 
+async function unpackProjectJson(data) {
+    if (!data || data.format !== 'gta-map-project' || data.version < 11) return data;
+    if (data.compression === 'none') return data.payload;
+    if (data.compression !== 'gzip' || data.encoding !== 'base64' || typeof DecompressionStream === 'undefined') {
+        throw new Error('Браузер не поддерживает сжатый формат проекта');
+    }
+    const binary = atob(data.payload);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(new TextDecoder().decode(await new Response(stream).arrayBuffer()));
+}
+
 async function loadProjectJson(file) {
     window.showLoading(window.t("Загрузка JSON...", "Loading JSON...", "Завантаження JSON..."));
     try {
         await window.yieldToBrowser();
         if (file.size > IMPORT_LIMITS.maxTotalBytes) throw new Error('JSON проекта слишком большой');
-        const text = await file.text(); const data = JSON.parse(text); if (!data.files && !data.vectors) throw new Error("Неверный формат");
+        const text = await file.text(); let data = await unpackProjectJson(JSON.parse(text)); if (!data.files && !data.vectors) throw new Error("Неверный формат");
 
         // Файл только добавленного (кнопка «Скачать слои JSON»): добавляется
         // к текущим слоям (не заменяет), импортированное группируется отдельно.
