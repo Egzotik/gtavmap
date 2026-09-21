@@ -527,6 +527,8 @@ function buildVectorCoverCache() {
     const tris = [];
     if (vectorState && vectorState.objects) vectorState.objects.forEach((w, ownerIdx) => {
         if (!w) return;
+        if (w.userData && w.userData.isMarkerLabel) return;
+        if (getMeshes(w, true).some(mesh => mesh.userData && mesh.userData.isText)) return;
         w.updateMatrixWorld(true);
         w.traverse(child => {
             if (!child.isMesh || !child.geometry) return;
@@ -625,6 +627,12 @@ function rebuildPseudoTransparency(wrapper) {
     const __rbT0 = (typeof performance !== 'undefined') ? performance.now() : 0;
     let __srcTris = 0, __cutTris = 0;
     removePseudoTransparency(wrapper);
+    if (wrapper.userData && wrapper.userData.skipPseudo) {
+        wrapper.traverse(child => {
+            if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = !child.userData.fillHidden;
+        });
+        return;
+    }
     wrapper.traverse(child => {
         if (child.isMesh && !child.userData.isPseudoTransparency) child.visible = !child.userData.fillHidden;
     });
@@ -1035,6 +1043,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         applyPropsToActive(true);
                     }
                 }
+                if (window.refreshGameZoneTextLabels) window.refreshGameZoneTextLabels();
                 window.showToast("Шрифт (.ttf/.otf) загружен!", "success");
             } catch(err) { window.showToast("Ошибка при разборе шрифта!", "error"); }
         };
@@ -1296,6 +1305,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (hit) window.selectGameZone(hit.id || hit, hit.index);
                 return;
             }
+            if (clicked.userData && clicked.userData.isMarkerLabel && clicked.userData.convertedFrom && window.selectGameZone) {
+                selectObject(null);
+                window.selectGameZone(clicked.userData.convertedFrom, clicked.userData.markerPointIndex);
+                return;
+            }
             selectObject(clicked);
         } else {
             selectObject(null);
@@ -1368,7 +1382,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vectorState.objects.forEach((o, i) => {
             const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
             const orderOffset = (len - i) * 0.001;
-            o.position.z = (o.userData.isPixelImage ? 75 : (isText ? 30 : 20)) + orderOffset;
+            o.position.z = (o.userData.isPixelImage ? 75 : (o.userData.isMarkerLabel ? 50 : (isText ? 30 : 20))) + orderOffset;
             // Порядок поменялся (клик/undo/создание): сдвигаем готовые вырезки
             // за фигурой без перестройки геометрии (z и порядок отрисовки).
             const frac = len > 1 ? (len - 1 - i) / (len - 1) : 1;
@@ -1484,6 +1498,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const dashLength = Math.max(dashLen || strokeWidth * 5, 0.01);
         const gapLength = Math.max(gapLen || strokeWidth * 3, 0);
         const dotDiameter = Math.max(dotSize || strokeWidth, 0.01);
+        const pushStrokeGeometry = (geo) => {
+            if (!geo || !geo.attributes || !geo.attributes.position) return;
+            const source = geo.index ? geo.toNonIndexed() : geo;
+            const normalized = new THREE.BufferGeometry();
+            normalized.setAttribute('position', source.attributes.position.clone());
+            strokeGeometries.push(normalized);
+            source.dispose();
+            if (source !== geo) geo.dispose();
+        };
 
         shapesData.forEach(data => {
             const { shapes, offsetX, offsetY } = data;
@@ -1500,7 +1523,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                     if (geo) {
                         geo.translate(offsetX, offsetY, 0);
-                        strokeGeometries.push(geo);
+                        pushStrokeGeometry(geo);
                     }
                 };
 
@@ -1545,7 +1568,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const p = pointAt((k + 0.5) * step);
                             const dot = new THREE.CircleGeometry(dotR, 12);
                             dot.translate(p.x + offsetX, p.y + offsetY, 0);
-                            strokeGeometries.push(dot);
+                            pushStrokeGeometry(dot);
                         }
                         return;
                     }
@@ -1584,7 +1607,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const p = pointAt(base + scaledPeriod * (kDash + kGap) + (scaledPeriod * kDot) / 2);
                             const dot = new THREE.CircleGeometry(dotR, 12);
                             dot.translate(p.x + offsetX, p.y + offsetY, 0);
-                            strokeGeometries.push(dot);
+                             pushStrokeGeometry(dot);
                         }
                         return;
                     }
@@ -1659,7 +1682,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return finalGeo;
     }
 
+    function isObjectInScene(obj) {
+        let current = obj;
+        while (current) {
+            if (current === scene) return true;
+            current = current.parent;
+        }
+        return false;
+    }
+
     function selectObject(obj) {
+        if (obj && !isObjectInScene(obj)) obj = null;
         if (window.clearGameZoneSelection) window.clearGameZoneSelection();
         // Фигура, конвертированная из зоны меток: связываем меню —
         // выбираем зону, чтобы открылись её настройки в меню меток.
@@ -1962,7 +1995,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('vecLinePattern')?.addEventListener('change', () => applyPropsToActive());
 
     function applyPropsToActive(forceRebuildText = false, forceRebuildStroke = false, markStyleOverride = false) {
-        if (!vectorState.activeObj) return;
+        if (!vectorState.activeObj || !isObjectInScene(vectorState.activeObj)) {
+            if (window.vectorTransformControl) window.vectorTransformControl.detach();
+            vectorState.activeObj = null;
+            return;
+        }
         recordVectorUndoState();
         vectorState.skipNextHistory = false;
         const colorHex = document.getElementById('vecPropColor').value;
@@ -2003,6 +2040,9 @@ document.addEventListener("DOMContentLoaded", () => {
         obj.userData.strokeUseAlpha = strokeUseAlpha;
         obj.userData.fillEnabled = fillEnabled;
         obj.userData.fillPattern = fillPattern;
+        if (obj.userData.skipPseudo && (alpha < 0.999 || fillPattern !== 'solid' || strokeUseAlpha)) {
+            obj.userData.skipPseudo = false;
+        }
         const fillSpacingRaw = parseFloat(document.getElementById('vecFillSpacingNum')?.value);
         const fillThicknessRaw = parseFloat(document.getElementById('vecFillThicknessNum')?.value);
         obj.userData.fillPatternSpacing = (Number.isFinite(fillSpacingRaw) && fillSpacingRaw > 0) ? fillSpacingRaw : null;
@@ -2126,7 +2166,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             } else { strokeMesh.geometry.dispose(); strokeMesh.geometry = strokeGeo; }
                         }
                     }
-                        strokeMesh.userData.strokeWidth = strokeWidth;
+                    if (!strokeMesh) return;
+                    strokeMesh.userData.strokeWidth = strokeWidth;
                         strokeMesh.userData.strokePattern = strokePattern;
                         strokeMesh.userData.strokeCap = strokeCap;
                         strokeMesh.userData.strokeDash = strokeDash;
@@ -2213,8 +2254,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderLayersList() {
         const list = document.getElementById('vectorLayersList');
         const countSpan = document.getElementById('vectorLayerCount');
+        const displayObjects = vectorState.objects.filter(obj => !(obj.userData && obj.userData.isMarkerLabel));
         
-        if (countSpan) countSpan.textContent = vectorState.objects.length;
+        if (countSpan) countSpan.textContent = displayObjects.length;
         const allEye = document.getElementById('vectorLayersToggleAll');
         if (allEye) {
             const allHidden = vectorState.objects.length > 0 && vectorState.objects.every(obj => obj.visible === false);
@@ -2224,21 +2266,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         list.innerHTML = '';
-        if (vectorState.objects.length === 0) {
+        if (displayObjects.length === 0) {
             list.innerHTML = '<div class="text-[10px] text-slate-500 text-center py-4 bg-slate-900/30 rounded border border-slate-800 border-dashed">Слоев нет</div>';
             return;
         }
 
-        vectorState.objects.forEach((obj, idx) => {
+        displayObjects.forEach((obj, idx) => {
             if (!obj.userData.layerGroup) makeLayerRow(obj, idx, list);
         });
         const seenGroups = [];
-        vectorState.objects.forEach(obj => {
+        displayObjects.forEach(obj => {
             const g = obj.userData.layerGroup;
             if (g && !seenGroups.includes(g)) seenGroups.push(g);
         });
         seenGroups.forEach(g => {
-            const members = vectorState.objects.filter(o => o.userData.layerGroup === g);
+            const members = displayObjects.filter(o => o.userData.layerGroup === g);
             if (members.length === 0) return;
             const header = document.createElement('div');
             header.className = 'flex items-center justify-between px-1.5 py-1 mt-1 rounded bg-slate-900/60 border border-slate-700/50 text-[9px] uppercase tracking-wider text-slate-400 font-semibold';
@@ -2351,6 +2393,17 @@ document.addEventListener("DOMContentLoaded", () => {
         renderLayersList();
         if (window.requestSceneRender) window.requestSceneRender();
     });
+    document.getElementById('vectorPseudoRebuildBtn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+            window.showLoading?.('Пересчёт псевдопрозрачности...', 'Подготовка...');
+            await window.rebuildVectorPseudoTransparencyAsync((done, total) => {
+                window.showLoading?.('Пересчёт псевдопрозрачности...', `${done}/${total}`);
+            });
+        } finally {
+            window.hideLoading?.();
+        }
+    });
 
     function spawnVectorMesh(geometry, name, icon, isText = false, textContent = '', defaultScale = 1, posX = null, posY = null) {
         recordVectorUndoState(true);
@@ -2416,6 +2469,7 @@ document.addEventListener("DOMContentLoaded", () => {
         group.userData.pixelImageName = name || 'icon.png';
         group.userData.convertedFrom = convertedFrom || null;
         group.userData.layerGroup = layerGroup || null;
+        group.userData.skipPseudo = true;
         scene.add(group);
         vectorState.objects.unshift(group);
         updateVectorsOrder();
@@ -2430,6 +2484,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const value = Number(scale) || 1;
             obj.scale.set(value, value, 1);
         });
+        if (window.requestSceneRender) window.requestSceneRender();
+    };
+    window.replaceMarkerTextLayers = async function(zoneId, items) {
+        const old = vectorState.objects.filter(obj => obj.userData && obj.userData.isMarkerLabel && obj.userData.convertedFrom === zoneId);
+        old.forEach(obj => { scene.remove(obj); disposeObject3D(obj); });
+        vectorState.objects = vectorState.objects.filter(obj => !(obj.userData && obj.userData.isMarkerLabel && obj.userData.convertedFrom === zoneId));
+        renderLayersList();
+        if (Array.isArray(items) && items.length > 0) await window.loadVectorsFromJSON(items, true);
         if (window.requestSceneRender) window.requestSceneRender();
     };
 
@@ -3496,6 +3558,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z },
                 isText: false,
                 isSvg: false,
+                isMarkerLabel: Boolean(obj.userData.isMarkerLabel),
+                convertedFrom: obj.userData.convertedFrom || null,
+                skipPseudo: Boolean(obj.userData.skipPseudo),
+                markerPointIndex: Number.isInteger(obj.userData.markerPointIndex) ? obj.userData.markerPointIndex : null,
                 styleOverridden: Boolean(obj.userData.styleOverridden),
                 layerGroup: obj.userData.layerGroup || null,
                 fillEnabled: obj.userData.fillEnabled !== false,
@@ -3705,8 +3771,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // новые всегда сверху, нижние от них не зависят — их не трогаем.
         // Ничего не добавилось — пересобирать нечего.
         const inserted = vectorState.objects.filter(o => !hadObjects.has(o));
-        if (inserted.length > 0 && window.rebuildVectorPseudoTransparencyAsync) {
-            const minIdx = Math.min.apply(null, inserted.map(o => vectorState.objects.indexOf(o)).filter(i => i >= 0).concat([0]));
+        const pseudoInserted = inserted.filter(o => !(o.userData && (o.userData.isMarkerLabel || o.userData.skipPseudo)));
+        if (pseudoInserted.length > 0 && window.rebuildVectorPseudoTransparencyAsync) {
+            const minIdx = Math.min.apply(null, pseudoInserted.map(o => vectorState.objects.indexOf(o)).filter(i => i >= 0).concat([0]));
             const affected = vectorState.objects.slice(0, Math.max(0, minIdx) + 1);
             // Плашку «Псевдо» показываем, только если реально долго (>600мс),
             // иначе она лишь мелькает поверх мгновенной сборки.
@@ -3756,11 +3823,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         if (data.isText) group.userData.textAlign = data.textAlign || 'center';
+        if (data.convertedFrom) group.userData.convertedFrom = data.convertedFrom;
+        if (data.isMarkerLabel) {
+            group.userData.isMarkerLabel = true;
+            group.userData.skipPseudo = true;
+        }
+        if (Number.isInteger(data.markerPointIndex)) group.userData.markerPointIndex = data.markerPointIndex;
+        if (data.skipPseudo) group.userData.skipPseudo = true;
         
         applyTransformAndProperties(group, data);
         // Дебаунс схлопывает пачку при массовой загрузке; поздние объекты
         // (текст после шрифта) тоже получают свою пересборку.
-        if (window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(group);
+        if (!group.userData.isMarkerLabel && window.scheduleSinglePseudoRebuild) window.scheduleSinglePseudoRebuild(group);
         return group;
     }
     
@@ -3782,7 +3856,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         }
         if (data.strokeHoles) wrapper.userData.strokeHoles = JSON.parse(JSON.stringify(data.strokeHoles));
-        wrapper.position.z = data.isText ? 30 : 20;
+        wrapper.position.z = data.isMarkerLabel ? 50 : (data.isText ? 30 : 20);
 
         if (!data.isSvg || data.styleOverridden) {
             getMeshes(wrapper, false).forEach(mesh => {

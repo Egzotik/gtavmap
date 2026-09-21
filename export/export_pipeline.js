@@ -199,14 +199,14 @@ window.recalculateAllBounds = function(xmlDoc) {
 
                     const bounds = window.GeometryUtils.calculateBoundsFromVertices(geomVerts);
                     window.GeometryUtils.setDirectBounds(geom, bounds);
-                    modelVerts.push(...geomVerts);
+                    for (const vertex of geomVerts) modelVerts.push(vertex);
                     modelHasGeom = true;
                 });
 
                 if (modelHasGeom) {
                     const bounds = window.GeometryUtils.calculateBoundsFromVertices(modelVerts);
                     window.GeometryUtils.setDirectBounds(model, bounds);
-                    rootVerts.push(...modelVerts);
+                    for (const vertex of modelVerts) rootVerts.push(vertex);
                     hasValidGeom = true;
                 } else {
                     model.remove(); 

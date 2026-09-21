@@ -242,6 +242,7 @@
                 pencilPoints: poly.points.map(p => ({ x: p.x - cx, y: p.y - cy })),
                 color: poly.color || fallbackColor || '#ffffff',
                 opacity: 1,
+                skipPseudo: true,
                 convertedFrom: zoneId
             });
         });
@@ -281,6 +282,7 @@
                 pencilShapes: list.map(poly => poly.points.map(p => ({ x: p.x - cx, y: p.y - cy }))),
                 color: color,
                 opacity: settings.opacity ?? 1,
+                skipPseudo: (settings.opacity ?? 1) >= 1,
                 convertedFrom: zoneId
             };
             if (settings.strokeWidth != null) {
@@ -343,7 +345,7 @@
         if (Number.isFinite(src.labelHeight)) out.labelHeight = Math.min(500, Math.max(0, src.labelHeight));
         if (typeof src.labelColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.labelColor)) out.labelColor = src.labelColor;
         if (typeof src.labelOutline === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.labelOutline)) out.labelOutline = src.labelOutline;
-        if (Number.isFinite(src.labelOutlineSize)) out.labelOutlineSize = Math.min(20, Math.max(0, src.labelOutlineSize));
+        if (Number.isFinite(src.labelOutlineSize)) out.labelOutlineSize = Math.min(100, Math.max(0, src.labelOutlineSize));
         if (src.useIcon === true) out.useIcon = true;
         if (src.fill === false) out.fill = false;
         return out;
@@ -370,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!container || !window.GameZones) return;
     const t = (ru, en, uk) => window.t ? window.t(ru, en, uk) : ru;
     const state = {};
-    window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null, show: 'both' }; });
+    window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null, labelOverrides: {}, show: 'both' }; });
 
     function markerStyleOf(def) {
         const st = state[def.id];
@@ -379,12 +381,82 @@ document.addEventListener('DOMContentLoaded', () => {
         return style;
     }
 
+    function markerLabelText(point, style) {
+        const numberMatch = String(point.name || '').match(/(?:#\s*)?(\d+)\s*$/);
+        return (style.labelTemplate || '{name}')
+            .replace(/\{name\}/gi, String(point.name || '').trim())
+            .replace(/\{n\}/gi, numberMatch ? numberMatch[1] : '')
+            .trim();
+    }
+
+    function wrapMarkerLabel(text) {
+        const lines = [];
+        String(text || '').split(/\r?\n/).forEach(rawLine => {
+            let line = '';
+            rawLine.trim().split(/\s+/).filter(Boolean).forEach(word => {
+                const next = line ? line + ' ' + word : word;
+                if (line && next.length > 14) { lines.push(line); line = word; }
+                else line = next;
+            });
+            if (line) lines.push(line);
+        });
+        return lines.length ? lines.join('\n') : String(text || '');
+    }
+
+    async function syncMarkerTextLayers(def) {
+        const st = state[def.id];
+        if (!window.replaceMarkerTextLayers || !st) return;
+        st.labelRevision = (st.labelRevision || 0) + 1;
+        if (st.labelSyncing) return;
+        st.labelSyncing = true;
+        do {
+        const revision = st.labelRevision;
+        const style = markerStyleOf(def);
+        const items = st.points.map((point, pointIndex) => {
+            const local = st.labelOverrides && st.labelOverrides[String(pointIndex)];
+            const pointStyle = local ? Object.assign({}, style, local.style || {}) : style;
+            if (!point.name || (local ? local.enabled !== true : !style.label)) return null;
+            const text = markerLabelText(point, pointStyle);
+            return {
+            name: text,
+            icon: 'type',
+            position: { x: point.x, y: point.y + pointStyle.size + pointStyle.labelHeight, z: 50 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: { x: pointStyle.labelSize * 0.5, y: pointStyle.labelSize * 0.5, z: 1 },
+            isText: true,
+            text: wrapMarkerLabel(text),
+            quality: 8,
+            textAlign: 'center',
+            textLineHeight: 1.2,
+            color: pointStyle.labelColor,
+            opacity: 1,
+            hasStroke: pointStyle.labelOutlineSize > 0,
+            strokeColor: pointStyle.labelOutline,
+            strokeWidth: pointStyle.labelOutlineSize,
+            strokePattern: 'solid',
+            strokeCap: 'round',
+            convertedFrom: def.id,
+            isMarkerLabel: true,
+            markerPointIndex: st.points.indexOf(point),
+            layerGroup: labelOf(def)
+            };
+        }).filter(Boolean);
+        await window.replaceMarkerTextLayers(def.id, items);
+        if (st.labelRevision === revision) break;
+        } while (st.labelRevision !== 0);
+        st.labelSyncing = false;
+    }
+    window.refreshGameZoneTextLabels = async function() {
+        await Promise.all(window.GameZones.GAME_ZONES.filter(def => state[def.id] && state[def.id].on).map(syncMarkerTextLayers));
+    };
+
     function setMarkerStyle(def, patch) {
         const st = state[def.id];
         if (!st) return;
         st.markerStyle = Object.assign({}, st.markerStyle, patch);
         rebuildZoneGroup(def);
         if (window.updatePixelImageLayerScale) window.updatePixelImageLayerScale(def.id, markerStyleOf(def).size / 5);
+        if (st.on) syncMarkerTextLayers(def);
     }
 
     let selectedZoneId = null;
@@ -477,6 +549,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const widthEl = document.getElementById('markerPropWidth');
         const widthNum = document.getElementById('markerPropWidthNum');
         const labelEl = document.getElementById('markerPropLabel');
+        const localLabelRow = document.getElementById('markerPropLocalLabelRow');
+        const localLabelEl = document.getElementById('markerPropLocalLabel');
         const sizeEl = document.getElementById('markerPropSize');
         const sizeNum = document.getElementById('markerPropSizeNum');
         const labelSizeEl = document.getElementById('markerPropLabelSize');
@@ -496,6 +570,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (widthEl) { widthEl.value = widthPct; widthEl.disabled = false; }
         if (widthNum) { widthNum.value = widthPct; widthNum.disabled = false; }
         if (labelEl) labelEl.checked = ms.label === true;
+        const localOverride = (selectedPointIdx >= 0 && st.labelOverrides && st.labelOverrides[String(selectedPointIdx)]) || null;
+        if (localLabelRow) localLabelRow.classList.toggle('hidden', selectedPointIdx < 0 || !st.points[selectedPointIdx]);
+        if (localLabelEl) localLabelEl.checked = !!(localOverride && localOverride.enabled === true);
         if (sizeEl) sizeEl.value = ms.size;
         if (sizeNum) sizeNum.value = ms.size;
         if (labelSizeEl) labelSizeEl.value = ms.labelSize;
@@ -619,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) { /* PNG is optional */ }
                 }
             }
-            if (mstyle.label && pt.name && typeof document !== 'undefined') {
+            if (mstyle.label && pt.name && typeof document !== 'undefined' && !window.replaceMarkerTextLayers) {
                 const numberMatch = String(pt.name).match(/(?:#\s*)?(\d+)\s*$/);
                 const markerName = mstyle.labelTemplate
                     ? mstyle.labelTemplate.replace(/\{name\}/gi, String(pt.name).trim()).replace(/\{n\}/gi, numberMatch ? numberMatch[1] : '').trim()
@@ -823,13 +900,18 @@ document.addEventListener('DOMContentLoaded', () => {
     async function addZoneIconMeshes(def) {
         const st = state[def.id];
         if (!window.addPixelImageLayer || !st || !markerStyleOf(def).useIcon || st.customIcon) return;
-        await Promise.all(st.points.filter(point => point.icon).map(async point => {
+        const points = st.points.filter(point => point.icon);
+        if (points.length === 0) return;
+        for (let i = 0; i < points.length; i++) {
+            window.showLoading?.(t('Загрузка иконок...', 'Loading icons...', 'Завантаження іконок...'), `${i + 1}/${points.length}`);
+            if (window.yieldToBrowser) await window.yieldToBrowser();
+            const point = points[i];
             try {
                 const dataUrl = await fetchIconDataUrl(point.icon);
                 if (dataUrl) await window.addPixelImageLayer(dataUrl, point.name || def.id, point.x, point.y, markerStyleOf(def).size / 5, def.id, labelOf(def));
             } catch (error) { console.warn('Marker icon mesh failed:', point.icon, error); }
-        }));
-        if (window.rebuildVectorPseudoTransparency) window.rebuildVectorPseudoTransparency();
+        }
+        window.hideLoading?.();
     }
 
     async function setZoneOn(def, checkbox) {
@@ -865,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 scene.add(st.group);
             }
             await addZoneIconMeshes(def);
+            await syncMarkerTextLayers(def);
             st.on = true;
             if (window.requestSceneRender) window.requestSceneRender();
         } catch (err) {
@@ -973,9 +1056,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.getGameZonesState = function() {
         const icons = {};
         const styles = {};
+        const labels = {};
         window.GameZones.GAME_ZONES.forEach(d => {
             if (state[d.id] && state[d.id].customIcon) icons[d.id] = state[d.id].customIcon;
             if (state[d.id] && state[d.id].markerStyle) styles[d.id] = state[d.id].markerStyle;
+            if (state[d.id] && state[d.id].labelOverrides && Object.keys(state[d.id].labelOverrides).length) labels[d.id] = state[d.id].labelOverrides;
         });
         return {
             on: window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].on).map(d => d.id),
@@ -983,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
             v: 3,
             icons: icons,
             styles: styles,
+            labels: labels,
             shows: Object.fromEntries(window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].show && state[d.id].show !== 'both').map(d => [d.id, state[d.id].show])),
             custom: (state.custom && state.custom.customRaw) || []
         };
@@ -998,6 +1084,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const icons = saved.icons || {};
         Object.keys(icons).forEach(id => {
             if (state[id] && typeof icons[id] === 'string') state[id].customIcon = icons[id];
+        });
+        const labels = saved.labels || {};
+        Object.keys(labels).forEach(id => {
+            if (state[id] && labels[id] && typeof labels[id] === 'object') state[id].labelOverrides = labels[id];
         });
         const shows = saved.shows || {};
         Object.keys(shows).forEach(id => {
@@ -1027,7 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Number.isFinite(s.labelHeight)) patch.labelHeight = Math.min(500, Math.max(0, s.labelHeight));
             if (typeof s.labelColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.labelColor)) patch.labelColor = s.labelColor;
             if (typeof s.labelOutline === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.labelOutline)) patch.labelOutline = s.labelOutline;
-            if (Number.isFinite(s.labelOutlineSize)) patch.labelOutlineSize = Math.min(20, Math.max(0, s.labelOutlineSize));
+            if (Number.isFinite(s.labelOutlineSize)) patch.labelOutlineSize = Math.min(100, Math.max(0, s.labelOutlineSize));
             if (s.useIcon === true) patch.useIcon = true;
             if (s.fill === false) patch.fill = false;
             if (Object.keys(patch).length > 0) state[id].markerStyle = patch;
@@ -1135,6 +1225,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.checked && (!st.markerStyle || !st.markerStyle.labelTemplate)) patch.labelTemplate = '{name}';
         setMarkerStyle(def, patch);
     });
+    document.getElementById('markerPropLocalLabel')?.addEventListener('change', async (e) => {
+        const def = selectedZoneDef();
+        const st = def && state[def.id];
+        if (!def || !st || selectedPointIdx < 0) return;
+        const key = String(selectedPointIdx);
+        st.labelOverrides = st.labelOverrides || {};
+        if (e.target.checked) st.labelOverrides[key] = { enabled: true };
+        else delete st.labelOverrides[key];
+        if (st.on) await syncMarkerTextLayers(def);
+        renderMarkerPanel();
+    });
     let markerLabelTemplateTimer = 0;
     document.getElementById('markerPropLabelTemplate')?.addEventListener('input', (e) => {
         const def = selectedZoneDef(); if (!def) return;
@@ -1155,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let markerLabelOutlineSizeTimer = 0;
     const setMarkerLabelOutlineSize = (value) => {
         const def = selectedZoneDef(); if (!def) return;
-        const v = Math.min(20, Math.max(0, Number(value) || 0));
+        const v = Math.min(100, Math.max(0, Number(value) || 0));
         const range = document.getElementById('markerPropLabelOutlineSize');
         const num = document.getElementById('markerPropLabelOutlineSizeNum');
         if (range) range.value = v;
@@ -1269,6 +1370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         st.markerStyle = Object.assign({}, st.markerStyle, { useIcon: e.target.checked });
         rebuildZoneGroup(def);
         await addZoneIconMeshes(def);
+        if (st.on) await syncMarkerTextLayers(def);
         renderMarkerPanel();
         window.refreshGameZonesList();
     });
@@ -1332,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 st.markerStyle = Object.assign({}, st.markerStyle, { size: markerSize });
                 if (st.points.length > 0) rebuildZoneGroup(def);
                 if (window.updatePixelImageLayerScale) window.updatePixelImageLayerScale(def.id, markerSize / 5);
+                if (st.on) syncMarkerTextLayers(def);
             });
             globalMarkerSizeFrame = 0;
         });

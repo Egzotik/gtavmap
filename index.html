@@ -65,6 +65,9 @@
             #markerPropsPanel, #vectorPropsPanel { max-width: 100%; }
             #markerPropsPanel > *, #markerPropsPanel .bg-slate-900\/40 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
             #markerPropsPanel input[type="range"] { min-width: 0; }
+            #vectorPropsPanel input[type="range"] { min-width: 0; }
+            #vectorPropsPanel input[type="number"] { min-width: 0; }
+            #vectorPropsPanel .w-12 { width: 2.5rem; }
             #vectorPropsPanel input[type="number"], #markerPropsPanel input[type="number"] { min-width: 0; }
             #customPointsInput { max-width: 100%; }
             body { overflow-x: clip; }
@@ -209,7 +212,7 @@
                     </div>
                 </div>
 
-                <div id="vectorPropsPanel" class="space-y-3 pt-3 border-t border-slate-700/50 hidden mt-3">
+                <div id="vectorPropsPanel" class="space-y-2 pt-3 border-t border-slate-700/50 hidden mt-3">
                     <label class="font-semibold text-slate-300 flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
                         <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i> <span data-i18n="layer_settings">Настройки слоя</span>
                     </label>
@@ -217,7 +220,7 @@
                         <button id="vecBtnRemoveWhite" data-i18n-title="del_white_title" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition shadow-sm" title="Удалить все белые элементы" data-i18n="del_white">Удал. белое</button>
                         <button id="vecBtnRemoveBg" data-i18n-title="del_bg_title" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700/50 rounded-lg text-[9px] uppercase font-bold transition shadow-sm" title="Удалить самый большой контур" data-i18n="del_bg">Удал. фон</button>
                     </div>
-                    <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2.5 shadow-inner">
+                    <div class="bg-slate-900/40 p-1.5 rounded-xl border border-slate-700/50 space-y-1.5 shadow-inner">
                         <div id="vecPropTextContainer" class="hidden flex flex-col gap-1 mb-1">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-slate-400 text-[9px] uppercase tracking-wider font-semibold" data-i18n="text_label">Текст:</span>
@@ -308,7 +311,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-slate-900/40 p-2 rounded-xl border border-slate-700/50 space-y-2 shadow-inner">
+                    <div class="bg-slate-900/40 p-1.5 rounded-xl border border-slate-700/50 space-y-1.5 shadow-inner">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="vecPropStroke" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded"> 
                             <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wide" data-i18n="outer_stroke">Внешняя Обводка</span>
@@ -367,6 +370,10 @@
                         <input type="checkbox" id="markerPropLabel" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded">
                         <span class="text-[10px] font-bold text-slate-300">Показывать название</span>
                     </label>
+                    <label id="markerPropLocalLabelRow" class="hidden flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="markerPropLocalLabel" class="w-3.5 h-3.5 accent-emerald-500 bg-slate-950 border-slate-700 rounded">
+                        <span class="text-[10px] font-bold text-slate-300">Только для этой метки</span>
+                    </label>
                     <textarea id="markerPropLabelTemplate" rows="2" placeholder="Шаблон, например: ГШ #{n}" class="w-full bg-slate-950/50 border border-slate-700/80 rounded-lg text-slate-200 px-2 py-1 outline-none focus:border-emerald-500 text-[10px] resize-y"></textarea>
                     <div class="grid grid-cols-2 gap-1.5">
                         <label class="text-[9px] text-slate-400">Цвет текста<input id="markerPropLabelColor" type="color" value="#ffffff" class="w-full h-6 rounded bg-slate-950/50 border border-slate-700/80 cursor-pointer"></label>
@@ -375,8 +382,8 @@
                     <div class="grid grid-cols-2 gap-1.5">
                         <div class="flex items-center gap-1 min-w-0">
                         <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Обводка:</span>
-                        <input type="range" id="markerPropLabelOutlineSize" min="0" max="20" step="1" value="2" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
-                        <input type="number" id="markerPropLabelOutlineSizeNum" min="0" max="20" step="1" value="2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
+                        <input type="range" id="markerPropLabelOutlineSize" min="0" max="100" step="1" value="2" class="flex-1 min-w-0 accent-emerald-400 bg-slate-800/80 h-1.5 rounded-lg cursor-pointer">
+                        <input type="number" id="markerPropLabelOutlineSizeNum" min="0" max="100" step="1" value="2" class="w-12 bg-slate-950/50 border border-slate-700/80 rounded-lg p-1 text-emerald-400 font-bold outline-none text-[10px] text-center shadow-inner">
                         </div>
                         <div class="flex items-center gap-1 min-w-0">
                         <span class="text-slate-400 text-[8px] uppercase font-semibold w-10 shrink-0">Размер:</span>
@@ -471,6 +478,7 @@
                         <label class="font-semibold text-slate-300 flex items-center justify-between text-[10px] uppercase tracking-wider w-full">
                             <span data-i18n="layer_manager">Менеджер слоев</span>
                             <span class="flex items-center gap-1">
+                                <button id="vectorPseudoRebuildBtn" type="button" class="p-1 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/20 transition" title="Пересчитать псевдопрозрачность"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
                                 <button id="vectorLayersToggleAll" type="button" class="p-1 rounded text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/20 transition" title="Скрыть/показать все слои"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
                                 <span id="vectorLayerCount" class="bg-slate-800/60 border border-slate-700/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">0</span>
                             </span>
