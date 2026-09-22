@@ -43,11 +43,8 @@
         h1 span { color: var(--mint); text-shadow: 0 0 38px rgba(52,211,153,.25); }
         .lead { max-width: 560px; color: var(--muted); font-size: clamp(16px, 2vw, 20px); line-height: 1.6; }
         .online { display: flex; gap: 12px; align-items: stretch; margin-top: 26px; max-width: 560px; }
-        .online-total { flex: 1.2; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; backdrop-filter: blur(18px); }
-        .online-total b { display: block; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.04em; color: #f8fafc; }
-        .online-total span { color: var(--muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
-        .online-rows { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .online-row { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 9px 12px; font-size: 13px; color: #e2e8f0; backdrop-filter: blur(18px); }
+        .online-rows { flex: 1; display: flex; gap: 8px; }
+        .online-row { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 9px 12px; font-size: 13px; color: #e2e8f0; backdrop-filter: blur(18px); }
         .online-row i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .online-row.majestic i { background: #f43f72; box-shadow: 0 0 10px #f43f72; }
         .online-row.gta5rp i { background: #ff742b; box-shadow: 0 0 10px #ff742b; }
@@ -58,6 +55,7 @@
         .marker { transform-box: fill-box; transform-origin: center; animation: marker 3s ease-in-out infinite; }
         .marker:nth-child(2) { animation-delay: -1s; }
         .marker:nth-child(3) { animation-delay: -2s; }
+        #onlineCircleMajestic, #onlineCircleGta { transition: r 1.2s ease, stroke-width 1.2s ease; }
         .art-caption { position: absolute; left: 24px; bottom: 20px; color: #cbd5e1; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
         .section-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 18px; }
         .section-head h2 { margin: 0; font-size: 22px; letter-spacing: -.04em; }
@@ -106,7 +104,6 @@
                     <h1>Создавай карты.<br><span>Настраивай мир.</span></h1>
                     <p class="lead">Единый хаб интерактивных карт, меток и инструментов для игровых миров. Выбирай проект и открывай редактор.</p>
                     <div class="online" id="onlineWidget" hidden>
-                        <div class="online-total"><b id="onlineTotal">…</b><span>игроков онлайн</span></div>
                         <div class="online-rows">
                             <div class="online-row majestic"><i></i>Majestic RP<b id="onlineMajestic">…</b></div>
                             <div class="online-row gta5rp"><i></i>GTA5RP<b id="onlineGta5rp">…</b></div>
@@ -117,10 +114,10 @@
                     <svg viewBox="0 0 600 400" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M-30 315C80 228 150 310 225 232C315 139 357 174 435 113C500 62 548 88 635 42" stroke="#0f766e" stroke-opacity=".2" stroke-width="72"/>
                         <path class="route" d="M-30 315C80 228 150 310 225 232C315 139 357 174 435 113C500 62 548 88 635 42" stroke="#34D399" stroke-width="3"/>
-                        <circle cx="225" cy="232" r="86" stroke="#34D399" stroke-opacity=".5" stroke-width="2" stroke-dasharray="9 10"/>
-                        <circle cx="435" cy="113" r="56" stroke="#38BDF8" stroke-opacity=".65" stroke-width="2" stroke-dasharray="5 9"/>
-                        <g class="marker"><circle cx="225" cy="232" r="10" fill="#34D399" stroke="#ECFDF5" stroke-width="4"/><circle cx="225" cy="232" r="22" fill="#34D399" fill-opacity=".14"/></g>
-                        <g class="marker"><circle cx="435" cy="113" r="9" fill="#38BDF8" stroke="#E0F2FE" stroke-width="4"/><circle cx="435" cy="113" r="19" fill="#38BDF8" fill-opacity=".14"/></g>
+                        <circle id="onlineCircleMajestic" cx="225" cy="232" r="86" stroke="#f43f72" stroke-opacity=".55" stroke-width="2" stroke-dasharray="9 10"/>
+                        <circle id="onlineCircleGta" cx="435" cy="113" r="56" stroke="#ff742b" stroke-opacity=".65" stroke-width="2" stroke-dasharray="5 9"/>
+                        <g class="marker"><circle cx="225" cy="232" r="10" fill="#f43f72" stroke="#ffe4ec" stroke-width="4"/><circle cx="225" cy="232" r="22" fill="#f43f72" fill-opacity=".14"/></g>
+                        <g class="marker"><circle cx="435" cy="113" r="9" fill="#ff742b" stroke="#ffedd5" stroke-width="4"/><circle cx="435" cy="113" r="19" fill="#ff742b" fill-opacity=".14"/></g>
                         <g class="marker"><circle cx="510" cy="300" r="8" fill="#FBBF24" stroke="#FFFBEB" stroke-width="3"/></g>
                         <path d="M48 72H165M48 88H120" stroke="#475569" stroke-width="2" stroke-linecap="round"/>
                     </svg>
@@ -149,13 +146,19 @@
     var widget = document.getElementById('onlineWidget');
     if (!widget) return;
     function fmt(n) { return Number(n || 0).toLocaleString('ru-RU'); }
-    function get(url, ms) {
+    function fetchJson(url, ms) {
         var ctrl = new AbortController();
         var timer = setTimeout(function() { ctrl.abort(); }, ms || 10000);
         return fetch(url, { signal: ctrl.signal }).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         }).finally(function() { clearTimeout(timer); });
+    }
+    function get(url, ms) {
+        // Напрямую, а если API без CORS-заголовков — через прокси.
+        return fetchJson(url, ms).catch(function() {
+            return fetchJson('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), ms);
+        });
     }
     function majesticOnline(d) {
         if (d && d.data && Number.isFinite(d.data.players)) return d.data.players;
@@ -164,18 +167,39 @@
         }
         return null;
     }
+    function numOrNull(v) { return Number.isFinite(v) ? v : null; }
+    function scaleCircles(m, g) {
+        // Обводки кругов различаются по онлайну: радиус и толщина от корня онлайна.
+        var max = Math.max(m || 0, g || 0, 1);
+        [['onlineCircleMajestic', m], ['onlineCircleGta', g]].forEach(function(pair) {
+            var el = document.getElementById(pair[0]);
+            if (!el || pair[1] === null) return;
+            el.setAttribute('r', (34 + 66 * Math.sqrt(pair[1] / max)).toFixed(1));
+            el.style.strokeWidth = (2 + 3 * (pair[1] / max)).toFixed(1);
+        });
+    }
+    function render(m, g) {
+        if (m === null && g === null) return;
+        widget.hidden = false;
+        document.getElementById('onlineMajestic').textContent = m === null ? '—' : fmt(m);
+        document.getElementById('onlineGta5rp').textContent = g === null ? '—' : fmt(g);
+        scaleCircles(m, g);
+    }
     function load() {
-        Promise.allSettled([
-            get('https://wiki.majestic-rp.ru/api/online'),
-            get('https://gta5masterlist.net/api/projects/gta-5-rp')
-        ]).then(function(res) {
-            var m = res[0].status === 'fulfilled' ? majesticOnline(res[0].value) : null;
-            var g = res[1].status === 'fulfilled' && Number.isFinite(res[1].value.online) ? res[1].value.online : null;
-            if (m === null && g === null) return;
-            widget.hidden = false;
-            document.getElementById('onlineMajestic').textContent = m === null ? '—' : fmt(m);
-            document.getElementById('onlineGta5rp').textContent = g === null ? '—' : fmt(g);
-            document.getElementById('onlineTotal').textContent = fmt((m || 0) + (g || 0));
+        // Свой online.json (обновляется GitHub Actions) — без CORS-проблем.
+        fetchJson('online.json', 10000).then(function(d) {
+            if (!d || (d.majestic === undefined && d.gta5rp === undefined)) throw new Error('empty');
+            render(numOrNull(d.majestic), numOrNull(d.gta5rp));
+        }).catch(function() {
+            // Запасной путь: API напрямую (может упереться в CORS).
+            Promise.allSettled([
+                get('https://wiki.majestic-rp.ru/api/online'),
+                get('https://gta5masterlist.net/api/projects/gta-5-rp')
+            ]).then(function(res) {
+                var m = res[0].status === 'fulfilled' ? majesticOnline(res[0].value) : null;
+                var g = res[1].status === 'fulfilled' ? numOrNull(res[1].value.online) : null;
+                render(m, g);
+            });
         });
     }
     load();
