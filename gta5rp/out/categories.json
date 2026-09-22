@@ -1,0 +1,748 @@
+{
+ "blip_category": {
+  "shop": {
+   "label": "Магазин 24/7",
+   "blipId": 11,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/product-shops",
+   "description": "Продукты, еда для готовки и бытовые мелочи."
+  },
+  "gas": {
+   "label": "Заправка",
+   "blipId": 152,
+   "color": "#595959",
+   "group": "business",
+   "link": "/docs/businesses/gas-station",
+   "description": "Здесь можно заправить топливом любой транспорт."
+  },
+  "clothing": {
+   "label": "Магазин одежды",
+   "blipId": 20,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/clothes-shop",
+   "description": "Базовая одежда для вашего персонажа по низкой цене."
+  },
+  "clothing_premium": {
+   "label": "Магазин премиальной одежды",
+   "blipId": 156,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/clothes-shop",
+   "description": "Премиальная одежда для вашего персонажа по средней цене."
+  },
+  "clothing_lux": {
+   "label": "Магазин одежды Люкс",
+   "blipId": 398,
+   "color": "#ffdc27",
+   "group": "business",
+   "link": "/docs/businesses/clothes-shop",
+   "description": "Одежда класса Люкс для вашего персонажа."
+  },
+  "spectrumi": {
+   "label": "Spectrumi",
+   "blipId": 381,
+   "color": null,
+   "group": "business",
+   "link": "/docs/inf-org/basics",
+   "description": "Форменная одежда семей в цветах, выбранных владельцем организации."
+  },
+  "jewelry": {
+   "label": "Ювелирный магазин",
+   "blipId": 397,
+   "color": "#ffdc27",
+   "group": "business",
+   "description": "Кольца, цепи, серьги, часы и аксессуары."
+  },
+  "car_classic": {
+   "label": "Классический автосалон",
+   "blipId": 101,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "Автосалон с классическим модельным рядом."
+  },
+  "moto": {
+   "label": "Мотосалон",
+   "blipId": 262,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "Мотосалон. От лёгких скутеров и велосипедов до мощных спортивных байков."
+  },
+  "car_platinum": {
+   "label": "Автосалон Platinum",
+   "blipId": 296,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "Машины верхней ценовой категории и эксклюзивные модели."
+  },
+  "heli": {
+   "label": "Магазин вертолётов",
+   "blipId": 5,
+   "color": "#ffdc27",
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "Личный воздушный транспорт от лёгких до тяжёлых моделей."
+  },
+  "truck": {
+   "label": "Магазин грузовиков",
+   "blipId": 232,
+   "color": "#ffa405",
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "Тяжёлый транспорт для работы дальнобойщиком."
+  },
+  "boat": {
+   "label": "Магазин лодок",
+   "blipId": 196,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/transport-shops",
+   "description": "От моторных катеров до яхт для морских прогулок."
+  },
+  "rent": {
+   "label": "Аренда",
+   "blipId": 261,
+   "color": "#ff2fbf",
+   "group": "business",
+   "description": "Точка аренды транспорта."
+  },
+  "weapon": {
+   "label": "Магазин оружия",
+   "blipId": 45,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/weapon-shops",
+   "description": "Магазин лицензированного оружия. Продаёт оружие и боеприпасы — но только при наличии лицензии."
+  },
+  "mask": {
+   "label": "Магазин масок",
+   "blipId": 209,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/clothes-shop",
+   "description": "Ассортимент изделий, скрывающих личность персонажа."
+  },
+  "ls_custom": {
+   "label": "LS Custom",
+   "blipId": 19,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/los-santos-customs",
+   "description": "Здесь автомобиль можно затюнинговать: поставить обвес, улучшить характеристики и поменять цвет."
+  },
+  "barber": {
+   "label": "Барбершоп",
+   "blipId": 18,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/barbershops",
+   "description": "Здесь меняют внешность персонажа: причёска, борода, макияж, маникюр и многое другое."
+  },
+  "tattoo": {
+   "label": "Тату салон",
+   "blipId": 21,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/tattoo-parlors",
+   "description": "Здесь персонажу набивают татуировки."
+  },
+  "mech": {
+   "label": "Станция тех. обслуживания",
+   "blipId": 366,
+   "color": null,
+   "group": "business",
+   "link": "/docs/businesses/technical-stations",
+   "description": "Место для обслуживания и ремонта транспортных средств."
+  },
+  "car_wash": {
+   "label": "Автомойка",
+   "blipId": 36,
+   "color": "#c1f3ff",
+   "group": "car_wash",
+   "description": "Возвращает блеск автомобилю."
+  },
+  "post": {
+   "label": "Почта",
+   "blipId": 172,
+   "color": "#62e0ff",
+   "group": "post",
+   "link": "/docs/special-work/postman",
+   "description": "Отправка и получение посылок и писем."
+  },
+  "id_photo": {
+   "label": "Фото на документы",
+   "blipId": 461,
+   "color": null,
+   "group": "id_photo",
+   "link": "/docs/start/first-entry",
+   "description": "Место, где делают фотографии на паспорт и другие документы."
+  },
+  "mobile_home": {
+   "label": "Дом на колёсах",
+   "blipId": 356,
+   "color": null,
+   "group": "mobile_home",
+   "description": "Точка, где можно забрать свой дом на колёсах."
+  },
+  "office": {
+   "label": "Офис",
+   "blipId": 24,
+   "color": null,
+   "group": "office",
+   "link": "/docs/inf-org/basics",
+   "description": "Обязательное условие для доступа к большинству функций организации: складу, магазину репутации, системе контрактов и войне семей."
+  },
+  "club": {
+   "label": "Клуб",
+   "blipId": 255,
+   "color": null,
+   "group": "club"
+  },
+  "night_club": {
+   "label": "Ночной клуб",
+   "blipId": 51,
+   "color": null,
+   "group": "night_club",
+   "link": "/docs/crime-factions/night-clubs",
+   "description": "Место для отдыха и тусовок, открытое всем игрокам сервера."
+  },
+  "influence": {
+   "label": "Точка влияния",
+   "blipId": 522,
+   "color": "#ff2424",
+   "group": "influence",
+   "link": "/docs/inf-org/points"
+  },
+  "hall_of_fame": {
+   "label": "Зал славы",
+   "blipId": 186,
+   "color": null,
+   "group": "hall_of_fame",
+   "description": "Место, где стоят статуи лидеров, отстоявших три активных срока на своём посту."
+  },
+  "street_gang": {
+   "label": "Уличная группировка",
+   "blipId": 27,
+   "color": null,
+   "group": "street_gang"
+  },
+  "mafia": {
+   "label": "Мафия",
+   "blipId": 401,
+   "color": null,
+   "group": "mafia"
+  },
+  "government": {
+   "label": "Государственная фракция",
+   "blipId": 191,
+   "color": null,
+   "group": "government"
+  },
+  "commercial_rent": {
+   "label": "Коммерческая аренда",
+   "blipId": 163,
+   "color": null,
+   "group": "commercial_rent",
+   "link": "/docs/real-estate/commercials",
+   "description": "Аренда коммерческого помещения на выбор: склад, теплица или лаборатория. У одного игрока — одно помещение."
+  },
+  "commercial_transport": {
+   "label": "Коммерческий транспорт",
+   "blipId": 567,
+   "color": null,
+   "group": "commercial_transport",
+   "link": "/docs/transport/species",
+   "description": "Специализированный транспорт для работы дальнобойщиком."
+  },
+  "parking": {
+   "label": "Парковка",
+   "blipId": 263,
+   "color": "#ff7f1e",
+   "group": "parking",
+   "description": "Место, где можно забрать автомобиль."
+  },
+  "impound": {
+   "label": "Штрафстоянка",
+   "blipId": 177,
+   "color": "#ff7f1e",
+   "group": "impound",
+   "description": "Место, где можно забрать автомобиль."
+  },
+  "wedding_church": {
+   "label": "Церковь Бракосочетания",
+   "blipId": 346,
+   "color": "#ff2323",
+   "group": "wedding_church",
+   "link": "/docs/activities/church",
+   "description": "Здесь два сердца становятся одним."
+  },
+  "cayo_perico": {
+   "label": "Cayo Perico",
+   "blipId": 447,
+   "color": "#ff2121",
+   "group": "cayo_perico",
+   "description": "Точка перехода между островом Кайо-Перико и городом. Билет покупается на месте."
+  },
+  "container_auction": {
+   "label": "Аукцион контейнеров",
+   "blipId": 514,
+   "color": "#5eccd8",
+   "group": "container_auction",
+   "link": "/docs/activities/auctions",
+   "description": "Покупка контейнеров с неизвестным содержимым — внутри прячется транспорт."
+  },
+  "license_plate_sale": {
+   "label": "Продажа номеров",
+   "blipId": 178,
+   "color": "#157ef3",
+   "group": "license_plate_sale",
+   "link": "/docs/transport/registration",
+   "description": "Покупка и регистрация транспортного средства — постановка на учёт."
+  },
+  "bank": {
+   "label": "Банк",
+   "blipId": 330,
+   "color": null,
+   "group": "bank",
+   "description": "Отделение банка в котором можно снять и пополнить счёт, оплатить аренду жилья без комиссии и провести остальные стандартные операции."
+  },
+  "weapon_mods": {
+   "label": "Модификации оружия",
+   "blipId": 292,
+   "color": "#c328ff",
+   "group": "weapon_mods",
+   "description": "Базовые модификации оружия — покраска и косметические изменения."
+  },
+  "heists": {
+   "label": "Ограбления",
+   "blipId": 341,
+   "color": "#463497",
+   "group": "heists",
+   "link": "/docs/crime-factions/rob-home",
+   "description": "Точка сдачи предметов, добытых при ограблении домов. Скупщик платит наличкой и происхождением товара не интересуется."
+  },
+  "dealer": {
+   "label": "Скупщик",
+   "blipId": 293,
+   "color": null,
+   "group": "dealer"
+  },
+  "secret_shop": {
+   "label": "Secret Shop",
+   "blipId": 293,
+   "color": "#00c4e3",
+   "group": "business",
+   "link": "/docs/businesses/secret-shop",
+   "description": "Магазин с уникальными предметами, которых нет в обычных. Во время событий ассортимент расширяется лимитированными товарами."
+  },
+  "bus_station": {
+   "label": "Автобусная станция",
+   "blipId": 257,
+   "color": "#05a162",
+   "group": "work",
+   "link": "/docs/lic-work/bus",
+   "description": "Точка трудоустройства водителем общественного транспорта."
+  },
+  "arena": {
+   "label": "Арена",
+   "blipId": 371,
+   "color": "#c10504",
+   "group": "arena",
+   "link": "/docs/activities/maze-bank-arena",
+   "description": "Площадка под игровые режимы: перестрелки, гонки и собственные сценарии, которые работают на всех серверах."
+  },
+  "auto_workshop": {
+   "label": "Автомастерская",
+   "blipId": 237,
+   "color": "#13ddfc",
+   "group": "business",
+   "link": "/docs/businesses/auto-workshop",
+   "description": "Специализированная мастерская в Палето-Бэй для детальной кастомизации управляемости и внешнего вида транспорта."
+  },
+  "driving_school": {
+   "label": "Автошкола",
+   "blipId": 275,
+   "color": "#a2f6ff",
+   "group": "driving_school",
+   "link": "/docs/start/first-entry",
+   "description": "Обучение, экзамен на права и покупка лицензий."
+  },
+  "real_estate": {
+   "label": "Агентство недвижимости",
+   "blipId": 164,
+   "color": null,
+   "group": "real_estate",
+   "link": "/docs/real-estate/home",
+   "description": "Место, где отображаются все свободные дома и оформляется контракт на покупку."
+  },
+  "amphitheater": {
+   "label": "Амфитеатр",
+   "blipId": 290,
+   "color": "#ff2fbe",
+   "group": "amphitheater",
+   "description": "Открытая концертная площадка для выступлений и крупных мероприятий."
+  },
+  "mechanics": {
+   "label": "Механики",
+   "blipId": 28,
+   "color": "#0461c0",
+   "group": "work",
+   "link": "/docs/lic-work/mechanic",
+   "description": "Работа автомехаником — ремонт, заправка, переворот машин и зарядка электромобилей по вызовам."
+  },
+  "fire_station": {
+   "label": "Пожарная часть",
+   "blipId": 257,
+   "color": "#ff2727",
+   "group": "work",
+   "link": "/docs/special-work/firefighter",
+   "description": "Работа по тушению пожаров на территории штата."
+  },
+  "port": {
+   "label": "Порт",
+   "blipId": 147,
+   "color": null,
+   "group": "work",
+   "link": "/docs/start-work/port",
+   "description": "Начальная работа без трудоустройства — переноска грузов по маркерам."
+  },
+  "postop_warehouse": {
+   "label": "Склад PostOP",
+   "blipId": 335,
+   "color": "#f4ba7a",
+   "group": "work",
+   "link": "/docs/special-work/courier",
+   "description": "Работа курьером — доставка посылок через приложение PostOP на собственном или арендованном транспорте."
+  },
+  "construction": {
+   "label": "Стройка",
+   "blipId": 291,
+   "color": null,
+   "group": "work",
+   "link": "/docs/start-work/construction",
+   "description": "Работа строителя без трудоустройства — задания на объекте и оплата по завершении смены."
+  },
+  "taxi_park": {
+   "label": "Таксопарк",
+   "blipId": 93,
+   "color": "#ffff00",
+   "group": "work",
+   "link": "/docs/lic-work/taxi",
+   "description": "Работа таксистом — заказы от других игроков на поездки по городу. Хороший вариант для новичков."
+  },
+  "farm": {
+   "label": "Ферма",
+   "blipId": 30,
+   "color": "#009d5e",
+   "group": "work",
+   "link": "/docs/start-work/farm",
+   "description": "Работа на ферме в Грейпсиде — несколько видов задач от доения коров до сбора урожая. Прокачка «Фермерства» открывает новые работы."
+  },
+  "mine": {
+   "label": "Шахта",
+   "blipId": 266,
+   "color": null,
+   "group": "work",
+   "link": "/docs/start-work/mine",
+   "description": "Начальная работа шахтёром — переноска камней по маркерам. Самая прибыльная из стартовых, но дальше всех от центра."
+  },
+  "contraband": {
+   "label": "Контрабанда",
+   "blipId": 253,
+   "color": null,
+   "group": "contraband",
+   "sizeScale": 0.8,
+   "link": "/docs/crime-factions/smuggling",
+   "description": "Одно из мест, где дежурит таинственный скупщик. Принимает контрабандный товар, расплачивается наличкой и не задаёт лишних вопросов."
+  },
+  "atm": {
+   "label": "Банкомат",
+   "blipId": 116,
+   "color": "#008d4e",
+   "group": "atm",
+   "sizeScale": 0.6,
+   "description": "Снятие наличных с банковского счёта."
+  },
+  "graffiti": {
+   "label": "Граффити",
+   "blipId": 167,
+   "color": null,
+   "group": "graffiti",
+   "sizeScale": 0.5,
+   "link": "/docs/crime-factions/graffiti-war",
+   "description": "Точка войны за граффити."
+  },
+  "auction": {
+   "label": "Аукцион",
+   "blipId": 171,
+   "color": "#ffda29",
+   "group": "auction",
+   "link": "/docs/activities/auctions",
+   "description": "Аукционный дом — серверные лоты с эксклюзивной одеждой и премиальными автомобилями."
+  },
+  "vet_clinic": {
+   "label": "Ветеринарный центр",
+   "blipId": 154,
+   "color": null,
+   "group": "vet_clinic",
+   "link": "/docs/character/peds",
+   "description": "Ветеринарный центр — здесь можно завести своего питомца."
+  },
+  "divers": {
+   "label": "Дайвер",
+   "blipId": 579,
+   "color": "#73ecff",
+   "group": "work",
+   "link": "/docs/special-work/diving",
+   "description": "Работа для начинающих — поднятие предметов со дна водоёмов."
+  },
+  "drift_track": {
+   "label": "Дрифт-трасса",
+   "blipId": 237,
+   "color": "#ff2abe",
+   "group": "drift_track",
+   "link": "/docs/activities/race",
+   "description": "Зона свободного дрифта без системной очереди — заезды на собственном транспорте по своим правилам."
+  },
+  "cash_in_transit": {
+   "label": "Инкассатор",
+   "blipId": 232,
+   "color": "#1677ef",
+   "group": "work",
+   "link": "/docs/lic-work/collector",
+   "description": "Работа инкассатором — сбор прибыли от бизнесов и заявок на инкассацию банкоматов."
+  },
+  "casino": {
+   "label": "Казино",
+   "blipId": 408,
+   "color": "#1379f4",
+   "group": "casino",
+   "link": "/docs/activities/casino",
+   "description": "Спорткары, виллы с видом, шумные компании и ночи без счёта — всё на расстоянии одной удачной ставки. Выбирай свою дорогу к джекпоту."
+  },
+  "karting": {
+   "label": "Картинг",
+   "blipId": 370,
+   "color": "#187efc",
+   "group": "karting",
+   "link": "/docs/activities/race",
+   "description": "Гоночная трасса — соревновательные заезды или свободное вождение на собственном транспорте."
+  },
+  "film_studio": {
+   "label": "Киностудия",
+   "blipId": 473,
+   "color": "#3968e4",
+   "group": "film_studio",
+   "link": "/docs/activities/studio",
+   "description": "Игровой режим для съёмок — любые модели, транспорт, объекты и гибкая камера."
+  },
+  "cinema": {
+   "label": "Кинотеатр",
+   "blipId": 59,
+   "color": "#ffaa0c",
+   "group": "cinema",
+   "link": "/docs/activities/cinema",
+   "description": "Совместный просмотр роликов с YouTube с другими игроками."
+  },
+  "bag_shop": {
+   "label": "Магазин сумок",
+   "blipId": 400,
+   "color": "#03cceb",
+   "group": "business",
+   "link": "/docs/businesses/clothes-shop",
+   "description": "Рюкзаки и сумки, расширяющие вместимость инвентаря."
+  },
+  "furniture_shop": {
+   "label": "Мебельный магазин",
+   "blipId": 353,
+   "color": "#ff42d1",
+   "group": "business",
+   "description": "Магазин мебели для квартир, домов и особняков."
+  },
+  "dock_manager": {
+   "label": "Менеджер доков",
+   "blipId": 183,
+   "color": "#0baecc",
+   "group": "dock_manager",
+   "description": "Точка, где можно забрать свою лодку."
+  },
+  "fishing_shop": {
+   "label": "Рыболовный магазин",
+   "blipId": 161,
+   "color": "#17d9fa",
+   "group": "fishing_shop",
+   "link": "/docs/special-work/fishing",
+   "description": "Магазин снастей и комлпектующих удочки."
+  },
+  "training_complex": {
+   "label": "Тренировочный комплекс",
+   "blipId": 134,
+   "color": null,
+   "group": "training_complex",
+   "link": "/docs/activities/training-complex",
+   "description": "Площадка для дуэлей один на один — выбор оружия и игра на деньги."
+  },
+  "gym": {
+   "label": "Спортзал",
+   "blipId": 133,
+   "color": "#b40101",
+   "group": "gym",
+   "link": "/docs/activities/sport",
+   "description": "Место, где прокачивают навык «Сила» и постепенно меняют телосложение персонажа."
+  },
+  "beach_volleyball": {
+   "label": "Пляжный волейбол",
+   "blipId": 349,
+   "color": null,
+   "group": "sport",
+   "sizeScale": 0.6,
+   "link": "/docs/activities/sport",
+   "description": "Пляжная волейбольная площадка."
+  },
+  "basketball": {
+   "label": "Баскетбол",
+   "blipId": 50,
+   "color": "#ff8000",
+   "group": "sport",
+   "sizeScale": 0.8,
+   "link": "/docs/activities/sport",
+   "description": "Баскетбольная площадка."
+  },
+  "football": {
+   "label": "Футбол",
+   "blipId": 184,
+   "color": null,
+   "group": "sport",
+   "sizeScale": 0.8,
+   "link": "/docs/activities/sport",
+   "description": "Футбольное поле."
+  },
+  "tennis": {
+   "label": "Теннис",
+   "blipId": 52,
+   "color": null,
+   "group": "sport",
+   "link": "/docs/activities/sport",
+   "description": "Теннисный корт."
+  },
+  "table_tennis": {
+   "label": "Настольный теннис",
+   "blipId": 350,
+   "color": null,
+   "group": "sport",
+   "sizeScale": 0.6,
+   "link": "/docs/activities/sport",
+   "description": "Стол для настольного тенниса."
+  },
+  "metro_station": {
+   "label": "Станция метро",
+   "blipId": 210,
+   "color": null,
+   "group": "metro",
+   "sizeScale": 0.8,
+   "description": "Узел городского метрополитена."
+  },
+  "apartments": {
+   "label": "Апартаменты",
+   "blipId": 231,
+   "color": "#009154",
+   "group": "apartments",
+   "sizeScale": 0.8,
+   "link": "/docs/real-estate/apartment",
+   "description": "Многоквартирный дом — компактный вариант жилья."
+  },
+  "amusement_park": {
+   "label": "Парк аттракционов",
+   "blipId": 111,
+   "color": "#c221ff",
+   "group": "amusement_park",
+   "description": "Колесо обозрения и горки."
+  },
+  "family_war": {
+   "label": "Война семей",
+   "blipId": 132,
+   "color": null,
+   "group": "family_war",
+   "sizeScale": 1.2,
+   "link": "/docs/inf-org/family-war"
+  },
+  "black_market": {
+   "label": "Чёрный рынок",
+   "blipId": 208,
+   "color": "#3b2d67",
+   "group": "black_market",
+   "description": "Точка чёрного рынка."
+  },
+  "family_yacht": {
+   "label": "Семейная яхта",
+   "blipId": 212,
+   "color": null,
+   "group": "family_yacht",
+   "description": "Личная яхта, выданная организации по итогам захвата острова."
+  },
+  "pf_house": {
+   "label": "Особняк",
+   "blipId": 170,
+   "color": "#dba22b",
+   "group": "pf_house"
+  },
+  "house": {
+   "label": "Дом",
+   "blipId": 4,
+   "color": null,
+   "group": "house",
+   "sizeScale": 0.6,
+   "link": "/docs/real-estate/home"
+  }
+ },
+ "sheets": [
+  {
+   "cols": 16,
+   "rows": 16,
+   "cellW": 64.0,
+   "cellH": 64,
+   "startId": 0,
+   "count": 256,
+   "url": "/_next/static/media/blip_sheet_1.038_jp-glg74g.webp"
+  },
+  {
+   "cols": 16,
+   "rows": 16,
+   "cellW": 64.0,
+   "cellH": 64,
+   "startId": 256,
+   "count": 256,
+   "url": "/_next/static/media/blip_sheet_2.217a7995fhq1s.webp"
+  },
+  {
+   "cols": 16,
+   "rows": 7,
+   "cellW": 64.0,
+   "cellH": 73.14285714285714,
+   "startId": 512,
+   "count": 102,
+   "url": "/_next/static/media/blip_sheet_3.2vn-a0zg-go_v.webp"
+  }
+ ],
+ "area_styles": {
+  "hunting_spots": {
+   "fill": "rgba(22, 163, 74, 0.28)",
+   "stroke": "rgba(74, 222, 128, 0.95)",
+   "accent": "#4ade80"
+  },
+  "treasure_spots": {
+   "fill": "rgba(251, 191, 36, 0.28)",
+   "stroke": "rgba(251, 191, 36, 0.95)",
+   "accent": "#fbbf24"
+  },
+  "treasure_depth": {
+   "fill": "rgba(34, 211, 238, 0.22)",
+   "stroke": "rgba(34, 211, 238, 0.85)",
+   "accent": "#22d3ee"
+  }
+ }
+}

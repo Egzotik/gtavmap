@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="240" viewBox="0 0 600 240">
+  <path d="M88 38l17 42 45 3-35 28 11 44-38-24-39 24 12-44-35-28 44-3z" fill="#ff742b"/>
+  <text x="175" y="112" fill="#fff" font-family="Arial Black, Arial, sans-serif" font-size="70" font-weight="900" letter-spacing="-4">GTA5</text>
+  <text x="178" y="151" fill="#ff9a62" font-family="Arial, sans-serif" font-size="32" font-weight="700" letter-spacing="8">RP</text>
+  <path d="M44 190h492" stroke="#ff742b" stroke-width="4" opacity=".65"/>
+</svg>

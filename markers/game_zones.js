@@ -97,6 +97,18 @@
         id: g.id, titles: [g.ru || g.title, g.title, g.title], color: g.color, icon: 'map-pin',
         url: 'markers/standard.json', group: g.group, descriptionFilter: g.descriptionFilter, standard: true
     }));
+    const GTA5RP_GROUPS = [
+        ['shop', 'Магазины 24/7'], ['gas', 'Заправки'], ['clothing', 'Магазины одежды'], ['clothing_premium', 'Премиальная одежда'], ['clothing_lux', 'Люкс одежда'], ['spectrumi', 'Spectrumi'], ['jewelry', 'Ювелирные магазины'], ['car_classic', 'Классические автосалоны'], ['moto', 'Мотосалоны'], ['car_platinum', 'Автосалоны Platinum'], ['heli', 'Магазины вертолётов'], ['truck', 'Магазины грузовиков'], ['boat', 'Магазины лодок'], ['rent', 'Аренда'], ['weapon', 'Магазины оружия'], ['mask', 'Магазины масок'], ['ls_custom', 'LS Custom'], ['barber', 'Барбершопы'], ['tattoo', 'Тату-салоны'], ['mech', 'СТО'], ['car_wash', 'Автомойки'], ['post', 'Почта'], ['id_photo', 'Фото на документы'], ['mobile_home', 'Дома на колёсах'], ['office', 'Офисы'], ['club', 'Клубы'], ['night_club', 'Ночные клубы'], ['street_gang', 'Уличные группировки'], ['mafia', 'Мафия'], ['government', 'Государственные фракции'], ['bank', 'Банки'], ['work', 'Работы', ['bus_station', 'mechanics', 'fire_station', 'port', 'postop_warehouse', 'construction', 'taxi_park', 'farm', 'mine', 'cash_in_transit']], ['arena', 'Арены'], ['driving_school', 'Автошколы'], ['real_estate', 'Недвижимость'], ['auto_workshop', 'Автомастерские'], ['commercial_rent', 'Коммерческая аренда'], ['commercial_transport', 'Коммерческий транспорт'], ['parking', 'Парковки'], ['impound', 'Штрафстоянки'], ['wedding_church', 'Церкви бракосочетания'], ['cayo_perico', 'Cayo Perico'], ['container_auction', 'Аукционы контейнеров'], ['license_plate_sale', 'Продажа номеров'], ['weapon_mods', 'Модификации оружия'], ['heists', 'Ограбления'], ['dealer', 'Скупщики'], ['secret_shop', 'Secret Shop'], ['contraband', 'Контрабанда'], ['auction', 'Аукционы'], ['casino', 'Казино'], ['cinema', 'Кинотеатры'], ['film_studio', 'Киностудии'], ['fishing_shop', 'Рыболовные магазины'], ['gym', 'Спортзалы'], ['beach_volleyball', 'Пляжный волейбол'], ['basketball', 'Баскетбол'], ['football', 'Футбол'], ['tennis', 'Теннис'], ['table_tennis', 'Настольный теннис'], ['metro_station', 'Станции метро'], ['amusement_park', 'Парки аттракционов'], ['amphitheater', 'Амфитеатры'], ['vet_clinic', 'Ветеринарные клиники'], ['divers', 'Дайверы'], ['drift_track', 'Дрифт-трассы'], ['karting', 'Картинг'], ['dock_manager', 'Менеджеры доков'], ['training_complex', 'Тренировочные комплексы']
+    ];
+    GTA5RP_GROUPS.forEach(([group, title, filter], index) => GAME_ZONES.push({
+        id: 'gta-blips-' + group, titles: [title, title, title], color: ['#ff742b', '#fb923c', '#facc15', '#f97316'][index % 4], icon: 'map-pin', url: 'gta5rp/out/main_blips.json', gta5rp: true, gtaFormat: 'blips', gtaGroupFilter: filter || group, directCoordinates: true
+    }));
+    GAME_ZONES.push(
+        { id: 'gta-green-zones', titles: ['Зелёные зоны GTA5RP', 'GTA5RP green zones', 'Зелені зони GTA5RP'], color: '#4ade80', icon: 'shield', url: 'gta5rp/out/green_zones.json', gta5rp: true, gtaFormat: 'zones', directCoordinates: true, layerOnly: true },
+        { id: 'gta-hunting', titles: ['Охотничьи зоны GTA5RP', 'GTA5RP hunting zones', 'Мисливські зони GTA5RP'], color: '#22c55e', icon: 'crosshair', url: 'gta5rp/out/hunting.json', gta5rp: true, gtaFormat: 'polygons', directCoordinates: true, layerOnly: true },
+        { id: 'gta-treasure', titles: ['Зоны сокровищ GTA5RP', 'GTA5RP treasure zones', 'Зони скарбів GTA5RP'], color: '#fbbf24', icon: 'gem', url: 'gta5rp/out/treasure.json', gta5rp: true, gtaFormat: 'polygons', directCoordinates: true, layerOnly: true },
+        { id: 'gta-treasure-depth', titles: ['Глубины сокровищ GTA5RP', 'GTA5RP treasure depth', 'Глибини скарбів GTA5RP'], color: '#22d3ee', icon: 'waves', url: 'gta5rp/out/treasure_depth.json', gta5rp: true, gtaFormat: 'polygons', directCoordinates: true, layerOnly: true }
+    );
 
     // Wiki CRS is rotated 90 degrees clockwise relative to game coordinates,
     // so points are rotated 90 degrees counter-clockwise about the origin: (x, y) -> (-y, x),
@@ -208,6 +220,21 @@
     }
 
     function parseZoneFile(raw, options) {
+        const opts = options || {};
+        if (opts.gtaFormat === 'blips' && Array.isArray(raw)) {
+            return { points: raw.map(item => ({
+                x: Number(item.x), y: Number(item.y),
+                name: `${item.category || item.group || 'Метка'} #${item.label ?? ''}`.trim(),
+                group: item.category || item.group || '',
+                icon: item.blipId != null ? `gta5rp/out/icons/blip_${item.blipId}_${item.category || item.group}.png` : ''
+            })).filter(point => Number.isFinite(point.x) && Number.isFinite(point.y)), polygons: [] };
+        }
+        if (opts.gtaFormat === 'zones' && raw && Array.isArray(raw.zones)) {
+            return { points: [], polygons: raw.zones.map(zone => ({ name: zone.name || '', color: null, zone: '', points: (zone.poly && zone.poly[0] || []).map(p => ({ x: Number(p[0]), y: Number(p[1]) })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)), holes: (zone.poly || []).slice(1).map(ring => ring.map(p => ({ x: Number(p[0]), y: Number(p[1]) })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))).filter(ring => ring.length >= 3) })).filter(poly => poly.points.length >= 3) };
+        }
+        if (opts.gtaFormat === 'polygons' && Array.isArray(raw)) {
+            return { points: [], polygons: raw.map((area, areaIndex) => ({ name: `${opts.gtaName || 'Зона'} ${areaIndex + 1}`, color: null, zone: '', points: (area && area[0] || []).map(p => ({ x: Number(p[0]), y: Number(p[1]) })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)), holes: (area || []).slice(1).map(ring => ring.map(p => ({ x: Number(p[0]), y: Number(p[1]) })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))).filter(ring => ring.length >= 3) })).filter(poly => poly.points.length >= 3) };
+        }
         if (Array.isArray(raw)) return { points: parseZonePoints(raw, options), polygons: [] };
         if (!raw || typeof raw !== 'object') return { points: [], polygons: [] };
         return {
@@ -280,6 +307,7 @@
                 isPencil: true,
                 isPencilLine: false,
                 pencilShapes: list.map(poly => poly.points.map(p => ({ x: p.x - cx, y: p.y - cy }))),
+                pencilHoles: list.map(poly => (poly.holes || []).map(ring => ring.map(p => ({ x: p.x - cx, y: p.y - cy })))),
                 color: color,
                 opacity: settings.opacity ?? 1,
                 skipPseudo: (settings.opacity ?? 1) >= 1,
@@ -371,6 +399,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('gameZonesList');
     if (!container || !window.GameZones) return;
     const t = (ru, en, uk) => window.t ? window.t(ru, en, uk) : ru;
+    const IS_GTA5RP = /gta5rp\.html$/i.test(window.location.pathname);
+    const isZoneAvailable = (def) => !IS_GTA5RP || def.gta5rp === true || def.custom === true;
+    if (IS_GTA5RP) document.querySelector('[data-xml-url="xml/mcl.ydr.xml"]')?.classList.add('hidden');
     const state = {};
     window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null, labelOverrides: {}, show: 'both' }; });
 
@@ -503,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const def = selectedZoneDef();
         // Зоны-полигоны настраиваются только через слой фигуры —
         // панель меток для них мертва, не показываем.
-        if (!def || LAYER_ONLY_ZONES.includes(def.id)) { panel.classList.add('hidden'); return; }
+        if (!def || def.layerOnly || LAYER_ONLY_ZONES.includes(def.id)) { panel.classList.add('hidden'); return; }
         panel.classList.remove('hidden');
         const st = state[def.id];
         const ms = markerStyleOf(def);
@@ -862,8 +893,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchIconDataUrl(iconPath) {
         const file = String(iconPath || '').split('/').pop();
         if (!file) return null;
+        const source = String(iconPath).startsWith('gta5rp/') ? String(iconPath) : 'icons/' + file;
         if (!iconDataCache[file]) {
-            iconDataCache[file] = fetch('icons/' + file).then(response => {
+            iconDataCache[file] = fetch(source).then(response => {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 return response.blob();
             }).then(blob => new Promise((resolve, reject) => {
@@ -889,6 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Точки одной группы стандартных меток (def.group), остальные — как есть.
     function filterGroupPoints(def, points) {
+        if (def.gtaGroupFilter) return (Array.isArray(points) ? points : []).filter(p => p && (Array.isArray(def.gtaGroupFilter) ? def.gtaGroupFilter.includes(p.group) : p.group === def.gtaGroupFilter));
         if (def.descriptionFilter) {
             const filter = def.descriptionFilter.toLowerCase();
             return (Array.isArray(points) ? points : []).filter(p => p && typeof p.description === 'string' && p.description.toLowerCase().includes(filter));
@@ -916,6 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function setZoneOn(def, checkbox) {
         const st = state[def.id];
+        if (!isZoneAvailable(def)) return;
         if (!def.url && !def.custom) return;
         if (st.on || st.loading) return;
         if (def.group === 'gunshop') {
@@ -930,7 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const raw = await fetchZoneJson(def);
                     // Координаты стандартных меток в JSON записаны в исходной ориентации карты.
                     // Перевод через wikiToGame разворачивает их на 90 градусов влево.
-                    const data = window.GameZones.parseZoneFile(raw, { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard });
+                    const data = window.GameZones.parseZoneFile(raw, { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard, gtaFormat: def.gtaFormat });
                     st.points = def.id === 'airdrop' ? [] : filterGroupPoints(def, data.points);
                     st.polygons = data.polygons;
                 } else if (def.custom) {
@@ -1025,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (st.polygons.length > 0 || st.points.length > 0) {
             return { points: st.points, polygons: st.polygons };
         }
-        const data = window.GameZones.parseZoneFile(await fetchZoneJson(def), { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard });
+        const data = window.GameZones.parseZoneFile(await fetchZoneJson(def), { direct: def.directCoordinates !== undefined ? def.directCoordinates : !def.standard, gtaFormat: def.gtaFormat });
         st.points = def.id === 'airdrop' ? [] : filterGroupPoints(def, data.points);
         st.polygons = data.polygons;
         return { points: st.points, polygons: st.polygons };
@@ -1129,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         for (const id of (saved.on || [])) {
             const def = window.GameZones.GAME_ZONES.find(d => d.id === id);
-            if (def && (def.url || def.custom)) await setZoneOn(def);
+            if (def && isZoneAvailable(def) && (def.url || def.custom)) await setZoneOn(def);
         }
         window.GameZones.GAME_ZONES.forEach(def => {
             if (!(saved.on || []).includes(def.id) && window.setConvertedVisible) window.setConvertedVisible(def.id, false);
@@ -1546,8 +1580,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (active && active !== document.body) { /* keep focus stable: do nothing */ }
             return row;
         };
-        const mainDefs = window.GameZones.GAME_ZONES.filter(def => !def.standard && zoneMatchesQuery(def));
-        const stdDefs = window.GameZones.GAME_ZONES.filter(def => def.standard && zoneMatchesQuery(def));
+        const mainDefs = window.GameZones.GAME_ZONES.filter(def => isZoneAvailable(def) && !def.standard && zoneMatchesQuery(def));
+        const stdDefs = window.GameZones.GAME_ZONES.filter(def => isZoneAvailable(def) && def.standard && zoneMatchesQuery(def));
         const nodes = mainDefs.map(makeZoneRow);
         if (zoneSearchQuery.trim() && mainDefs.length === 0 && stdDefs.length === 0) {
             const empty = document.createElement('div');

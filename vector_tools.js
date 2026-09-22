@@ -2908,15 +2908,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return geo;
     }
 
-    function createPencilMultiShapeFromPoints(shapesPts) {
+    function createPencilMultiShapeFromPoints(shapesPts, holesPts) {
         if (!Array.isArray(shapesPts) || shapesPts.length === 0) return null;
         const shapes = [];
-        shapesPts.forEach(localPts => {
+        shapesPts.forEach((localPts, shapeIndex) => {
             if (!localPts || localPts.length < 3) return;
             const shape = new THREE.Shape();
             shape.moveTo(localPts[0].x, localPts[0].y);
             for (let i = 1; i < localPts.length; i++) shape.lineTo(localPts[i].x, localPts[i].y);
             shape.closePath();
+            const holes = holesPts && holesPts[shapeIndex];
+            if (Array.isArray(holes)) holes.forEach(holePts => {
+                if (!holePts || holePts.length < 3) return;
+                const hole = new THREE.Path();
+                hole.moveTo(holePts[0].x, holePts[0].y);
+                for (let i = 1; i < holePts.length; i++) hole.lineTo(holePts[i].x, holePts[i].y);
+                hole.closePath();
+                shape.holes.push(hole);
+            });
             shapes.push(shape);
         });
         if (shapes.length === 0) return null;
@@ -3635,6 +3644,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.isPencilLine = Boolean(obj.userData.isPencilLine);
                     data.pencilPoints = obj.userData.pencilPoints;
                     if (obj.userData.pencilShapes) data.pencilShapes = obj.userData.pencilShapes;
+                    if (obj.userData.pencilHoles) data.pencilHoles = obj.userData.pencilHoles;
                     if (obj.userData.convertedFrom) data.convertedFrom = obj.userData.convertedFrom;
                     data.lineWidth = obj.userData.lineWidth || firstMesh.geometry.userData.lineWidth || 2;
                     data.linePattern = obj.userData.linePattern || firstMesh.geometry.userData.linePattern || 'solid';
@@ -3755,7 +3765,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (attempts > 50) clearInterval(checkFont); 
                 }, 100);
             } else if (data.isPencil && ((data.pencilPoints && data.pencilPoints.length >= (data.isPencilLine ? 2 : 3)) || (data.pencilShapes && data.pencilShapes.length > 0))) {
-                const geo = data.isPencilLine ? createPencilLineFromPoints(data.pencilPoints, data.lineWidth || 2, data.linePattern || 'solid') : (data.pencilShapes ? createPencilMultiShapeFromPoints(data.pencilShapes) : createPencilShapeFromPoints(data.pencilPoints));
+                const geo = data.isPencilLine ? createPencilLineFromPoints(data.pencilPoints, data.lineWidth || 2, data.linePattern || 'solid') : (data.pencilShapes ? createPencilMultiShapeFromPoints(data.pencilShapes, data.pencilHoles) : createPencilShapeFromPoints(data.pencilPoints));
                 if (geo) {
                     const wrapper = spawnLoadedVectorMesh(geo, data);
                     if (wrapper) {
@@ -3763,6 +3773,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         wrapper.userData.isPencilLine = Boolean(data.isPencilLine);
                         wrapper.userData.pencilPoints = data.pencilPoints;
                         if (data.pencilShapes) wrapper.userData.pencilShapes = data.pencilShapes;
+                        if (data.pencilHoles) wrapper.userData.pencilHoles = data.pencilHoles;
                         if (data.convertedFrom) wrapper.userData.convertedFrom = data.convertedFrom;
                     }
                 }
