@@ -1070,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
             styles: styles,
             labels: labels,
             shows: Object.fromEntries(window.GameZones.GAME_ZONES.filter(d => state[d.id] && state[d.id].show && state[d.id].show !== 'both').map(d => [d.id, state[d.id].show])),
+            ui: { standardOpen: window.__stdZonesOpen === true },
             custom: (state.custom && state.custom.customRaw) || []
         };
     };
@@ -1093,6 +1094,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(shows).forEach(id => {
             if (state[id] && (shows[id] === 'outer' || shows[id] === 'inner' || shows[id] === 'both')) state[id].show = shows[id];
         });
+        if (saved.ui && typeof saved.ui.standardOpen === 'boolean') window.__stdZonesOpen = saved.ui.standardOpen;
         const styles = saved.styles || {};
         // v2: размах в метрах; v3: толщина в метрах. Старые доли пересчитываем
         // через размер меток из того же сейва.

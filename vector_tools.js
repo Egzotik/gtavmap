@@ -1019,6 +1019,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const transformControl = new THREE.TransformControls(camera, renderer.domElement);
     window.vectorTransformControl = transformControl;
     scene.add(transformControl);
+    transformControl.addEventListener('objectChange', () => {
+        const obj = transformControl.object;
+        if (!obj) return;
+        obj.userData.manualZ = obj.position.z;
+        const setValue = (id, value) => {
+            const input = document.getElementById(id);
+            if (input && document.activeElement !== input) input.value = Number(value).toFixed(2);
+        };
+        setValue('vecPropPosX', obj.position.x);
+        setValue('vecPropPosY', obj.position.y);
+        setValue('vecPropPosZ', Number.isFinite(obj.userData.manualZ) ? obj.userData.manualZ : obj.position.z);
+    });
 
     const ttfLoader = new THREE.TTFLoader();
     ttfLoader.load('vendor/roboto-black-webfont.ttf', (parsed) => {
@@ -1382,7 +1394,8 @@ document.addEventListener("DOMContentLoaded", () => {
         vectorState.objects.forEach((o, i) => {
             const isText = getMeshes(o, true).some(mesh => mesh.userData.isText);
             const orderOffset = (len - i) * 0.001;
-            o.position.z = (o.userData.isPixelImage ? 75 : (o.userData.isMarkerLabel ? 50 : (isText ? 30 : 20))) + orderOffset;
+            const baseZ = Number.isFinite(o.userData.manualZ) ? o.userData.manualZ : (o.userData.isPixelImage ? 75 : (o.userData.isMarkerLabel ? 50 : (isText ? 30 : 20)));
+            o.position.z = baseZ + orderOffset;
             // Порядок поменялся (клик/undo/создание): сдвигаем готовые вырезки
             // за фигурой без перестройки геометрии (z и порядок отрисовки).
             const frac = len > 1 ? (len - 1 - i) / (len - 1) : 1;
@@ -1696,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.clearGameZoneSelection) window.clearGameZoneSelection();
         // Фигура, конвертированная из зоны меток: связываем меню —
         // выбираем зону, чтобы открылись её настройки в меню меток.
-        if (obj && obj.userData && obj.userData.convertedFrom && window.selectGameZone) window.selectGameZone(obj.userData.convertedFrom);
+        if (obj && obj.userData && obj.userData.convertedFrom && !obj.userData.isMarkerLabel && window.selectGameZone) window.selectGameZone(obj.userData.convertedFrom);
         if (obj && vectorState.activeObj !== obj) {
             const idx = vectorState.objects.indexOf(obj);
             if (idx > 0) {
@@ -1778,6 +1791,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById('vecPropFill').checked = !firstMesh.userData.fillHidden;
                 document.getElementById('vecPropScale').value = Math.abs(obj.scale.x);
                 document.getElementById('vecPropScaleNum').value = Math.abs(obj.scale.x).toFixed(2);
+                document.getElementById('vecPropPosX').value = obj.position.x.toFixed(2);
+                document.getElementById('vecPropPosY').value = obj.position.y.toFixed(2);
+                document.getElementById('vecPropPosZ').value = (Number.isFinite(obj.userData.manualZ) ? obj.userData.manualZ : obj.position.z).toFixed(2);
                 updateWorldRadiusUI(obj);
                 
                 const degZ = THREE.MathUtils.radToDeg(obj.rotation.z);
@@ -1902,6 +1918,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById('vecPropScale')?.addEventListener('input', (e) => { document.getElementById('vecPropScaleNum').value = e.target.value; applyPropsToActive(); });
     document.getElementById('vecPropScaleNum')?.addEventListener('input', (e) => { document.getElementById('vecPropScale').value = e.target.value; applyPropsToActive(); });
+    ['vecPropPosX', 'vecPropPosY', 'vecPropPosZ'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => applyPropsToActive());
+    });
     document.getElementById('vecPropSizeMeters')?.addEventListener('change', () => {
         const obj = vectorState.activeObj;
         if (!obj) return;
@@ -2025,12 +2044,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const lineHeightVal = parseFloat(document.getElementById('vecLineHeight') ? document.getElementById('vecLineHeight').value : 1.2) || 1.2;
         const lineWidthVal = parseFloat(document.getElementById('vecLineWidthNum')?.value) || 2;
         const linePatternVal = document.getElementById('vecLinePattern')?.value || 'solid';
+        const posXVal = parseFloat(document.getElementById('vecPropPosX')?.value);
+        const posYVal = parseFloat(document.getElementById('vecPropPosY')?.value);
+        const posZVal = parseFloat(document.getElementById('vecPropPosZ')?.value);
 
         document.getElementById('vecPropStrokeTools').classList.toggle('hidden', !useStroke);
         syncStrokePatternUI();
         syncFillPatternUI();
 
         const obj = vectorState.activeObj;
+        if (isText) obj.userData.skipPseudo = alpha >= 0.999;
+        if (Number.isFinite(posXVal)) obj.position.x = posXVal;
+        if (Number.isFinite(posYVal)) obj.position.y = posYVal;
+        if (Number.isFinite(posZVal)) { obj.userData.manualZ = posZVal; obj.position.z = posZVal; }
         if (obj.userData.isSvg && markStyleOverride) obj.userData.styleOverridden = true;
         obj.userData.strokePattern = strokePattern;
         obj.userData.strokeCap = strokeCap;
@@ -2128,7 +2154,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
             mesh.renderOrder = mesh.userData.isText ? 1001 : 999;
-            mesh.position.z = 0.005; // Фикс z-offset для геометрии
+            mesh.position.z = mesh.userData.isText ? 0.02 : 0.005; // Лицевая сторона текста выше обводки
 
             let strokeMesh = getStrokeMeshes(obj).find(stroke => stroke.userData.parentMeshId === mesh.uuid);
             if (forceRebuildStroke && strokeMesh) {
@@ -2195,12 +2221,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (strokeMesh) {
                     strokeMesh.material.color.set(strokeHex);
+                    if (mesh.userData.isText) {
+                        strokeMesh.material.depthTest = false;
+                        strokeMesh.material.depthWrite = false;
+                        strokeMesh.material.needsUpdate = true;
+                    }
                     strokeMesh.userData.strokeUseAlpha = strokeUseAlpha;
                     strokeMesh.userData.pseudoOpacity = strokeUseAlpha ? alpha : 1;
                     strokeMesh.material.opacity = 1;
                     strokeMesh.material.transparent = false;
-                    strokeMesh.position.z = mesh.userData.isText ? 0 : 0.015; // Текст: обводка под заливкой
-                    strokeMesh.renderOrder = 998; 
+                    strokeMesh.position.z = mesh.userData.isText ? -0.01 : 0.015; // Текст: обводка под заливкой
+                    strokeMesh.renderOrder = mesh.userData.isText ? 997 : 998;
                     strokeMesh.scale.set(1, 1, 1);
                 }
             } else if (strokeMesh) {
@@ -2254,7 +2285,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderLayersList() {
         const list = document.getElementById('vectorLayersList');
         const countSpan = document.getElementById('vectorLayerCount');
-        const displayObjects = vectorState.objects.filter(obj => !(obj.userData && obj.userData.isMarkerLabel));
+        const displayObjects = vectorState.objects;
         
         if (countSpan) countSpan.textContent = displayObjects.length;
         const allEye = document.getElementById('vectorLayersToggleAll');
@@ -2435,6 +2466,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mesh.userData.font = vectorState.loadedFont;
             mesh.userData.textLineHeight = 1.2;
             group.userData.textAlign = 'center';
+            group.userData.skipPseudo = true;
         }
         
         scene.add(group);
@@ -3556,6 +3588,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 position: { x: obj.position.x, y: obj.position.y, z: obj.position.z },
                 rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
                 scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z },
+                visible: obj.visible !== false,
                 isText: false,
                 isSvg: false,
                 isMarkerLabel: Boolean(obj.userData.isMarkerLabel),
@@ -3814,6 +3847,7 @@ document.addEventListener("DOMContentLoaded", () => {
         group.add(mesh);
         group.name = data.name;
         group.userData.icon = data.icon;
+        if (data.isText && (data.opacity ?? 1) >= 0.999) group.userData.skipPseudo = true;
         if (data.isPencil) {
             group.userData.isPencil = true;
             group.userData.isPencilLine = Boolean(data.isPencilLine);
@@ -3842,6 +3876,7 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.position.set(data.position.x, data.position.y, data.position.z);
         wrapper.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
         wrapper.scale.set(data.scale.x, data.scale.y, 1);
+        wrapper.visible = data.visible !== false;
         wrapper.renderOrder = 999;
         wrapper.userData.strokePattern = data.strokePattern || 'solid';
         wrapper.userData.strokeCap = data.strokeCap || 'round';
@@ -3889,7 +3924,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.hasStroke) {
             getMeshes(wrapper, false).forEach(firstMesh => {
               if (firstMesh.geometry && firstMesh.geometry.userData.shapesData) {
-                firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = 0.005;
+                    firstMesh.renderOrder = firstMesh.userData.isText ? 1001 : 999; firstMesh.position.z = firstMesh.userData.isText ? 0.02 : 0.005;
                 const loadIsCircle = wrapper.userData.icon === 'circle' && !wrapper.userData.isPencil && !wrapper.userData.isSvg && !firstMesh.userData.isText && window.GeometryUtils;
                  const effLoadPattern = firstMesh.userData.isText ? 'solid' : ((window.STROKE_PATTERNS || []).includes(data.strokePattern) ? data.strokePattern : 'solid');
                 if (loadIsCircle) {
@@ -3920,7 +3955,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     const strokeUseAlpha = data.strokeUseAlpha ?? false;
                     const restoredOpacity = strokeUseAlpha ? (data.opacity ?? 1) : 1;
                     const strokeMesh = new THREE.Mesh(strokeGeo, new THREE.MeshBasicMaterial({ color: data.strokeColor, opacity: 1, transparent: false, depthWrite: true, alphaTest: 0.01 }));
-                    if (firstMesh.userData.isText) strokeMesh.material.side = THREE.DoubleSide;
+                    if (firstMesh.userData.isText) {
+                        strokeMesh.material.side = THREE.DoubleSide;
+                        strokeMesh.material.depthTest = false;
+                        strokeMesh.material.depthWrite = false;
+                    }
                     strokeMesh.userData.isStroke = true;
                     strokeMesh.frustumCulled = false;
                     strokeMesh.userData.strokeWidth = data.strokeWidth;
@@ -3934,8 +3973,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     strokeMesh.userData.quality = firstMesh.userData.quality || 12;
                     strokeMesh.userData.parentMeshId = firstMesh.uuid;
                     
-                     strokeMesh.position.z = firstMesh.userData.isText ? 0 : 0.015;
-                    strokeMesh.renderOrder = 998;
+                     strokeMesh.position.z = firstMesh.userData.isText ? -0.01 : 0.015;
+                     strokeMesh.renderOrder = firstMesh.userData.isText ? 997 : 998;
                     
                     const tX = firstMesh.geometry.userData.tX || 0;
                     const tY = firstMesh.geometry.userData.tY || 0;
