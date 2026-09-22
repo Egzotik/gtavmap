@@ -178,16 +178,35 @@
             el.style.strokeWidth = (2 + 3 * (pair[1] / max)).toFixed(1);
         });
     }
+    var shown = { m: null, g: null };
+    function tween(el, from, to) {
+        // Плавная замена цифр: быстрый count up/down за ~0.9 c.
+        if (from === null || from === to) { el.textContent = fmt(to); return; }
+        var t0 = null, dur = 900;
+        function step(t) {
+            if (!t0) t0 = t;
+            var k = Math.min(1, (t - t0) / dur);
+            k = 1 - Math.pow(1 - k, 3);
+            el.textContent = fmt(Math.round(from + (to - from) * k));
+            if (k < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
     function render(m, g) {
         if (m === null && g === null) return;
         widget.hidden = false;
-        document.getElementById('onlineMajestic').textContent = m === null ? '—' : fmt(m);
-        document.getElementById('onlineGta5rp').textContent = g === null ? '—' : fmt(g);
+        var elM = document.getElementById('onlineMajestic');
+        var elG = document.getElementById('onlineGta5rp');
+        if (m === null) elM.textContent = '—'; else tween(elM, shown.m, m);
+        if (g === null) elG.textContent = '—'; else tween(elG, shown.g, g);
+        if (m !== null) shown.m = m;
+        if (g !== null) shown.g = g;
         scaleCircles(m, g);
     }
     function load() {
         // Свой online.json (обновляется GitHub Actions) — без CORS-проблем.
-        fetchJson('online.json', 10000).then(function(d) {
+        // Параметр по 30-секундным окнам пробивает кеш Pages.
+        fetchJson('online.json?v=' + Math.floor(Date.now() / 30000), 10000).then(function(d) {
             if (!d || (d.majestic === undefined && d.gta5rp === undefined)) throw new Error('empty');
             render(numOrNull(d.majestic), numOrNull(d.gta5rp));
         }).catch(function() {
@@ -203,7 +222,7 @@
         });
     }
     load();
-    setInterval(load, 120000);
+    setInterval(load, 30000);
 })();
 </script>
 </body>
