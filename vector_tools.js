@@ -103,7 +103,13 @@ function clipPolygon(poly, edgeStart, edgeEnd, reference) {
     const inside = point => side(point) * referenceSide >= -1e-8;
     const intersection = (start, end) => {
         const startSide = side(start), endSide = side(end);
-        const amount = startSide / (startSide - endSide);
+        const denom = startSide - endSide;
+        let amount = Math.abs(denom) < 1e-12 ? 0 : startSide / denom;
+        // Пересечение обязано лежать на отрезке: кламп гасит fp-пики.
+        // Без него почти параллельное ребро даёт вершину в километрах
+        // отсюда — и гигантский треугольник/прямоугольник через полкарты.
+        if (!Number.isFinite(amount)) amount = 0;
+        amount = Math.min(1, Math.max(0, amount));
         return { x: start.x + (end.x - start.x) * amount, y: start.y + (end.y - start.y) * amount };
     };
     const result = [];
@@ -768,6 +774,9 @@ function rebuildPseudoTransparency(wrapper) {
             const pb = [mb[0] * ma[0], mb[1] * ma[1], mb[2] * ma[2]];
             for (let i = 1; i < polygon.length - 1; i++) {
                 const triPts = [polygon[0], polygon[i], polygon[i + 1]];
+                // Отсев битого фана: нефинитные вершины рисуются мусором на весь экран.
+                if (!triPts.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) continue;
+                if (Math.abs(triArea2(triPts[0], triPts[1], triPts[2])) < 1e-9) continue;
                 const ccx = (triPts[0].x + triPts[1].x + triPts[2].x) / 3;
                 const ccy = (triPts[0].y + triPts[1].y + triPts[2].y) / 3;
                 const cw = barycentric2d(figure[0], figure[1], figure[2], { x: ccx, y: ccy });
@@ -807,7 +816,10 @@ function rebuildPseudoTransparency(wrapper) {
                     frag = clipPolygon(frag, ct.tri.b, ct.tri.c, ct.tri.a);
                     frag = clipPolygon(frag, ct.tri.c, ct.tri.a, ct.tri.b);
                     for (let i = 1; i < frag.length - 1; i++) {
-                        [frag[0], frag[i], frag[i + 1]].forEach(p => {
+                        const fanTri = [frag[0], frag[i], frag[i + 1]];
+                        if (!fanTri.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) continue;
+                        if (Math.abs(triArea2(fanTri[0], fanTri[1], fanTri[2])) < 1e-9) continue;
+                        fanTri.forEach(p => {
                             const w = barycentric2d(ct.tri.a, ct.tri.b, ct.tri.c, p);
                             const wf = barycentric2d(figure[0], figure[1], figure[2], p);
                             const figCol = [
@@ -1529,7 +1541,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const capStyle = lineCap || 'round';
                 const addStroke = (strokePoints) => {
                     if (strokePoints.length < 2) return;
-                    const geo = THREE.SVGLoader.pointsToStroke(strokePoints, {
+                    // Длинные сегменты (сотни метров у больших зон) дают длинные тонкие
+                    // треугольники полосы: их клиппинг против сетки рождает fp-пики
+                    // и «полосы через полкарты». Делим всё на куски не длиннее 25м —
+                    // вид полосы не меняется (точки коллинеарны).
+                    const dense = [strokePoints[0]];
+                    for (let di = 1; di < strokePoints.length; di++) {
+                        const da = strokePoints[di - 1], db = strokePoints[di];
+                        const dd = da.distanceTo(db);
+                        if (dd > 25) {
+                            const nn = Math.ceil(dd / 25);
+                            for (let s = 1; s < nn; s++) dense.push(da.clone().lerp(db, s / nn));
+                        }
+                        dense.push(db);
+                    }
+                    const geo = THREE.SVGLoader.pointsToStroke(dense, {
                         strokeWidth: strokeWidth,
                         strokeLineJoin: 'round', // �-����?�?�?�>��?�?�<�� ��?���?
                         strokeLineCap: capStyle

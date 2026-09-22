@@ -5,14 +5,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
     // Overlay reference layers (Majestic wiki). Only layers with `url` can be enabled.
     const GAME_ZONES = [
-        { id: 'zz', titles: ['Зелёные зоны (ЗЗ)', 'Green zones (ZZ)', 'Зелені зони (ЗЗ)'], color: '#22c55e', icon: 'shield', url: 'markers/zz.json' },
-        { id: 'red', titles: ['Красные зоны', 'Red zones', 'Червоні зони'], color: '#ef4444', icon: 'flame', url: 'markers/red.json' },
-        { id: 'contraband', titles: ['Контрабанда (тайники)', 'Contraband (caches)', 'Контрабанда (схованки)'], color: '#f59e0b', icon: 'package', url: 'markers/contraband.json' },
-        { id: 'gathering', titles: ['Собирательство', 'Gathering', 'Збиральництво'], color: '#a3e635', icon: 'leaf', url: 'markers/gathering.json' },
-        { id: 'treasure', titles: ['Кладоискатель', 'Treasure hunter', 'Шукач скарбів'], color: '#facc15', icon: 'gem', url: 'markers/treasure.json', figureDefaults: { strokeWidth: 0.4 } },
-        { id: 'rubbish', titles: ['Мусорные баки', 'Trash bins', 'Сміттєві баки'], color: '#eab308', icon: 'trash-2', url: 'markers/rubbish_points.json', directCoordinates: false },
-        { id: 'phones', titles: ['Телефоны', 'Phones', 'Телефони'], color: '#34d399', icon: 'phone', url: 'markers/phones.json', directCoordinates: false },
-        { id: 'airdrop', titles: ['Аирдропы', 'Airdrops', 'Аірдропи'], color: '#6d9aed', icon: 'plane', url: 'markers/airdrop.json', figureDefaults: { strokeWidth: 0.4, strokeColor: '#ffffff' }, overlayOutline: '#ffffff' },
+        { id: 'zz', titles: ['Зелёные зоны (ЗЗ)', 'Green zones (ZZ)', 'Зелені зони (ЗЗ)'], color: '#22c55e', icon: 'shield', url: 'majestic/data/zz.json' },
+        { id: 'red', titles: ['Красные зоны', 'Red zones', 'Червоні зони'], color: '#ef4444', icon: 'flame', url: 'majestic/data/red.json' },
+        { id: 'contraband', titles: ['Контрабанда (тайники)', 'Contraband (caches)', 'Контрабанда (схованки)'], color: '#f59e0b', icon: 'package', url: 'majestic/data/contraband.json' },
+        { id: 'gathering', titles: ['Собирательство', 'Gathering', 'Збиральництво'], color: '#a3e635', icon: 'leaf', url: 'majestic/data/gathering.json' },
+        { id: 'treasure', titles: ['Кладоискатель', 'Treasure hunter', 'Шукач скарбів'], color: '#facc15', icon: 'gem', url: 'majestic/data/treasure.json', figureDefaults: { strokeWidth: 0.4 } },
+        { id: 'rubbish', titles: ['Мусорные баки', 'Trash bins', 'Сміттєві баки'], color: '#eab308', icon: 'trash-2', url: 'majestic/data/rubbish_points.json', directCoordinates: false },
+        { id: 'phones', titles: ['Телефоны', 'Phones', 'Телефони'], color: '#34d399', icon: 'phone', url: 'majestic/data/phones.json', directCoordinates: false },
+        { id: 'airdrop', titles: ['Аирдропы', 'Airdrops', 'Аірдропи'], color: '#6d9aed', icon: 'plane', url: 'majestic/data/airdrop.json', figureDefaults: { strokeWidth: 0.4, strokeColor: '#ffffff' }, overlayOutline: '#ffffff' },
         { id: 'custom', titles: ['Свои метки', 'Custom markers', 'Свої мітки'], color: '#f8fafc', icon: 'map-pin', custom: true, url: null }
     ];
     // --- СГЕНЕРИРОВАНО из out/all (78 групп стандартных меток). Не править вручную ---
@@ -95,7 +95,7 @@
     ];
     STANDARD_ZONE_DEFS.forEach(g => GAME_ZONES.push({
         id: g.id, titles: [g.ru || g.title, g.title, g.title], color: g.color, icon: 'map-pin',
-        url: 'markers/standard.json', group: g.group, descriptionFilter: g.descriptionFilter, standard: true
+        url: 'majestic/data/standard.json', group: g.group, descriptionFilter: g.descriptionFilter, standard: true
     }));
     const GTA5RP_GROUPS = [
         ['shop', 'Магазины 24/7'], ['gas', 'Заправки'], ['clothing', 'Магазины одежды'], ['clothing_premium', 'Премиальная одежда'], ['clothing_lux', 'Люкс одежда'], ['spectrumi', 'Spectrumi'], ['jewelry', 'Ювелирные магазины'], ['car_classic', 'Классические автосалоны'], ['moto', 'Мотосалоны'], ['car_platinum', 'Автосалоны Platinum'], ['heli', 'Магазины вертолётов'], ['truck', 'Магазины грузовиков'], ['boat', 'Магазины лодок'], ['rent', 'Аренда'], ['weapon', 'Магазины оружия'], ['mask', 'Магазины масок'], ['ls_custom', 'LS Custom'], ['barber', 'Барбершопы'], ['tattoo', 'Тату-салоны'], ['mech', 'СТО'], ['car_wash', 'Автомойки'], ['post', 'Почта'], ['id_photo', 'Фото на документы'], ['mobile_home', 'Дома на колёсах'], ['office', 'Офисы'], ['club', 'Клубы'], ['night_club', 'Ночные клубы'], ['street_gang', 'Уличные группировки'], ['mafia', 'Мафия'], ['government', 'Государственные фракции'], ['bank', 'Банки'], ['work', 'Работы', ['bus_station', 'mechanics', 'fire_station', 'port', 'postop_warehouse', 'construction', 'taxi_park', 'farm', 'mine', 'cash_in_transit']], ['arena', 'Арены'], ['driving_school', 'Автошколы'], ['real_estate', 'Недвижимость'], ['auto_workshop', 'Автомастерские'], ['commercial_rent', 'Коммерческая аренда'], ['commercial_transport', 'Коммерческий транспорт'], ['parking', 'Парковки'], ['impound', 'Штрафстоянки'], ['wedding_church', 'Церкви бракосочетания'], ['cayo_perico', 'Cayo Perico'], ['container_auction', 'Аукционы контейнеров'], ['license_plate_sale', 'Продажа номеров'], ['weapon_mods', 'Модификации оружия'], ['heists', 'Ограбления'], ['dealer', 'Скупщики'], ['secret_shop', 'Secret Shop'], ['contraband', 'Контрабанда'], ['auction', 'Аукционы'], ['casino', 'Казино'], ['cinema', 'Кинотеатры'], ['film_studio', 'Киностудии'], ['fishing_shop', 'Рыболовные магазины'], ['gym', 'Спортзалы'], ['beach_volleyball', 'Пляжный волейбол'], ['basketball', 'Баскетбол'], ['football', 'Футбол'], ['tennis', 'Теннис'], ['table_tennis', 'Настольный теннис'], ['metro_station', 'Станции метро'], ['amusement_park', 'Парки аттракционов'], ['amphitheater', 'Амфитеатры'], ['vet_clinic', 'Ветеринарные клиники'], ['divers', 'Дайверы'], ['drift_track', 'Дрифт-трассы'], ['karting', 'Картинг'], ['dock_manager', 'Менеджеры доков'], ['training_complex', 'Тренировочные комплексы']
@@ -399,8 +399,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('gameZonesList');
     if (!container || !window.GameZones) return;
     const t = (ru, en, uk) => window.t ? window.t(ru, en, uk) : ru;
-    const IS_GTA5RP = /gta5rp\.html$/i.test(window.location.pathname);
-    const isZoneAvailable = (def) => !IS_GTA5RP || def.gta5rp === true || def.custom === true;
+    const IS_GTA5RP = /\/gta5rp(\/|\.html|$)/i.test(window.location.pathname);
+    const isZoneAvailable = (def) => IS_GTA5RP
+        ? (def.gta5rp === true || def.custom === true)
+        : (def.gta5rp !== true);
     if (IS_GTA5RP) document.querySelector('[data-xml-url="xml/mcl.ydr.xml"]')?.classList.add('hidden');
     const state = {};
     window.GameZones.GAME_ZONES.forEach(def => { state[def.id] = { on: false, group: null, points: [], polygons: [], loading: false, customIcon: null, customRaw: [], markerStyle: null, labelOverrides: {}, show: 'both' }; });
@@ -713,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (file) {
                     try {
                         const loader = new THREE.TextureLoader();
-                        loader.load('icons/' + file, (texture) => {
+                        loader.load('majestic/icons/' + file, (texture) => {
                             const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
                             const sprite = new THREE.Sprite(mat);
                             sprite.position.set(pt.x, pt.y, 0.02);
@@ -893,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchIconDataUrl(iconPath) {
         const file = String(iconPath || '').split('/').pop();
         if (!file) return null;
-        const source = String(iconPath).startsWith('gta5rp/') ? String(iconPath) : 'icons/' + file;
+        const source = String(iconPath).startsWith('gta5rp/') ? String(iconPath) : 'majestic/icons/' + file;
         if (!iconDataCache[file]) {
             iconDataCache[file] = fetch(source).then(response => {
                 if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -1630,7 +1632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadStandardMenuLabels() {
         try {
-            const raw = await fetchZoneJson({ url: 'markers/standard.json' });
+            const raw = await fetchZoneJson({ url: 'majestic/data/standard.json' });
             const data = Array.isArray(raw) ? raw : raw && Array.isArray(raw.points) ? raw.points : [];
             window.GameZones.GAME_ZONES.filter(def => def.standard && !def.descriptionFilter).forEach(def => {
                 const points = data.filter(point => point && point.group === def.group && typeof point.name === 'string' && point.name.trim());
