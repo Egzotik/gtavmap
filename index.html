@@ -41,6 +41,10 @@
         .auth-btn { display: inline-flex; align-items: center; gap: 8px; color: #c7d2fe; border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700; text-decoration: none; transition: background .2s ease; white-space: nowrap; }
         .auth-btn:hover { background: rgba(88,101,242,.25); }
         .auth-btn img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+        .status-role-admin { color: #fda4af; border-color: rgba(244,63,114,.4); background: rgba(244,63,114,.1); }
+        .status-role-admin i { background: #f43f72; box-shadow: 0 0 14px #f43f72; }
+        .status-role-moderator { color: #93c5fd; border-color: rgba(96,165,250,.4); background: rgba(59,130,246,.1); }
+        .status-role-moderator i { background: #60a5fa; box-shadow: 0 0 14px #60a5fa; }
         .hero { display: grid; grid-template-columns: 1fr .9fr; align-items: center; gap: 54px; padding: 24px 0 76px; }
         .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--mint); font-size: 11px; text-transform: uppercase; letter-spacing: .22em; font-weight: 800; }
         .eyebrow:before { content: ""; width: 34px; height: 1px; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
@@ -236,9 +240,28 @@
 </script>
 <script>
 (function() {
-    // Залогинен = мини-профиль вместо кнопки входа.
+    // Залогинен = мини-профиль вместо кнопки входа + роль в плашке.
     var btn = document.getElementById('authBtn');
     if (!btn) return;
+    function applyRole(d) {
+        // Вместо «проекты развиваются» — название выданной роли.
+        var st = document.getElementById('statusText');
+        if (st && d.user.roleName) st.textContent = d.user.roleName;
+        var pill = document.getElementById('statusPill');
+        if (pill && d.user.role) {
+            pill.classList.remove('status-role-admin', 'status-role-moderator', 'status-role-user');
+            pill.classList.add('status-role-' + d.user.role);
+        }
+    }
+    function checkRole() {
+        fetch('/api/me').then(function(r) {
+            if (!r.ok) throw new Error('guest');
+            return r.json();
+        }).then(function(d) {
+            if (!d.user) return;
+            applyRole(d);
+        }).catch(function() {});
+    }
     fetch('/api/me').then(function(r) {
         if (!r.ok) throw new Error('guest');
         return r.json();
@@ -255,10 +278,10 @@
         var name = document.createElement('span');
         name.textContent = d.user.username;
         btn.appendChild(name);
-        // Вместо «проекты развиваются» — название выданной роли.
-        var st = document.getElementById('statusText');
-        if (st && d.user.roleName) st.textContent = d.user.roleName;
+        applyRole(d);
     }).catch(function() {});
+    // Роль на сервере могла смениться — перепроверяем раз в 5 минут.
+    setInterval(checkRole, 5 * 60 * 1000);
 })();
 </script>
 </body>

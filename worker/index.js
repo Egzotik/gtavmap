@@ -64,25 +64,68 @@ async function getSessionUser(env, req) {
   let row;
   try {
     row = await env.DB.prepare(
-      `SELECT u.id, u.username, u.avatar, u.role, u.guild_roles, s.expires_at
+      `SELECT u.id, u.username, u.avatar, u.role, u.guild_roles,
+              u.access_token, u.refresh_token, u.token_expires_at, u.role_checked_at, s.expires_at
        FROM sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
     ).bind(hash).first();
   } catch (e) {
-    row = await env.DB.prepare(
-      `SELECT u.id, u.username, u.avatar, u.role, s.expires_at
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ?`
-    ).bind(hash).first();
+    try {
+      row = await env.DB.prepare(
+        `SELECT u.id, u.username, u.avatar, u.role, s.expires_at
+         FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ?`
+      ).bind(hash).first();
+    } catch (e2) {
+      return null;
+    }
   }
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
     await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(hash).run().catch(() => {});
     return null;
   }
-  let guildRoles = [];
-  try { guildRoles = row.guild_roles ? JSON.parse(row.guild_roles) : []; } catch (e) {}
-  return { id: row.id, username: row.username, avatar: row.avatar, role: row.role, guildRoles };
+  const user = { id: row.id, username: row.username, avatar: row.avatar, role: row.role, guildRoles: [] };
+  try { user.guildRoles = row.guild_roles ? JSON.parse(row.guild_roles) : []; } catch (e) {}
+  // Ленивое обновление роли (не чаще раза в 10 минут): токен -> роли -> роль сайта.
+  // Любая ошибка = остаёмся на старой роли, сессия валидна.
+  try {
+    const checkedAt = row.role_checked_at ? new Date(row.role_checked_at).getTime() : 0;
+    if (Date.now() - checkedAt > 10 * 60 * 1000 && env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.GUILD_ID) {
+      let access = row.access_token;
+      if (!access || (row.token_expires_at && new Date(row.token_expires_at).getTime() - Date.now() < 60000)) {
+        if (!row.refresh_token) throw new Error('no refresh token');
+        const params = new URLSearchParams({
+          client_id: env.DISCORD_CLIENT_ID,
+          client_secret: env.DISCORD_CLIENT_SECRET,
+          grant_type: 'refresh_token',
+          refresh_token: row.refresh_token
+        });
+        const tokRes = await fetch('https://discord.com/api/oauth2/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params
+        });
+        if (!tokRes.ok) throw new Error('refresh http ' + tokRes.status);
+        const tok = await tokRes.json();
+        access = tok.access_token;
+        const tokExp = new Date(Date.now() + (tok.expires_in || 604800) * 1000).toISOString();
+        await env.DB.prepare(
+          'UPDATE users SET access_token = ?, refresh_token = ?, token_expires_at = ? WHERE id = ?'
+        ).bind(access, tok.refresh_token || row.refresh_token, tokExp, row.id).run();
+      }
+      const membership = await fetchGuildMember(access, 'Bearer', env.GUILD_ID);
+      const freshRole = siteRoleFor(membership.roles, env);
+      try {
+        await env.DB.prepare(
+          'UPDATE users SET role = ?, guild_roles = ?, role_checked_at = ? WHERE id = ?'
+        ).bind(freshRole, JSON.stringify(membership.roles), nowIso(), row.id).run();
+      } catch (e) { /* migration 0002/0003 not applied yet */ }
+      user.role = freshRole;
+      user.guildRoles = membership.roles;
+    }
+  } catch (e) { /* stale role is fine, session stays valid */ }
+  return user;
 }
 
 const ROLE_NAMES = { user: 'Пользователь', moderator: 'Модератор', admin: 'Администратор' };
@@ -176,6 +219,12 @@ async function oauthCallback(env, req) {
   try {
     await env.DB.prepare('UPDATE users SET guild_roles = ? WHERE id = ?').bind(JSON.stringify(membership.roles), me.id).run();
   } catch (e) { /* migration 0002 not applied yet */ }
+  const tokenExpiresAt = new Date(Date.now() + (token.expires_in || 604800) * 1000).toISOString();
+  try {
+    await env.DB.prepare(
+      'UPDATE users SET access_token = ?, refresh_token = ?, token_expires_at = ?, role_checked_at = ? WHERE id = ?'
+    ).bind(token.access_token, token.refresh_token || null, tokenExpiresAt, nowIso(), me.id).run();
+  } catch (e) { /* migration 0003 not applied yet */ }
   const sessionToken = crypto.randomUUID();
   const hash = await sha256hex(sessionToken);
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000).toISOString();
