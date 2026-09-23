@@ -246,6 +246,49 @@ async function logout(env, req) {
   return redirect('/', [clearCookie(SESSION_COOKIE)]);
 }
 
+// Сверка ролей всех известных пользователей со списком участников сервера.
+// Вызывается CRONом каждые 5 минут и вручную через /api/admin/reconcile.
+// Покинувшие сервер опускаются до user только при полном обходе списка.
+async function reconcileGuildRoles(env) {
+  if (!env.DISCORD_BOT_TOKEN || !env.GUILD_ID || !env.DB) {
+    return { ok: false, reason: 'not_configured' };
+  }
+  const headers = { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` };
+  const members = new Map();
+  let after = '0';
+  let complete = false;
+  for (let page = 0; page < 20; page++) {
+    const res = await fetch(
+      `https://discord.com/api/guilds/${env.GUILD_ID}/members?limit=1000&after=${after}`,
+      { headers }
+    );
+    if (res.status === 429) return { ok: false, reason: 'rate_limited' };
+    if (!res.ok) return { ok: false, reason: 'http ' + res.status };
+    const list = await res.json();
+    if (!Array.isArray(list) || list.length === 0) { complete = true; break; }
+    list.forEach(mb => {
+      if (mb.user) members.set(String(mb.user.id), (mb.roles || []).map(String));
+    });
+    if (list.length < 1000) { complete = true; break; }
+    after = String(list[list.length - 1].user.id);
+  }
+  const users = await env.DB.prepare('SELECT id, role FROM users').all();
+  const stmts = [];
+  let updated = 0;
+  for (const u of (users.results || [])) {
+    const roles = members.get(String(u.id));
+    if (roles === undefined && !complete) continue;
+    const freshRole = roles === undefined ? 'user' : siteRoleFor(roles, env);
+    stmts.push(
+      env.DB.prepare('UPDATE users SET role = ?, guild_roles = ?, role_checked_at = ? WHERE id = ?')
+        .bind(freshRole, JSON.stringify(roles || []), nowIso(), u.id)
+    );
+    updated++;
+  }
+  if (stmts.length > 0) await env.DB.batch(stmts);
+  return { ok: true, checked: (users.results || []).length, updated, complete };
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -290,7 +333,21 @@ export default {
       }
     }
 
+    if (path === '/api/admin/reconcile') {
+      try {
+        const user = await getSessionUser(env, req);
+        if (!user || user.role !== 'admin') return json({ error: 'forbidden' }, 403);
+        return json(await reconcileGuildRoles(env));
+      } catch (e) {
+        return json({ ok: false, reason: 'internal' }, 500);
+      }
+    }
+
     if (env.ASSETS) return env.ASSETS.fetch(req);
     return new Response('assets binding missing', { status: 500 });
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(reconcileGuildRoles(env).catch(() => {}));
   }
 };
