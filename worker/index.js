@@ -35,14 +35,14 @@ function clearCookie(name) {
 }
 
 function redirect(url, cookies = []) {
-  const headers = { Location: url };
-  if (cookies.length > 0) headers['Set-Cookie'] = cookies.join(', ');
+  const headers = new Headers({ Location: url });
+  cookies.forEach(c => headers.append('Set-Cookie', c));
   return new Response(null, { status: 302, headers });
 }
 
 function json(data, status = 200, cookies = []) {
-  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
-  if (cookies.length > 0) headers['Set-Cookie'] = cookies.join(', ');
+  const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
+  cookies.forEach(c => headers.append('Set-Cookie', c));
   return new Response(JSON.stringify(data), { status, headers });
 }
 
