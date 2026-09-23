@@ -37,6 +37,9 @@
         .brand small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-top: 3px; }
         .status { display: inline-flex; align-items: center; gap: 8px; color: #a7f3d0; border: 1px solid rgba(52,211,153,.22); background: rgba(16,185,129,.08); border-radius: 999px; padding: 8px 12px; font-size: 11px; font-weight: 700; }
         .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 14px var(--mint); animation: pulse 2s infinite; }
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .auth-btn { display: inline-flex; align-items: center; gap: 8px; color: #c7d2fe; border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700; text-decoration: none; transition: background .2s ease; white-space: nowrap; }
+        .auth-btn:hover { background: rgba(88,101,242,.25); }
         .hero { display: grid; grid-template-columns: 1fr .9fr; align-items: center; gap: 54px; padding: 24px 0 76px; }
         .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--mint); font-size: 11px; text-transform: uppercase; letter-spacing: .22em; font-weight: 800; }
         .eyebrow:before { content: ""; width: 34px; height: 1px; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
@@ -97,7 +100,10 @@
                 <img src="icon.svg" alt="MapEditor">
                 <span>MapEditor<small>interactive map hub</small></span>
             </a>
-            <div class="status"><i></i> проекты развиваются</div>
+            <div class="header-right">
+                <div class="status"><i></i> проекты развиваются</div>
+                <a class="auth-btn" id="authBtn" href="/api/auth/login">Войти через Discord</a>
+            </div>
         </header>
         <main>
             <section class="hero">
