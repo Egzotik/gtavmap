@@ -48,6 +48,21 @@
         errBox.style.display = 'block';
     }
     var roleNames = { user: 'Пользователь', moderator: 'Модератор', admin: 'Администратор' };
+    function renderBadge(role) {
+        var badge = profile.querySelector('.role');
+        if (!badge) return;
+        badge.className = 'role ' + role;
+        badge.textContent = roleNames[role] || role;
+    }
+    function refreshRole() {
+        fetch('/api/me').then(function(r) {
+            if (!r.ok) throw new Error('guest');
+            return r.json();
+        }).then(function(d) {
+            if (d.user) renderBadge(d.user.role);
+        }).catch(function() {});
+    }
+    setInterval(refreshRole, 60000);
     fetch('/api/me').then(function(r) {
         if (!r.ok) throw new Error('guest');
         return r.json();

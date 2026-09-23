@@ -45,6 +45,8 @@
         .status-role-admin i { background: #f43f72; box-shadow: 0 0 14px #f43f72; }
         .status-role-moderator { color: #93c5fd; border-color: rgba(96,165,250,.4); background: rgba(59,130,246,.1); }
         .status-role-moderator i { background: #60a5fa; box-shadow: 0 0 14px #60a5fa; }
+        .role-flash { animation: roleFlash 1.2s ease; }
+        @keyframes roleFlash { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.7); } 100% { box-shadow: 0 0 0 16px transparent; } }
         .hero { display: grid; grid-template-columns: 1fr .9fr; align-items: center; gap: 54px; padding: 24px 0 76px; }
         .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--mint); font-size: 11px; text-transform: uppercase; letter-spacing: .22em; font-weight: 800; }
         .eyebrow:before { content: ""; width: 34px; height: 1px; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
@@ -243,6 +245,7 @@
     // Залогинен = мини-профиль вместо кнопки входа + роль в плашке.
     var btn = document.getElementById('authBtn');
     if (!btn) return;
+    var lastRole = null;
     function applyRole(d) {
         // Вместо «проекты развиваются» — название выданной роли.
         var st = document.getElementById('statusText');
@@ -251,7 +254,14 @@
         if (pill && d.user.role) {
             pill.classList.remove('status-role-admin', 'status-role-moderator', 'status-role-user');
             pill.classList.add('status-role-' + d.user.role);
+            // Роль сменилась на глазах — подсвечиваем вспышкой.
+            if (lastRole !== null && lastRole !== d.user.role) {
+                pill.classList.remove('role-flash');
+                void pill.offsetWidth;
+                pill.classList.add('role-flash');
+            }
         }
+        if (d.user.role) lastRole = d.user.role;
     }
     function checkRole() {
         fetch('/api/me').then(function(r) {
