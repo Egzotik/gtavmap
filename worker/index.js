@@ -343,6 +343,35 @@ export default {
       }
     }
 
+    // Внутренний API бота: массовое обновление ролей. Только с BOT_API_SECRET.
+    if (path === '/api/internal/role-sync' && req.method === 'POST') {
+      try {
+        const auth = req.headers.get('authorization') || '';
+        if (!env.BOT_API_SECRET || auth !== `Bearer ${env.BOT_API_SECRET}` || !env.DB) {
+          return json({ error: 'forbidden' }, 403);
+        }
+        const body = await req.json().catch(() => null);
+        const members = Array.isArray(body?.members)
+          ? body.members
+          : (body?.userId ? [{ id: body.userId, roles: body.roles || [] }] : null);
+        if (!members) return json({ error: 'bad_request' }, 400);
+        const stmts = [];
+        for (const mb of members) {
+          const id = String(mb.id || '');
+          if (!id) continue;
+          const roles = Array.isArray(mb.roles) ? mb.roles.map(String) : [];
+          stmts.push(
+            env.DB.prepare('UPDATE users SET role = ?, guild_roles = ?, role_checked_at = ? WHERE id = ?')
+              .bind(siteRoleFor(roles, env), JSON.stringify(roles), nowIso(), id)
+          );
+        }
+        if (stmts.length > 0) await env.DB.batch(stmts);
+        return json({ ok: true, updated: stmts.length });
+      } catch (e) {
+        return json({ ok: false, reason: 'internal' }, 500);
+      }
+    }
+
     if (env.ASSETS) return env.ASSETS.fetch(req);
     return new Response('assets binding missing', { status: 500 });
   },
