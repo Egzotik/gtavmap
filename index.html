@@ -40,6 +40,7 @@
         .header-right { display: flex; align-items: center; gap: 10px; }
         .auth-btn { display: inline-flex; align-items: center; gap: 8px; color: #c7d2fe; border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700; text-decoration: none; transition: background .2s ease; white-space: nowrap; }
         .auth-btn:hover { background: rgba(88,101,242,.25); }
+        .auth-btn img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
         .hero { display: grid; grid-template-columns: 1fr .9fr; align-items: center; gap: 54px; padding: 24px 0 76px; }
         .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--mint); font-size: 11px; text-transform: uppercase; letter-spacing: .22em; font-weight: 800; }
         .eyebrow:before { content: ""; width: 34px; height: 1px; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
@@ -231,6 +232,30 @@
     }
     load();
     setInterval(load, 30000);
+})();
+</script>
+<script>
+(function() {
+    // Залогинен = мини-профиль вместо кнопки входа.
+    var btn = document.getElementById('authBtn');
+    if (!btn) return;
+    fetch('/api/me').then(function(r) {
+        if (!r.ok) throw new Error('guest');
+        return r.json();
+    }).then(function(d) {
+        if (!d.user) return;
+        btn.href = '/cabinet/';
+        btn.textContent = '';
+        if (d.user.avatar) {
+            var img = document.createElement('img');
+            img.src = 'https://cdn.discordapp.com/avatars/' + d.user.id + '/' + d.user.avatar + '.png?size=64';
+            img.alt = '';
+            btn.appendChild(img);
+        }
+        var name = document.createElement('span');
+        name.textContent = d.user.username;
+        btn.appendChild(name);
+    }).catch(function() {});
 })();
 </script>
 </body>

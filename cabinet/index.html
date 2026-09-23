@@ -55,7 +55,7 @@
         if (!d.user) throw new Error('guest');
         var u = d.user;
         var avatar = u.avatar
-            ? '<img class="avatar" src="https://cdn.discordapp.com/avatars/' + u.id + '/' + u.avatar + '.png?size=192" alt="">'
+            ? '<img class="avatar" src="https://cdn.discordapp.com/avatars/' + u.id + '/' + u.avatar + '.png?size=256" alt="">'
             : '<div class="avatar-fallback">' + (u.username || '?').charAt(0).toUpperCase() + '</div>';
         profile.innerHTML = avatar + '<h1></h1><div class="sub">Discord ID: ' + u.id + '</div>' +
             '<div><span class="role ' + u.role + '">' + (roleNames[u.role] || u.role) + '</span></div>' +
