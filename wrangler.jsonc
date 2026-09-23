@@ -1,12 +1,25 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gtavmap",
-  "main": "worker/index.js",
-  "compatibility_date": "2026-09-21",
-  "observability": { "enabled": true },
-  "assets": { "directory": ".", "binding": "ASSETS" },
-  "vars": {
-    "DISCORD_CLIENT_ID": "1258055454345527411",
-    "DISCORD_REDIRECT_URI": "https://minimap.stream/api/auth/callback"
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "gtavmap",
+	"main": "worker/index.js",
+	"compatibility_date": "2026-09-21",
+	"observability": {
+		"enabled": true
+	},
+	"assets": {
+		"directory": ".",
+		"binding": "ASSETS"
+	},
+	"vars": {
+		"DISCORD_CLIENT_ID": "1258055454345527411",
+		"DISCORD_REDIRECT_URI": "https://minimap.stream/api/auth/callback"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "minimap-db",
+			"database_id": "99761081-31a9-4d6a-afd3-fc817ba5fd11",
+			"remote": true
+		}
+	]
 }
