@@ -12,7 +12,10 @@
 	},
 	"vars": {
 		"DISCORD_CLIENT_ID": "1258055454345527411",
-		"DISCORD_REDIRECT_URI": "https://minimap.stream/api/auth/callback"
+		"DISCORD_REDIRECT_URI": "https://minimap.stream/api/auth/callback",
+		"GUILD_ID": "1045632930518679602",
+		"ADMIN_ROLE_IDS": "1552411617197695027",
+		"SITE_ROLE_IDS": "1539338158083285032"
 	},
 	"d1_databases": [
 		{

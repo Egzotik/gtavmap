@@ -61,17 +61,56 @@ async function getSessionUser(env, req) {
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
   const hash = await sha256hex(token);
-  const row = await env.DB.prepare(
-    `SELECT u.id, u.username, u.avatar, u.role, s.expires_at
-     FROM sessions s JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ?`
-  ).bind(hash).first();
+  let row;
+  try {
+    row = await env.DB.prepare(
+      `SELECT u.id, u.username, u.avatar, u.role, u.guild_roles, s.expires_at
+       FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ?`
+    ).bind(hash).first();
+  } catch (e) {
+    row = await env.DB.prepare(
+      `SELECT u.id, u.username, u.avatar, u.role, s.expires_at
+       FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ?`
+    ).bind(hash).first();
+  }
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
     await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(hash).run().catch(() => {});
     return null;
   }
-  return { id: row.id, username: row.username, avatar: row.avatar, role: row.role };
+  let guildRoles = [];
+  try { guildRoles = row.guild_roles ? JSON.parse(row.guild_roles) : []; } catch (e) {}
+  return { id: row.id, username: row.username, avatar: row.avatar, role: row.role, guildRoles };
+}
+
+const ROLE_NAMES = { user: 'Пользователь', moderator: 'Модератор', admin: 'Администратор' };
+
+function parseRoleList(value) {
+  return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// Роль сайта выводится из ролей Discord при каждом входе:
+// есть админская роль → admin, иначе user. SITE_ROLE_IDS — для будущих gating-правил.
+function siteRoleFor(guildRoles, env) {
+  const adminIds = parseRoleList(env.ADMIN_ROLE_IDS);
+  if (adminIds.length > 0 && guildRoles.some(r => adminIds.includes(r))) return 'admin';
+  return 'user';
+}
+
+async function fetchGuildMember(accessToken, tokenType, guildId) {
+  if (!guildId) return { roles: [], member: false };
+  try {
+    const res = await fetch(`https://discord.com/api/users/@me/guilds/${guildId}/member`, {
+      headers: { Authorization: `${tokenType} ${accessToken}` }
+    });
+    if (!res.ok) return { roles: [], member: false };
+    const member = await res.json();
+    return { roles: Array.isArray(member.roles) ? member.roles.map(String) : [], member: true };
+  } catch (e) {
+    return { roles: [], member: false };
+  }
 }
 
 function loginRedirect(env) {
@@ -80,7 +119,7 @@ function loginRedirect(env) {
   url.searchParams.set('client_id', env.DISCORD_CLIENT_ID);
   url.searchParams.set('redirect_uri', env.DISCORD_REDIRECT_URI);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'identify');
+  url.searchParams.set('scope', 'identify guilds.members.read');
   url.searchParams.set('state', state);
   return redirect(url.toString(), [setCookie(STATE_COOKIE, state, { maxAge: 600 })]);
 }
@@ -122,15 +161,21 @@ async function oauthCallback(env, req) {
   } catch (e) {
     return redirect('/cabinet/?error=profile', [clearCookie(STATE_COOKIE)]);
   }
-  // Role is never overwritten here: admins are assigned manually in DB.
+  // Роль выводится из ролей Discord на сервере при каждом входе.
+  const membership = await fetchGuildMember(token.access_token, token.token_type, env.GUILD_ID);
+  const role = siteRoleFor(membership.roles, env);
+  const isMember = membership.member;
   await env.DB.batch([
     env.DB.prepare(
       'INSERT OR IGNORE INTO users (id, username, avatar, role) VALUES (?, ?, ?, ?)'
-    ).bind(me.id, me.username, me.avatar || null, 'user'),
+    ).bind(me.id, me.username, me.avatar || null, role),
     env.DB.prepare(
-      `UPDATE users SET username = ?, avatar = ?, last_login_at = ?, updated_at = ? WHERE id = ?`
-    ).bind(me.username, me.avatar || null, nowIso(), nowIso(), me.id)
+      `UPDATE users SET username = ?, avatar = ?, role = ?, last_login_at = ?, updated_at = ? WHERE id = ?`
+    ).bind(me.username, me.avatar || null, role, nowIso(), nowIso(), me.id)
   ]);
+  try {
+    await env.DB.prepare('UPDATE users SET guild_roles = ? WHERE id = ?').bind(JSON.stringify(membership.roles), me.id).run();
+  } catch (e) { /* migration 0002 not applied yet */ }
   const sessionToken = crypto.randomUUID();
   const hash = await sha256hex(sessionToken);
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000).toISOString();
@@ -189,6 +234,7 @@ export default {
       try {
         const user = await getSessionUser(env, req);
         if (!user) return json({ user: null }, 401);
+        user.roleName = ROLE_NAMES[user.role] || user.role;
         return json({ user });
       } catch (e) {
         return json({ user: null }, 401);

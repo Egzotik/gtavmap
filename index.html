@@ -102,7 +102,7 @@
                 <span>MapEditor<small>interactive map hub</small></span>
             </a>
             <div class="header-right">
-                <div class="status"><i></i> проекты развиваются</div>
+                <div class="status" id="statusPill"><i></i> <span id="statusText">проекты развиваются</span></div>
                 <a class="auth-btn" id="authBtn" href="/api/auth/login">Войти через Discord</a>
             </div>
         </header>
@@ -255,6 +255,9 @@
         var name = document.createElement('span');
         name.textContent = d.user.username;
         btn.appendChild(name);
+        // Вместо «проекты развиваются» — название выданной роли.
+        var st = document.getElementById('statusText');
+        if (st && d.user.roleName) st.textContent = d.user.roleName;
     }).catch(function() {});
 })();
 </script>
