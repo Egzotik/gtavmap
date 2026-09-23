@@ -136,7 +136,7 @@ async function oauthCallback(env, req) {
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000).toISOString();
   await env.DB.prepare(
     'INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'
-  ).bind(hash, me.id, expires);
+  ).bind(hash, me.id, expires).run();
   return redirect('/cabinet/', [
     clearCookie(STATE_COOKIE),
     setCookie(SESSION_COOKIE, sessionToken, { maxAge: SESSION_DAYS * 24 * 3600 })
