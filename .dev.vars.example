@@ -1,5 +1,0 @@
-# Локальные переменные для `npx.cmd wrangler dev`.
-# Скопируй в `.dev.vars` (он в .gitignore, секрет не утечёт в git) и впиши свои значения.
-DISCORD_CLIENT_ID=
-DISCORD_CLIENT_SECRET=
-DISCORD_REDIRECT_URI=http://localhost:8787/api/auth/callback
